@@ -1,49 +1,43 @@
-import React, { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { supabase } from '../lib/supabase';
 import '../assets/styles/home.css';
-
-interface Room {
-  id: string;
-  name: string;
-  available: boolean;
-  timeRange?: string;
-}
-
-interface Building {
-  id: string;
-  name: string;
-  available: boolean;
-  rooms?: Room[];
-}
-
-const buildings: Building[] = [
-  {
-    id: 'CPH',
-    name: 'Carl A. Pollock Hall',
-    available: true,
-    rooms: [
-      { id: 'CPH1346', name: 'CPH 1346', available: true, timeRange: '2:20 PM – 10:00 PM' },
-    ],
-  },
-  {
-    id: 'DWE',
-    name: 'Douglas Wright Engineering Building',
-    available: true,
-    // if you want a dropdown here, add a `rooms: [...]` array
-  },
-  { id: 'E2', name: 'Engineering 2', available: true },
-  { id: 'RCH', name: 'J.R. Coutts Engineering Lecture Hall', available: true },
-  { id: 'HH', name: 'J.G. Hagey Hall of the Humanities', available: true },
-  { id: 'PHY', name: 'Physics', available: true },
-  { id: 'AL', name: 'Arts Lecture Hall', available: true },
-];
+import type { Building, Room } from '../types/building';
 
 export default function Home() {
-  // default expand CPH so you can see it open immediately
-  const [expandedId, setExpandedId] = useState<string | null>('CPH');
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
-  const toggle = (id: string) => {
+  const toggle = (id: number) => {
     setExpandedId((curr) => (curr === id ? null : id));
   };
+
+  useEffect(() => {
+    const fetchBuildings = async () => {
+      const { data, error } = await supabase
+        .from('Buildings')
+        .select('*, Rooms(*)');
+
+      if (error) {
+        console.error('Error fetching buildings:', error.message);
+        return;
+      }
+
+      if (data) {
+        const typed: Building[] = data.map((b) => ({
+          ...b,
+          available: true,
+          Rooms: b.Rooms?.map((r : Room) => ({
+            ...r,
+            available: true,
+          })) ?? [],
+        }));
+
+        setBuildings(typed);
+      }
+    };
+
+    fetchBuildings();
+  }, []);
 
   return (
     <div className="home-container">
@@ -56,23 +50,15 @@ export default function Home() {
         <aside className="building-list">
           {buildings.map((b) => (
             <div key={b.id} className="building">
-              <div
-                className="building-header"
-                onClick={() => toggle(b.id)}
-              >
-                <span className="building-title">
-                  {b.id} – {b.name}
-                </span>
+              <div className="building-header" onClick={() => toggle(b.id)}>
+                <span className="building-title">{b.ShortName} – {b.Name}</span>
 
                 <div className="header-right">
-                  <span
-                    className={`status-tag ${b.available ? 'open' : 'closed'}`}
-                  >
+                  <span className={`status-tag ${b.available ? 'open' : 'closed'}`}>
                     {b.available ? 'available' : 'unavailable'}
                   </span>
 
-                  {/* only show arrow if there *are* rooms */}
-                  {b.rooms && (
+                  {b.Rooms && (
                     <button className="toggle-btn">
                       {expandedId === b.id ? '▲' : '▼'}
                     </button>
@@ -80,21 +66,18 @@ export default function Home() {
                 </div>
               </div>
 
-              {expandedId === b.id && b.rooms && (
+              {expandedId === b.id && b.Rooms && (
                 <ul className="room-list">
-                  {b.rooms.map((r) => (
+                  {b.Rooms.map((r) => (
                     <li key={r.id} className="room-item">
-                      <span className="room-name">{r.name}</span>
-                      <span
-                        className={`dot ${r.available ? 'green' : 'red'}`}
-                      >●</span>
-                      {r.timeRange && (
-                        <span className="time-range">{r.timeRange}</span>
-                      )}
+                      <span className="room-name">{r.title}</span>
+                      <span className={`dot ${r.available ? 'green' : 'red'}`}>●</span>
+                      <span className="time-range">Capacity: {r.capacity}</span>
                     </li>
                   ))}
                 </ul>
               )}
+
             </div>
           ))}
         </aside>

@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.52.0",
     "localforage": "^1.10.0",
     "mapbox-gl": "^3.13.0",
     "match-sorter": "^8.0.3",
