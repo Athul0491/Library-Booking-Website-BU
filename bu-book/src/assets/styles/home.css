@@ -1,0 +1,135 @@
+/* outer container stacks header + content */
+.home-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0 auto;
+  padding: 1rem;
+  background: #121212;
+  color: #ddd;
+  font-family: Arial, sans-serif;
+}
+
+/* header always full-width */
+.home-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.home-header h1 {
+  margin: 0;
+  font-weight: 600;
+}
+.info-icon {
+  border: 1px solid #ddd;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  text-align: center;
+  line-height: 24px;
+  cursor: pointer;
+}
+
+/* below the header, a row: list on the left, map on the right */
+.list-map-wrapper {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+}
+
+/* sidebar list */
+.building-list {
+  flex: 1;
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 1rem;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+/* each building block */
+.building + .building {
+  margin-top: 0.5rem;
+}
+.building-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+}
+.building-title {
+  font-weight: 500;
+}
+
+/* status pill */
+.status-tag {
+  font-size: 0.8rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.status-tag.open {
+  background: #2d2d2d;
+  color: #7bc67e;
+}
+.status-tag.closed {
+  background: #7c2d2d;
+  color: #f87171;
+}
+
+/* the little ▲/▼ button */
+.toggle-btn {
+  background: none;
+  border: none;
+  color: #ddd;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+/* expanded room list */
+.room-list {
+  margin-top: 0.5rem;
+  padding-left: 1rem;
+  list-style: none;
+}
+.room-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #ccc;
+  padding: 2px 0;
+}
+.dot.green {
+  color: #5cd65c;
+}
+.dot.red {
+  color: #f87171;
+}
+.time-range {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #999;
+  font-family: monospace;
+}
+
+/* map pane */
+.map-area {
+  flex: 2;
+  background: #222;
+  border-radius: 8px;
+  min-height: 600px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #666;
+  font-style: italic;
+}
+
+/* scroll bar styling */
+.building-list::-webkit-scrollbar {
+  width: 8px;
+}
+.building-list::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 4px;
+}

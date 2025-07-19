@@ -1,54 +1,108 @@
-//import { useRef, useEffect } from 'react';
-//import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import React, { useState } from 'react';
+import '../assets/styles/home.css';
 
-function Home() {
-/*
-
-  const mapContainerRef = useRef(null);
-
-  useEffect(() => {
-    mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
-
-    const map = new mapboxgl.Map({
-      container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/streets-v12', // basic Mapbox style
-      center: [-71.0589, 42.3601], // Boston coordinates as an example
-      zoom: 10,
-    });
-
-    // Cleanup on unmount
-    return () => {
-      map.remove();
-    };
-  }, []);
-  
-       <div
-          ref={mapContainerRef}
-          style={{ width: '100%', height: '400px' }} // ensure map is visible
-        />
-  */
-  return (
-    <>
-      <div className='container'>
-        <div className='header-title'>
-          <h1>Bu Book</h1>
-        </div>
-
-        <div className='side'>
-                    <div className="library-list">
-            <div id="MUG" className="list-item">
-              <h3 className="clickable">Mugar Memorial Library</h3>
-              <p>Address: 771 Commonwealth Ave, Boston, MA 02215</p>
-            </div>
-          </div>
-        </div>
-        <div className='map-area'>
-          This is where the map will go.
-        </div>
-      </div>
-    </>
-  );
+interface Room {
+  id: string;
+  name: string;
+  available: boolean;
+  timeRange?: string;
 }
 
-export default Home;
+interface Building {
+  id: string;
+  name: string;
+  available: boolean;
+  rooms?: Room[];
+}
+
+const buildings: Building[] = [
+  {
+    id: 'CPH',
+    name: 'Carl A. Pollock Hall',
+    available: true,
+    rooms: [
+      { id: 'CPH1346', name: 'CPH 1346', available: true, timeRange: '2:20 PM – 10:00 PM' },
+    ],
+  },
+  {
+    id: 'DWE',
+    name: 'Douglas Wright Engineering Building',
+    available: true,
+    // if you want a dropdown here, add a `rooms: [...]` array
+  },
+  { id: 'E2', name: 'Engineering 2', available: true },
+  { id: 'RCH', name: 'J.R. Coutts Engineering Lecture Hall', available: true },
+  { id: 'HH', name: 'J.G. Hagey Hall of the Humanities', available: true },
+  { id: 'PHY', name: 'Physics', available: true },
+  { id: 'AL', name: 'Arts Lecture Hall', available: true },
+];
+
+export default function Home() {
+  // default expand CPH so you can see it open immediately
+  const [expandedId, setExpandedId] = useState<string | null>('CPH');
+
+  const toggle = (id: string) => {
+    setExpandedId((curr) => (curr === id ? null : id));
+  };
+
+  return (
+    <div className="home-container">
+      <header className="home-header">
+        <h1>BU Book</h1>
+        <div className="info-icon" title="Info">i</div>
+      </header>
+
+      <div className="list-map-wrapper">
+        <aside className="building-list">
+          {buildings.map((b) => (
+            <div key={b.id} className="building">
+              <div
+                className="building-header"
+                onClick={() => toggle(b.id)}
+              >
+                <span className="building-title">
+                  {b.id} – {b.name}
+                </span>
+
+                <div className="header-right">
+                  <span
+                    className={`status-tag ${b.available ? 'open' : 'closed'}`}
+                  >
+                    {b.available ? 'available' : 'unavailable'}
+                  </span>
+
+                  {/* only show arrow if there *are* rooms */}
+                  {b.rooms && (
+                    <button className="toggle-btn">
+                      {expandedId === b.id ? '▲' : '▼'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {expandedId === b.id && b.rooms && (
+                <ul className="room-list">
+                  {b.rooms.map((r) => (
+                    <li key={r.id} className="room-item">
+                      <span className="room-name">{r.name}</span>
+                      <span
+                        className={`dot ${r.available ? 'green' : 'red'}`}
+                      >●</span>
+                      {r.timeRange && (
+                        <span className="time-range">{r.timeRange}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </aside>
+
+        <section className="map-area">
+          <div className="map-placeholder">Map will go here</div>
+        </section>
+      </div>
+    </div>
+  );
+}
