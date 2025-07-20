@@ -55,11 +55,25 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  gap: 1rem;
+  padding: 0.5rem 0;
+  background: transparent; /* ✅ matches your dark background */
 }
+.building-header:hover {
+  background: #2a2a2a;
+}
+
 .building-title {
-  font-weight: 500;
+  flex-grow: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(0.75rem, 2vw, 1rem); /* min, ideal, max */
 }
+
 
 /* status pill */
 .status-tag {

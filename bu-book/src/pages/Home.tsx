@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import '../assets/styles/home.css';
 import type { Building, Room } from '../types/building';
+import Map from '../components/Map'
 
 export default function Home() {
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -51,7 +52,7 @@ export default function Home() {
           {buildings.map((b) => (
             <div key={b.id} className="building">
               <div className="building-header" onClick={() => toggle(b.id)}>
-                <span className="building-title">{b.ShortName} – {b.Name}</span>
+                <span className="building-title">{b.Name}</span>
 
                 <div className="header-right">
                   <span className={`status-tag ${b.available ? 'open' : 'closed'}`}>
@@ -84,6 +85,7 @@ export default function Home() {
 
         <section className="map-area">
           <div className="map-placeholder">Map will go here</div>
+          {/* <Map />*/}  
         </section>
       </div>
     </div>
