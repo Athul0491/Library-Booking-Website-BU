@@ -11,7 +11,7 @@ export interface Room {
   hasInfo: boolean;
   thumbnail: string;
   filterIds: number[];
-  available: boolean; // we’ll add this on the frontend
+  available: boolean;
 }
 
 export interface Building {
@@ -21,6 +21,8 @@ export interface Building {
   Address: string;
   website: string;
   contacts: Record<string, string>;
-  available: boolean; // also frontend-only
+  available: boolean;
+  libcal_id: number;
+  lid: number;
   Rooms?: Room[];
 }

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
 import '../assets/styles/home.css';
-import type { Building, Room } from '../types/building';
+import type { Building } from '../types/building';
 import Map from '../components/Map'
+import { fetchBuildingsWithAvailability } from '../lib/fetchBuildingsWithAvailability';
 
 export default function Home() {
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -13,32 +13,14 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const fetchBuildings = async () => {
-      const { data, error } = await supabase
-        .from('Buildings')
-        .select('*, Rooms(*)');
-
-      if (error) {
-        console.error('Error fetching buildings:', error.message);
-        return;
-      }
-
-      if (data) {
-        const typed: Building[] = data.map((b) => ({
-          ...b,
-          available: true,
-          Rooms: b.Rooms?.map((r : Room) => ({
-            ...r,
-            available: true,
-          })) ?? [],
-        }));
-
-        setBuildings(typed);
-      }
+    const load = async () => {
+      const buildingsWithAvailability = await fetchBuildingsWithAvailability();
+      setBuildings(buildingsWithAvailability);
     };
 
-    fetchBuildings();
+    load();
   }, []);
+
 
   return (
     <div className="home-container">
@@ -49,27 +31,27 @@ export default function Home() {
 
       <div className="list-map-wrapper">
         <aside className="building-list">
-          {buildings.map((b) => (
-            <div key={b.id} className="building">
-              <div className="building-header" onClick={() => toggle(b.id)}>
-                <span className="building-title">{b.Name}</span>
+          {buildings.map((building) => (
+            <div key={building.id} className="building">
+              <div className="building-header" onClick={() => toggle(building.id)}>
+                <span className="building-title">{building.Name}</span>
 
                 <div className="header-right">
-                  <span className={`status-tag ${b.available ? 'open' : 'closed'}`}>
-                    {b.available ? 'available' : 'unavailable'}
+                  <span className={`status-tag ${building.available ? 'open' : 'closed'}`}>
+                    {building.available ? 'available' : 'unavailable'}
                   </span>
 
-                  {b.Rooms && (
+                  {building.Rooms && (
                     <button className="toggle-btn">
-                      {expandedId === b.id ? '▲' : '▼'}
+                      {expandedId === building.id ? '▲' : '▼'}
                     </button>
                   )}
                 </div>
               </div>
 
-              {expandedId === b.id && b.Rooms && (
+              {expandedId === building.id && building.Rooms && (
                 <ul className="room-list">
-                  {b.Rooms.map((r) => (
+                  {building.Rooms.map((r) => (
                     <li key={r.id} className="room-item">
                       <span className="room-name">{r.title}</span>
                       <span className={`dot ${r.available ? 'green' : 'red'}`}>●</span>
@@ -85,7 +67,7 @@ export default function Home() {
 
         <section className="map-area">
           <div className="map-placeholder">Map will go here</div>
-          {/* <Map />*/}  
+          {/* <Map />*/}
         </section>
       </div>
     </div>

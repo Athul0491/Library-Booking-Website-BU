@@ -6,6 +6,8 @@ interface Room {
     title: string;
     url: string;
     eid: number;
+    gid: number;
+    lid: number;
     grouping: string;
     capacity: number;
     gtype: number;
@@ -57,6 +59,8 @@ export default function RoomSqlGenerator() {
             const recordsToInsert = parsed.map((r) => ({
                 building_id: buildingId,
                 eid: r.eid,
+                gid: r.gid,
+                lid: r.lid,
                 title: r.title,
                 url: r.url,
                 grouping: r.grouping,
