@@ -1,4 +1,4 @@
-// 可用性管理页面 - 控制时间段的开放状态
+// Availability Management页面 - 控制Time段的OpenStatus
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -33,8 +33,8 @@ const { Title, Paragraph } = Typography;
 const { Option } = Select;
 
 /**
- * 可用性管理页面组件
- * 用于管理房间的时间段可用性
+ * Availability Management页面组件
+ * 用于ManagementRoom的Time段Available性
  */
 const AvailabilityPage = () => {
   const [loading, setLoading] = useState(false);
@@ -46,19 +46,19 @@ const AvailabilityPage = () => {
   const [editingSlot, setEditingSlot] = useState(null);
   const [form] = Form.useForm();
 
-  // 组件挂载时加载数据
+  // 组件挂载时LoadData
   useEffect(() => {
     loadRooms();
   }, []);
 
-  // 当选择的日期或房间变化时，加载时间段数据
+  // 当选择的Date或Room变化时，LoadTime段Data
   useEffect(() => {
     if (selectedRoom) {
       loadTimeSlots();
     }
   }, [selectedDate, selectedRoom]);
 
-  // 加载房间列表
+  // LoadRoomList
   const loadRooms = async () => {
     try {
       // 模拟API调用
@@ -71,12 +71,12 @@ const AvailabilityPage = () => {
       setRooms(mockRooms);
       setSelectedRoom(mockRooms[0]);
     } catch (error) {
-      message.error('加载房间列表失败');
-      console.error('加载房间列表失败:', error);
+      message.error('LoadRoomListFailed');
+      console.error('LoadRoomListFailed:', error);
     }
   };
 
-  // 加载指定日期和房间的时间段数据
+  // Load指定Date和Room的Time段Data
   const loadTimeSlots = async () => {
     try {
       setLoading(true);
@@ -105,7 +105,7 @@ const AvailabilityPage = () => {
           isAvailable: false,
           maxCapacity: 20,
           currentBookings: 0,
-          reason: '设备维护',
+          reason: 'EquipmentMaintenance',
         },
         {
           id: 4,
@@ -118,16 +118,16 @@ const AvailabilityPage = () => {
       ];
       setTimeSlots(mockTimeSlots);
     } catch (error) {
-      message.error('加载时间段数据失败');
-      console.error('加载时间段数据失败:', error);
+      message.error('LoadTime段DataFailed');
+      console.error('LoadTime段DataFailed:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // 获取日期的显示内容（用于日历）
+  // 获取Date的显示内容（用于日历）
   const getCellRender = (current, info) => {
-    // 这里可以添加逻辑来显示每天的可用性状态
+    // 这里可以Add逻辑来显示每天的Available性Status
     const date = current.format('YYYY-MM-DD');
     const today = dayjs().format('YYYY-MM-DD');
     
@@ -138,7 +138,7 @@ const AvailabilityPage = () => {
     return null;
   };
 
-  // 打开新增/编辑时间段弹窗
+  // 打开Add New/EditTime段弹窗
   const openModal = (slot = null) => {
     setEditingSlot(slot);
     setModalVisible(true);
@@ -152,14 +152,14 @@ const AvailabilityPage = () => {
     }
   };
 
-  // 关闭弹窗
+  // Close弹窗
   const closeModal = () => {
     setModalVisible(false);
     setEditingSlot(null);
     form.resetFields();
   };
 
-  // 保存时间段设置
+  // SaveTime段Settings
   const handleSave = async (values) => {
     try {
       const [startTime, endTime] = values.timeRange;
@@ -172,58 +172,58 @@ const AvailabilityPage = () => {
       };
 
       if (editingSlot) {
-        // 更新现有时间段
-        console.log('更新时间段:', slotData);
-        message.success('更新时间段成功');
+        // 更新现有Time段
+        console.log('更新Time段:', slotData);
+        message.success('更新Time段Success');
       } else {
-        // 创建新时间段
-        console.log('创建时间段:', slotData);
-        message.success('创建时间段成功');
+        // 创建新Time段
+        console.log('创建Time段:', slotData);
+        message.success('创建Time段Success');
       }
 
       closeModal();
       loadTimeSlots();
     } catch (error) {
-      message.error('保存时间段失败');
-      console.error('保存时间段失败:', error);
+      message.error('SaveTime段Failed');
+      console.error('SaveTime段Failed:', error);
     }
   };
 
-  // 删除时间段
+  // DeleteTime段
   const handleDelete = async (slotId) => {
     try {
-      console.log('删除时间段:', slotId);
-      message.success('删除时间段成功');
+      console.log('DeleteTime段:', slotId);
+      message.success('DeleteTime段Success');
       loadTimeSlots();
     } catch (error) {
-      message.error('删除时间段失败');
-      console.error('删除时间段失败:', error);
+      message.error('DeleteTime段Failed');
+      console.error('DeleteTime段Failed:', error);
     }
   };
 
-  // 快速切换可用性状态
+  // 快速切换Available性Status
   const toggleAvailability = async (slotId, newStatus) => {
     try {
-      console.log('切换可用性:', slotId, newStatus);
-      message.success('更新可用性状态成功');
+      console.log('切换Available性:', slotId, newStatus);
+      message.success('更新Available性StatusSuccess');
       loadTimeSlots();
     } catch (error) {
-      message.error('更新可用性状态失败');
-      console.error('更新可用性状态失败:', error);
+      message.error('更新Available性StatusFailed');
+      console.error('更新Available性StatusFailed:', error);
     }
   };
 
   return (
     <div>
-      <Title level={2}>可用性管理</Title>
+      <Title level={2}>Availability Management</Title>
       <Paragraph>
-        管理房间的时间段可用性，可以设置特定日期和时间的开放状态。
+        ManagementRoom的Time段Available性，可以Settings特定Date和Time的OpenStatus。
       </Paragraph>
 
       <Row gutter={[16, 16]}>
         {/* 左侧：日历 */}
         <Col xs={24} lg={14}>
-          <Card title="选择日期">
+          <Card title="选择Date">
             <Calendar
               value={selectedDate}
               onSelect={setSelectedDate}
@@ -256,10 +256,10 @@ const AvailabilityPage = () => {
           </Card>
         </Col>
 
-        {/* 右侧：房间选择和时间段管理 */}
+        {/* 右侧：Room选择和Time段Management */}
         <Col xs={24} lg={10}>
           <Card 
-            title="房间和时间段设置"
+            title="Room和Time段Settings"
             extra={
               <Button
                 type="primary"
@@ -267,14 +267,14 @@ const AvailabilityPage = () => {
                 onClick={() => openModal()}
                 disabled={!selectedRoom}
               >
-                新增时间段
+                Add NewTime段
               </Button>
             }
           >
-            {/* 房间选择 */}
+            {/* Room选择 */}
             <div style={{ marginBottom: 16 }}>
               <Select
-                placeholder="选择房间"
+                placeholder="选择Room"
                 style={{ width: '100%' }}
                 value={selectedRoom?.id}
                 onChange={(roomId) => {
@@ -293,7 +293,7 @@ const AvailabilityPage = () => {
               </Select>
             </div>
 
-            {/* 选中日期信息 */}
+            {/* 选中DateInformation */}
             <div style={{ marginBottom: 16, padding: 12, background: '#f5f5f5', borderRadius: 6 }}>
               <Space>
                 <ClockCircleOutlined />
@@ -304,7 +304,7 @@ const AvailabilityPage = () => {
               </Space>
             </div>
 
-            {/* 时间段列表 */}
+            {/* Time段List */}
             <List
               loading={loading}
               dataSource={timeSlots}
@@ -315,8 +315,8 @@ const AvailabilityPage = () => {
                       key="switch"
                       checked={slot.isAvailable}
                       onChange={(checked) => toggleAvailability(slot.id, checked)}
-                      checkedChildren="开放"
-                      unCheckedChildren="关闭"
+                      checkedChildren="Open"
+                      unCheckedChildren="Close"
                     />,
                     <Button
                       key="edit"
@@ -338,13 +338,13 @@ const AvailabilityPage = () => {
                       <Space>
                         <span>{slot.startTime} - {slot.endTime}</span>
                         <Tag color={slot.isAvailable ? 'green' : 'red'}>
-                          {slot.isAvailable ? '开放' : '关闭'}
+                          {slot.isAvailable ? 'Open' : 'Close'}
                         </Tag>
                       </Space>
                     }
                     description={
                       <div>
-                        <div>容量: {slot.currentBookings}/{slot.maxCapacity}</div>
+                        <div>Capacity: {slot.currentBookings}/{slot.maxCapacity}</div>
                         {!slot.isAvailable && slot.reason && (
                           <div style={{ color: '#ff4d4f' }}>原因: {slot.reason}</div>
                         )}
@@ -358,9 +358,9 @@ const AvailabilityPage = () => {
         </Col>
       </Row>
 
-      {/* 新增/编辑时间段弹窗 */}
+      {/* Add New/EditTime段弹窗 */}
       <Modal
-        title={editingSlot ? '编辑时间段' : '新增时间段'}
+        title={editingSlot ? 'EditTime段' : 'Add NewTime段'}
         open={modalVisible}
         onCancel={closeModal}
         footer={null}
@@ -377,8 +377,8 @@ const AvailabilityPage = () => {
         >
           <Form.Item
             name="timeRange"
-            label="时间范围"
-            rules={[{ required: true, message: '请选择时间范围' }]}
+            label="Time范围"
+            rules={[{ required: true, message: '请选择Time范围' }]}
           >
             <TimePicker.RangePicker
               format="HH:mm"
@@ -389,10 +389,10 @@ const AvailabilityPage = () => {
 
           <Form.Item
             name="maxCapacity"
-            label="最大容量"
-            rules={[{ required: true, message: '请输入最大容量' }]}
+            label="最大Capacity"
+            rules={[{ required: true, message: '请输入最大Capacity' }]}
           >
-            <Select placeholder="选择最大容量">
+            <Select placeholder="选择最大Capacity">
               <Option value={10}>10人</Option>
               <Option value={20}>20人</Option>
               <Option value={30}>30人</Option>
@@ -402,21 +402,21 @@ const AvailabilityPage = () => {
 
           <Form.Item
             name="isAvailable"
-            label="是否开放"
+            label="是否Open"
             valuePropName="checked"
           >
-            <Switch checkedChildren="开放" unCheckedChildren="关闭" />
+            <Switch checkedChildren="Open" unCheckedChildren="Close" />
           </Form.Item>
 
           <Form.Item
             name="reason"
-            label="关闭原因"
-            help="仅在关闭时需要填写"
+            label="Close原因"
+            help="仅在Close时需要填写"
           >
-            <Select placeholder="选择关闭原因" allowClear>
-              <Option value="设备维护">设备维护</Option>
+            <Select placeholder="选择Close原因" allowClear>
+              <Option value="EquipmentMaintenance">EquipmentMaintenance</Option>
               <Option value="清洁消毒">清洁消毒</Option>
-              <Option value="特殊活动">特殊活动</Option>
+              <Option value="特殊Activity">特殊Activity</Option>
               <Option value="其他">其他</Option>
             </Select>
           </Form.Item>
@@ -424,10 +424,10 @@ const AvailabilityPage = () => {
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit">
-                保存
+                Save
               </Button>
               <Button onClick={closeModal}>
-                取消
+                Cancel
               </Button>
             </Space>
           </Form.Item>

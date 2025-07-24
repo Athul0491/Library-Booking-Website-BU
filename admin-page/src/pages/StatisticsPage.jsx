@@ -1,4 +1,4 @@
-// 统计报表页面 - 查看各种数据分析和报表
+// Statistics & Reports页面 - View各种DataAnalysis和Report
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -27,8 +27,8 @@ const { RangePicker } = DatePicker;
 const { Option } = Select;
 
 /**
- * 统计报表页面组件
- * 显示各种数据分析和统计报表
+ * Statistics & Reports页面组件
+ * 显示各种DataAnalysis和Statistics & Reports
  */
 const StatisticsPage = () => {
   const [loading, setLoading] = useState(false);
@@ -41,12 +41,12 @@ const StatisticsPage = () => {
   const [roomStats, setRoomStats] = useState([]);
   const [userStats, setUserStats] = useState([]);
 
-  // 组件挂载时加载数据
+  // 组件挂载时LoadData
   useEffect(() => {
     loadStatistics();
   }, [dateRange, selectedMetric]);
 
-  // 加载统计数据
+  // LoadStatisticsData
   const loadStatistics = async () => {
     try {
       setLoading(true);
@@ -83,16 +83,16 @@ const StatisticsPage = () => {
       setRoomStats(mockRoomStats);
       setUserStats(mockUserStats);
     } catch (error) {
-      console.error('加载统计数据失败:', error);
+      console.error('LoadStatisticsDataFailed:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // 导出报表
+  // ExportReport
   const exportReport = () => {
-    // 模拟导出功能
-    console.log('导出报表', {
+    // 模拟Export功能
+    console.log('ExportReport', {
       dateRange,
       selectedMetric,
       data: { statsData, roomStats, userStats }
@@ -100,21 +100,21 @@ const StatisticsPage = () => {
     // 实际实现中这里会生成并下载Excel或PDF文件
   };
 
-  // 房间统计表格列配置
+  // RoomStatistics表格列Configuration
   const roomColumns = [
     {
-      title: '房间名称',
+      title: 'RoomName',
       dataIndex: 'name',
       key: 'name',
     },
     {
-      title: '预订次数',
+      title: '预订Times',
       dataIndex: 'bookings',
       key: 'bookings',
       sorter: (a, b) => a.bookings - b.bookings,
     },
     {
-      title: '使用率',
+      title: '使用Rate',
       dataIndex: 'utilization',
       key: 'utilization',
       render: (rate) => (
@@ -127,7 +127,7 @@ const StatisticsPage = () => {
       sorter: (a, b) => a.utilization - b.utilization,
     },
     {
-      title: '收入',
+      title: 'Revenue',
       dataIndex: 'revenue',
       key: 'revenue',
       render: (revenue) => `¥${revenue}`,
@@ -135,26 +135,26 @@ const StatisticsPage = () => {
     },
   ];
 
-  // 用户统计表格列配置
+  // UserStatistics表格列Configuration
   const userColumns = [
     {
-      title: '用户名',
+      title: 'User名',
       dataIndex: 'name',
       key: 'name',
     },
     {
-      title: '邮箱',
+      title: 'Email',
       dataIndex: 'email',
       key: 'email',
     },
     {
-      title: '预订次数',
+      title: '预订Times',
       dataIndex: 'bookings',
       key: 'bookings',
       sorter: (a, b) => a.bookings - b.bookings,
     },
     {
-      title: '最后活跃',
+      title: '最后Active',
       dataIndex: 'lastActive',
       key: 'lastActive',
       render: (date) => dayjs(date).format('YYYY-MM-DD'),
@@ -163,17 +163,17 @@ const StatisticsPage = () => {
 
   return (
     <div>
-      <Title level={2}>统计报表</Title>
+      <Title level={2}>Statistics & Reports</Title>
       <Paragraph>
-        查看系统的各项统计数据和分析报表，了解预订情况和使用趋势。
+        ViewSystem的各项StatisticsData和AnalysisReport，了解预订情况和使用趋势。
       </Paragraph>
 
-      {/* 筛选控件 */}
+      {/* Filter控件 */}
       <Card style={{ marginBottom: 16 }}>
         <Row gutter={[16, 16]} align="middle">
           <Col xs={24} sm={12} md={8}>
             <Space>
-              <span>时间范围:</span>
+              <span>Time范围:</span>
               <RangePicker
                 value={dateRange}
                 onChange={setDateRange}
@@ -183,16 +183,16 @@ const StatisticsPage = () => {
           </Col>
           <Col xs={24} sm={12} md={8}>
             <Space>
-              <span>统计维度:</span>
+              <span>Statistics维度:</span>
               <Select
                 value={selectedMetric}
                 onChange={setSelectedMetric}
                 style={{ width: 120 }}
               >
                 <Option value="bookings">预订数</Option>
-                <Option value="revenue">收入</Option>
-                <Option value="utilization">使用率</Option>
-                <Option value="users">用户数</Option>
+                <Option value="revenue">Revenue</Option>
+                <Option value="utilization">使用Rate</Option>
+                <Option value="users">User数</Option>
               </Select>
             </Space>
           </Col>
@@ -202,13 +202,13 @@ const StatisticsPage = () => {
               icon={<DownloadOutlined />}
               onClick={exportReport}
             >
-              导出报表
+              ExportReport
             </Button>
           </Col>
         </Row>
       </Card>
 
-      {/* 概览统计卡片 */}
+      {/* OverviewStatistics卡片 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={12} sm={6}>
           <Card>
@@ -228,7 +228,7 @@ const StatisticsPage = () => {
         <Col xs={12} sm={6}>
           <Card>
             <Statistic
-              title="活跃用户"
+              title="ActiveUser"
               value={statsData.totalUsers}
               prefix={<UsergroupAddOutlined />}
               suffix={
@@ -243,7 +243,7 @@ const StatisticsPage = () => {
         <Col xs={12} sm={6}>
           <Card>
             <Statistic
-              title="总收入"
+              title="总Revenue"
               value={statsData.totalRevenue}
               prefix="¥"
               suffix={
@@ -258,7 +258,7 @@ const StatisticsPage = () => {
         <Col xs={12} sm={6}>
           <Card>
             <Statistic
-              title="平均使用率"
+              title="Average使用Rate"
               value={statsData.utilizationRate}
               suffix="%"
               prefix={<PieChartOutlined />}
@@ -269,10 +269,10 @@ const StatisticsPage = () => {
       </Row>
 
       <Row gutter={[16, 16]}>
-        {/* 房间统计 */}
+        {/* RoomStatistics */}
         <Col xs={24} lg={14}>
           <Card 
-            title="房间使用统计" 
+            title="Room使用Statistics" 
             extra={<RiseOutlined />}
           >
             <Table
@@ -286,9 +286,9 @@ const StatisticsPage = () => {
           </Card>
         </Col>
 
-        {/* 用户活跃度统计 */}
+        {/* UserActive度Statistics */}
         <Col xs={24} lg={10}>
-          <Card title="活跃用户统计">
+          <Card title="ActiveUserStatistics">
             <Table
               columns={userColumns}
               dataSource={userStats}

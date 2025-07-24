@@ -1,13 +1,13 @@
-// 统计数据服务 - 提供统计相关的API模拟
+// StatisticsData服务 - 提供Statistics相关的API模拟
 import dayjs from 'dayjs';
 
 /**
- * 模拟统计数据服务
- * 提供各种统计数据和分析报表
+ * 模拟StatisticsData服务
+ * 提供各种StatisticsData和AnalysisReport
  */
 class StatsService {
   constructor() {
-    // 模拟延迟，真实API调用的时间
+    // 模拟延迟，真实API调用的Time
     this.delay = 500;
   }
 
@@ -16,7 +16,7 @@ class StatsService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // 获取系统概览统计
+  // 获取SystemOverviewStatistics
   async getOverviewStats() {
     await this.sleep();
     
@@ -28,14 +28,14 @@ class StatsService {
         totalRevenue: 12450,
         avgBookingDuration: 2.5,
         utilizationRate: 68.5,
-        // 同比增长率
+        // 同比GrowthRate
         growthRates: {
           bookings: 15.6,
           users: 8.3,
           revenue: 22.1,
           utilization: 5.2
         },
-        // 今日数据
+        // TodayData
         todayStats: {
           bookings: 45,
           revenue: 890,
@@ -45,7 +45,7 @@ class StatsService {
     };
   }
 
-  // 获取房间使用统计
+  // 获取Room使用Statistics
   async getRoomStats(dateRange = null) {
     await this.sleep();
 
@@ -73,7 +73,7 @@ class StatsService {
     };
   }
 
-  // 获取用户活跃度统计
+  // 获取UserActive度Statistics
   async getUserStats(limit = 10) {
     await this.sleep();
 
@@ -99,7 +99,7 @@ class StatsService {
     };
   }
 
-  // 获取预订趋势数据
+  // 获取预订趋势Data
   async getBookingTrends(days = 30) {
     await this.sleep();
 
@@ -120,14 +120,14 @@ class StatsService {
     };
   }
 
-  // 获取收入分析
+  // 获取RevenueAnalysis
   async getRevenueAnalysis(period = 'month') {
     await this.sleep();
 
     let data = [];
     
     if (period === 'month') {
-      // 最近12个月的收入数据
+      // Recent12个月的RevenueData
       for (let i = 11; i >= 0; i--) {
         const month = dayjs().subtract(i, 'month');
         data.push({
@@ -138,7 +138,7 @@ class StatsService {
         });
       }
     } else if (period === 'week') {
-      // 最近8周的收入数据
+      // Recent8周的RevenueData
       for (let i = 7; i >= 0; i--) {
         const week = dayjs().subtract(i, 'week');
         data.push({
@@ -156,7 +156,7 @@ class StatsService {
     };
   }
 
-  // 获取设备使用统计
+  // 获取Equipment使用Statistics
   async getEquipmentStats() {
     await this.sleep();
 
@@ -164,7 +164,7 @@ class StatsService {
       { name: '投影仪', total: 15, available: 12, inUse: 3, maintenance: 0 },
       { name: '白板', total: 25, available: 20, inUse: 4, maintenance: 1 },
       { name: '电脑', total: 120, available: 95, inUse: 22, maintenance: 3 },
-      { name: '音响设备', total: 8, available: 6, inUse: 2, maintenance: 0 },
+      { name: '音响Equipment', total: 8, available: 6, inUse: 2, maintenance: 0 },
       { name: '桌椅', total: 200, available: 180, inUse: 18, maintenance: 2 },
     ];
 
@@ -177,25 +177,25 @@ class StatsService {
     };
   }
 
-  // 导出统计报表
+  // ExportStatistics & Reports
   async exportReport(params) {
     await this.sleep();
 
-    // 模拟导出功能
-    console.log('导出报表参数:', params);
+    // 模拟Export功能
+    console.log('ExportReport参数:', params);
 
     return {
       success: true,
       data: {
         downloadUrl: '/api/reports/download/report_' + Date.now() + '.xlsx',
-        filename: `统计报表_${dayjs().format('YYYY-MM-DD')}.xlsx`
+        filename: `Statistics & Reports_${dayjs().format('YYYY-MM-DD')}.xlsx`
       }
     };
   }
 
-  // 获取实时统计数据（用于仪表盘）
+  // 获取实时StatisticsData（用于仪表盘）
   async getRealTimeStats() {
-    await this.sleep(200); // 实时数据延迟更短
+    await this.sleep(200); // 实时Data延迟更短
 
     return {
       success: true,

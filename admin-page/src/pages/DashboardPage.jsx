@@ -38,17 +38,17 @@ const DashboardPage = () => {
   const [recentBookings, setRecentBookings] = useState([]);
   const [popularRooms, setPopularRooms] = useState([]);
 
-  // 组件挂载时获取数据
+  // 组件挂载时获取Data
   useEffect(() => {
     loadDashboardData();
   }, []);
 
-  // 加载仪表板数据
+  // LoadDashboardData
   const loadDashboardData = async () => {
     try {
       setLoading(true);
       
-      // 获取统计数据
+      // 获取StatisticsData
       const [statsData, bookingsData, roomsData] = await Promise.all([
         statsService.getOverviewStats(),
         statsService.getRecentBookings(),
@@ -59,16 +59,16 @@ const DashboardPage = () => {
       setRecentBookings(bookingsData.data || []);
       setPopularRooms(roomsData.data || []);
     } catch (error) {
-      console.error('加载仪表板数据失败:', error);
+      console.error('LoadDashboardDataFailed:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // 最近预订表格列配置
+  // Recent预订表格列Configuration
   const bookingColumns = [
     {
-      title: '用户',
+      title: 'User',
       dataIndex: 'userName',
       key: 'userName',
       render: (name) => (
@@ -79,39 +79,39 @@ const DashboardPage = () => {
       ),
     },
     {
-      title: '房间',
+      title: 'Room',
       dataIndex: 'roomName',
       key: 'roomName',
     },
     {
-      title: '时间',
+      title: 'Time',
       dataIndex: 'timeSlot',
       key: 'timeSlot',
     },
     {
-      title: '状态',
+      title: 'Status',
       dataIndex: 'status',
       key: 'status',
       render: (status) => {
         const statusConfig = {
-          confirmed: { color: 'green', text: '已确认' },
-          pending: { color: 'orange', text: '待确认' },
-          cancelled: { color: 'red', text: '已取消' },
+          confirmed: { color: 'green', text: 'CompletedConfirm' },
+          pending: { color: 'orange', text: 'PendingConfirm' },
+          cancelled: { color: 'red', text: 'CompletedCancel' },
         };
         const config = statusConfig[status] || { color: 'default', text: status };
         return <Tag color={config.color}>{config.text}</Tag>;
       },
     },
     {
-      title: '操作',
+      title: 'Actions',
       key: 'action',
       render: (_, record) => (
         <Button 
           type="link" 
           icon={<EyeOutlined />}
-          onClick={() => console.log('查看预订详情:', record)}
+          onClick={() => console.log('View预订Details:', record)}
         >
-          查看
+          View
         </Button>
       ),
     },
@@ -119,17 +119,17 @@ const DashboardPage = () => {
 
   return (
     <div>
-      <Title level={2}>仪表板</Title>
+      <Title level={2}>Dashboard</Title>
       <Paragraph>
-        欢迎使用图书馆预订管理系统，这里是系统的整体概览和关键指标。
+        欢迎使用图书馆Booking ManagementSystem，这里是System的整体Overview和关键指标。
       </Paragraph>
 
-      {/* 统计卡片区域 */}
+      {/* Statistics卡片区域 */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="今日预订"
+              title="Today预订"
               value={stats.todayBookings}
               prefix={<CalendarOutlined />}
               valueStyle={{ color: '#3f8600' }}
@@ -145,7 +145,7 @@ const DashboardPage = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="活跃用户"
+              title="ActiveUser"
               value={stats.activeUsers}
               prefix={<UserOutlined />}
               valueStyle={{ color: '#1890ff' }}
@@ -161,7 +161,7 @@ const DashboardPage = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="可用房间"
+              title="Available Rooms"
               value={stats.availableRooms}
               prefix={<EnvironmentOutlined />}
               valueStyle={{ color: '#52c41a' }}
@@ -172,7 +172,7 @@ const DashboardPage = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="使用率"
+              title="Usage Rate"
               value={stats.utilizationRate}
               prefix={<ClockCircleOutlined />}
               suffix="%"
@@ -184,9 +184,9 @@ const DashboardPage = () => {
       </Row>
 
       <Row gutter={[16, 16]}>
-        {/* 最近预订列表 */}
+        {/* Recent Bookings List */}
         <Col xs={24} lg={14}>
-          <Card title="最近预订" extra={<Button type="link">查看全部</Button>}>
+          <Card title="Recent Bookings" extra={<Button type="link">View All</Button>}>
             <Table
               columns={bookingColumns}
               dataSource={recentBookings}
@@ -198,9 +198,9 @@ const DashboardPage = () => {
           </Card>
         </Col>
 
-        {/* 热门房间和使用率 */}
+        {/* PopularRoom和使用Rate */}
         <Col xs={24} lg={10}>
-          <Card title="热门房间" style={{ marginBottom: 16 }}>
+          <Card title="PopularRoom" style={{ marginBottom: 16 }}>
             <List
               loading={loading}
               dataSource={popularRooms}
@@ -208,7 +208,7 @@ const DashboardPage = () => {
                 <List.Item>
                   <List.Item.Meta
                     title={item.name}
-                    description={`今日预订 ${item.bookings} 次`}
+                    description={`Today预订 ${item.bookings} 次`}
                   />
                   <Progress 
                     percent={item.usageRate} 
@@ -220,17 +220,17 @@ const DashboardPage = () => {
             />
           </Card>
 
-          {/* 快速操作区域 */}
-          <Card title="快速操作">
+          {/* 快速Actions区域 */}
+          <Card title="快速Actions">
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Button type="primary" block onClick={() => console.log('新增预订')}>
-                新增预订
+              <Button type="primary" block onClick={() => console.log('Add New预订')}>
+                Add New预订
               </Button>
-              <Button block onClick={() => console.log('房间管理')}>
-                房间管理
+              <Button block onClick={() => console.log('RoomManagement')}>
+                RoomManagement
               </Button>
-              <Button block onClick={() => console.log('导出报表')}>
-                导出报表
+              <Button block onClick={() => console.log('ExportReport')}>
+                ExportReport
               </Button>
             </Space>
           </Card>

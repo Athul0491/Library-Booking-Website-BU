@@ -1,4 +1,4 @@
-// 预订管理页面 - 查看和管理所有预订记录
+// Booking Management页面 - View和Management所有预订记录
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -35,8 +35,8 @@ const { RangePicker } = DatePicker;
 const { Option } = Select;
 
 /**
- * 预订管理页面组件
- * 提供预订记录的查看、搜索、筛选和状态管理功能
+ * Booking Management页面组件
+ * 提供预订记录的View、Search、Filter和StatusManagement功能
  */
 const BookingsPage = () => {
   const [loading, setLoading] = useState(false);
@@ -47,22 +47,22 @@ const BookingsPage = () => {
   const [searchForm] = Form.useForm();
   const [summary, setSummary] = useState({});
 
-  // 状态选项
+  // Status选项
   const statusOptions = [
-    { value: 'all', label: '全部状态' },
-    { value: 'pending', label: '待确认' },
-    { value: 'confirmed', label: '已确认' },
-    { value: 'cancelled', label: '已取消' },
-    { value: 'completed', label: '已完成' },
-    { value: 'no-show', label: '未到场' }
+    { value: 'all', label: '全部Status' },
+    { value: 'pending', label: 'PendingConfirm' },
+    { value: 'confirmed', label: 'CompletedConfirm' },
+    { value: 'cancelled', label: 'CompletedCancel' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'no-show', label: 'No Show' }
   ];
 
-  // 组件挂载时加载数据
+  // 组件挂载时LoadData
   useEffect(() => {
     loadBookings();
   }, []);
 
-  // 加载预订数据
+  // Load预订Data
   const loadBookings = async (params = {}) => {
     try {
       setLoading(true);
@@ -73,17 +73,17 @@ const BookingsPage = () => {
         setFilteredBookings(response.data.list);
         setSummary(response.data.summary);
       } else {
-        message.error('加载预订数据失败');
+        message.error('Load预订DataFailed');
       }
     } catch (error) {
-      console.error('加载预订数据失败:', error);
-      message.error('加载预订数据失败');
+      console.error('Load预订DataFailed:', error);
+      message.error('Load预订DataFailed');
     } finally {
       setLoading(false);
     }
   };
 
-  // 搜索处理
+  // Search处理
   const handleSearch = async (values) => {
     const params = {};
     
@@ -102,13 +102,13 @@ const BookingsPage = () => {
     await loadBookings(params);
   };
 
-  // 重置搜索
+  // ResetSearch
   const handleReset = () => {
     searchForm.resetFields();
     loadBookings();
   };
 
-  // 查看预订详情
+  // View预订Details
   const viewBookingDetail = async (record) => {
     try {
       const response = await bookingService.getBookingById(record.id);
@@ -116,27 +116,27 @@ const BookingsPage = () => {
         setSelectedBooking(response.data);
         setDetailModalVisible(true);
       } else {
-        message.error('获取预订详情失败');
+        message.error('获取预订DetailsFailed');
       }
     } catch (error) {
-      console.error('获取预订详情失败:', error);
-      message.error('获取预订详情失败');
+      console.error('获取预订DetailsFailed:', error);
+      message.error('获取预订DetailsFailed');
     }
   };
 
-  // 更新预订状态
+  // 更新预订Status
   const updateBookingStatus = async (bookingId, status) => {
     try {
       const response = await bookingService.updateBookingStatus(bookingId, status);
       if (response.success) {
         message.success(response.message);
-        loadBookings(); // 重新加载数据
+        loadBookings(); // 重新LoadData
       } else {
         message.error(response.message);
       }
     } catch (error) {
-      console.error('更新预订状态失败:', error);
-      message.error('更新预订状态失败');
+      console.error('更新预订StatusFailed:', error);
+      message.error('更新预订StatusFailed');
     }
   };
 
@@ -151,15 +151,15 @@ const BookingsPage = () => {
         message.error(response.message);
       }
     } catch (error) {
-      console.error('签到失败:', error);
-      message.error('签到失败');
+      console.error('签到Failed:', error);
+      message.error('签到Failed');
     }
   };
 
-  // 取消预订
+  // Cancel预订
   const handleCancel = async (bookingId) => {
     try {
-      const response = await bookingService.cancelBooking(bookingId, '管理员取消');
+      const response = await bookingService.cancelBooking(bookingId, 'Management员Cancel');
       if (response.success) {
         message.success(response.message);
         loadBookings();
@@ -167,26 +167,26 @@ const BookingsPage = () => {
         message.error(response.message);
       }
     } catch (error) {
-      console.error('取消预订失败:', error);
-      message.error('取消预订失败');
+      console.error('Cancel预订Failed:', error);
+      message.error('Cancel预订Failed');
     }
   };
 
-  // 获取状态标签
+  // 获取Status标签
   const getStatusTag = (status) => {
     const statusConfig = {
-      pending: { color: 'orange', text: '待确认' },
-      confirmed: { color: 'blue', text: '已确认' },
-      cancelled: { color: 'red', text: '已取消' },
-      completed: { color: 'green', text: '已完成' },
-      'no-show': { color: 'default', text: '未到场' }
+      pending: { color: 'orange', text: 'PendingConfirm' },
+      confirmed: { color: 'blue', text: 'CompletedConfirm' },
+      cancelled: { color: 'red', text: 'CompletedCancel' },
+      completed: { color: 'green', text: 'Completed' },
+      'no-show': { color: 'default', text: 'No Show' }
     };
     
     const config = statusConfig[status] || { color: 'default', text: status };
     return <Tag color={config.color}>{config.text}</Tag>;
   };
 
-  // 表格列配置
+  // 表格列Configuration
   const columns = [
     {
       title: '预订编号',
@@ -195,32 +195,32 @@ const BookingsPage = () => {
       width: 120,
     },
     {
-      title: '用户姓名',
+      title: 'User姓名',
       dataIndex: 'userName',
       key: 'userName',
       width: 100,
     },
     {
-      title: '房间',
+      title: 'Room',
       dataIndex: 'locationName',
       key: 'locationName',
       width: 120,
     },
     {
-      title: '预订日期',
+      title: '预订Date',
       dataIndex: 'date',
       key: 'date',
       width: 110,
       render: (date) => dayjs(date).format('MM-DD'),
     },
     {
-      title: '时间段',
+      title: 'Time段',
       key: 'timeSlot',
       width: 140,
       render: (_, record) => `${record.startTime} - ${record.endTime}`,
     },
     {
-      title: '状态',
+      title: 'Status',
       dataIndex: 'status',
       key: 'status',
       width: 100,
@@ -238,10 +238,10 @@ const BookingsPage = () => {
       dataIndex: 'checkedIn',
       key: 'checkedIn',
       width: 80,
-      render: (checkedIn) => checkedIn ? <Tag color="green">已签到</Tag> : <Tag>未签到</Tag>,
+      render: (checkedIn) => checkedIn ? <Tag color="green">Completed签到</Tag> : <Tag>Not签到</Tag>,
     },
     {
-      title: '操作',
+      title: 'Actions',
       key: 'action',
       width: 200,
       render: (_, record) => (
@@ -252,7 +252,7 @@ const BookingsPage = () => {
             icon={<EyeOutlined />}
             onClick={() => viewBookingDetail(record)}
           >
-            详情
+            Details
           </Button>
           
           {record.status === 'pending' && (
@@ -262,7 +262,7 @@ const BookingsPage = () => {
               icon={<CheckOutlined />}
               onClick={() => updateBookingStatus(record.id, 'confirmed')}
             >
-              确认
+              Confirm
             </Button>
           )}
           
@@ -278,10 +278,10 @@ const BookingsPage = () => {
           
           {(record.status === 'pending' || record.status === 'confirmed') && (
             <Popconfirm
-              title="确定要取消这个预订吗？"
+              title="确定要Cancel这个预订吗？"
               onConfirm={() => handleCancel(record.id)}
               okText="确定"
-              cancelText="取消"
+              cancelText="Cancel"
             >
               <Button
                 type="link"
@@ -289,7 +289,7 @@ const BookingsPage = () => {
                 icon={<CloseOutlined />}
                 danger
               >
-                取消
+                Cancel
               </Button>
             </Popconfirm>
           )}
@@ -300,12 +300,12 @@ const BookingsPage = () => {
 
   return (
     <div>
-      <Title level={2}>预订管理</Title>
+      <Title level={2}>Booking Management</Title>
       <Paragraph>
-        管理所有的房间预订记录，包括确认预订、处理取消和查看详细信息。
+        Management所有的Room预订记录，包括Confirm预订、处理Cancel和View详细Information。
       </Paragraph>
 
-      {/* 统计概览 */}
+      {/* StatisticsOverview */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={12} sm={6}>
           <Card>
@@ -319,7 +319,7 @@ const BookingsPage = () => {
         <Col xs={12} sm={6}>
           <Card>
             <Statistic
-              title="已确认"
+              title="CompletedConfirm"
               value={summary.confirmedCount || 0}
               prefix="✅"
               valueStyle={{ color: '#3f8600' }}
@@ -329,7 +329,7 @@ const BookingsPage = () => {
         <Col xs={12} sm={6}>
           <Card>
             <Statistic
-              title="待确认"
+              title="PendingConfirm"
               value={summary.pendingCount || 0}
               prefix="⏳"
               valueStyle={{ color: '#cf1322' }}
@@ -339,7 +339,7 @@ const BookingsPage = () => {
         <Col xs={12} sm={6}>
           <Card>
             <Statistic
-              title="总收入"
+              title="总Revenue"
               value={summary.totalRevenue || 0}
               prefix="¥"
               precision={0}
@@ -348,7 +348,7 @@ const BookingsPage = () => {
         </Col>
       </Row>
 
-      {/* 搜索表单 */}
+      {/* Search表单 */}
       <Card style={{ marginBottom: 16 }}>
         <Form
           form={searchForm}
@@ -358,13 +358,13 @@ const BookingsPage = () => {
         >
           <Form.Item name="keyword" style={{ minWidth: 200 }}>
             <Input
-              placeholder="搜索预订编号、用户名或房间"
+              placeholder="Search预订编号、User名或Room"
               prefix={<SearchOutlined />}
             />
           </Form.Item>
           
           <Form.Item name="status">
-            <Select placeholder="选择状态" style={{ width: 120 }}>
+            <Select placeholder="选择Status" style={{ width: 120 }}>
               {statusOptions.map(option => (
                 <Option key={option.value} value={option.value}>
                   {option.label}
@@ -374,26 +374,26 @@ const BookingsPage = () => {
           </Form.Item>
           
           <Form.Item name="dateRange">
-            <RangePicker placeholder={['开始日期', '结束日期']} />
+            <RangePicker placeholder={['StartDate', 'EndDate']} />
           </Form.Item>
           
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit" loading={loading}>
-                搜索
+                Search
               </Button>
               <Button onClick={handleReset}>
-                重置
+                Reset
               </Button>
               <Button icon={<ReloadOutlined />} onClick={() => loadBookings()}>
-                刷新
+                Refresh
               </Button>
             </Space>
           </Form.Item>
         </Form>
       </Card>
 
-      {/* 预订列表 */}
+      {/* 预订List */}
       <Card>
         <Table
           columns={columns}
@@ -411,14 +411,14 @@ const BookingsPage = () => {
         />
       </Card>
 
-      {/* 预订详情模态框 */}
+      {/* 预订Details模态框 */}
       <Modal
-        title="预订详情"
+        title="预订Details"
         open={detailModalVisible}
         onCancel={() => setDetailModalVisible(false)}
         footer={[
           <Button key="close" onClick={() => setDetailModalVisible(false)}>
-            关闭
+            Close
           </Button>
         ]}
         width={600}
@@ -430,41 +430,41 @@ const BookingsPage = () => {
                 <strong>预订编号：</strong>{selectedBooking.bookingNumber}
               </Col>
               <Col span={12}>
-                <strong>状态：</strong>{getStatusTag(selectedBooking.status)}
+                <strong>Status：</strong>{getStatusTag(selectedBooking.status)}
               </Col>
               <Col span={12}>
-                <strong>用户姓名：</strong>{selectedBooking.userName}
+                <strong>User姓名：</strong>{selectedBooking.userName}
               </Col>
               <Col span={12}>
-                <strong>联系邮箱：</strong>{selectedBooking.userEmail}
+                <strong>ContactEmail：</strong>{selectedBooking.userEmail}
               </Col>
               <Col span={12}>
-                <strong>联系电话：</strong>{selectedBooking.userPhone}
+                <strong>ContactPhone：</strong>{selectedBooking.userPhone}
               </Col>
               <Col span={12}>
-                <strong>房间：</strong>{selectedBooking.locationName}
+                <strong>Room：</strong>{selectedBooking.locationName}
               </Col>
               <Col span={12}>
-                <strong>预订日期：</strong>{selectedBooking.date}
+                <strong>预订Date：</strong>{selectedBooking.date}
               </Col>
               <Col span={12}>
-                <strong>时间段：</strong>{selectedBooking.startTime} - {selectedBooking.endTime}
+                <strong>Time段：</strong>{selectedBooking.startTime} - {selectedBooking.endTime}
               </Col>
               <Col span={12}>
-                <strong>时长：</strong>{selectedBooking.duration} 小时
+                <strong>Duration：</strong>{selectedBooking.duration} Hours
               </Col>
               <Col span={12}>
-                <strong>人数：</strong>{selectedBooking.participants} 人
+                <strong>Number of People：</strong>{selectedBooking.participants} 人
               </Col>
               <Col span={12}>
                 <strong>金额：</strong>¥{selectedBooking.price}
               </Col>
               <Col span={12}>
-                <strong>签到状态：</strong>
+                <strong>签到Status：</strong>
                 {selectedBooking.checkedIn ? (
-                  <Tag color="green">已签到 ({selectedBooking.checkedInTime})</Tag>
+                  <Tag color="green">Completed签到 ({selectedBooking.checkedInTime})</Tag>
                 ) : (
-                  <Tag>未签到</Tag>
+                  <Tag>Not签到</Tag>
                 )}
               </Col>
               <Col span={24}>
@@ -472,14 +472,14 @@ const BookingsPage = () => {
               </Col>
               {selectedBooking.notes && (
                 <Col span={24}>
-                  <strong>备注：</strong>{selectedBooking.notes}
+                  <strong>Notes：</strong>{selectedBooking.notes}
                 </Col>
               )}
               <Col span={12}>
-                <strong>创建时间：</strong>{dayjs(selectedBooking.createdAt).format('YYYY-MM-DD HH:mm')}
+                <strong>创建Time：</strong>{dayjs(selectedBooking.createdAt).format('YYYY-MM-DD HH:mm')}
               </Col>
               <Col span={12}>
-                <strong>更新时间：</strong>{dayjs(selectedBooking.updatedAt).format('YYYY-MM-DD HH:mm')}
+                <strong>更新Time：</strong>{dayjs(selectedBooking.updatedAt).format('YYYY-MM-DD HH:mm')}
               </Col>
             </Row>
           </div>

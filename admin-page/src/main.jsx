@@ -9,12 +9,12 @@ import 'dayjs/locale/zh-cn';
 import App from './App.jsx';
 import './assets/styles/index.css';
 
-// 设置 dayjs 中文locale
+// Settings dayjs 中文locale
 dayjs.locale('zh-cn');
 
 /**
  * 应用程序根组件渲染
- * 使用 Ant Design 的 ConfigProvider 提供中文国际化支持
+ * 使用 Ant Design 的 ConfigProvider 提供中文国际化Support
  */
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

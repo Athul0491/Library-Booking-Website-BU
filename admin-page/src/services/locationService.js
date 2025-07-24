@@ -1,16 +1,16 @@
-// 位置/房间服务 - 提供房间管理相关的API模拟
+// 位置/Room服务 - 提供RoomManagement相关的API模拟
 import dayjs from 'dayjs';
 
 /**
- * 模拟位置/房间数据服务
- * 提供房间CRUD操作和相关数据管理
+ * 模拟位置/RoomData服务
+ * 提供RoomCRUDActions和相关DataManagement
  */
 class LocationService {
   constructor() {
-    // 模拟延迟，真实API调用的时间
+    // 模拟延迟，真实API调用的Time
     this.delay = 500;
     
-    // 模拟数据存储
+    // 模拟Data存储
     this.locations = [
       {
         id: 1,
@@ -87,7 +87,7 @@ class LocationService {
         capacity: 100,
         floor: 2,
         building: '图书馆主楼',
-        description: '开放式阅读区域，安静舒适',
+        description: 'Open式阅读区域，安静舒适',
         equipment: ['WiFi', '空调', '阅读灯'],
         status: 'active',
         price: 5,
@@ -105,23 +105,23 @@ class LocationService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // 获取所有房间列表
+  // 获取所有RoomList
   async getLocations(params = {}) {
     await this.sleep();
 
     let filteredLocations = [...this.locations];
 
-    // 按类型筛选
+    // 按TypeFilter
     if (params.type && params.type !== 'all') {
       filteredLocations = filteredLocations.filter(loc => loc.type === params.type);
     }
 
-    // 按状态筛选
+    // 按StatusFilter
     if (params.status && params.status !== 'all') {
       filteredLocations = filteredLocations.filter(loc => loc.status === params.status);
     }
 
-    // 按关键词搜索
+    // 按关键词Search
     if (params.keyword) {
       const keyword = params.keyword.toLowerCase();
       filteredLocations = filteredLocations.filter(loc => 
@@ -149,7 +149,7 @@ class LocationService {
     };
   }
 
-  // 获取单个房间详情
+  // 获取单个RoomDetails
   async getLocationById(id) {
     await this.sleep();
 
@@ -158,16 +158,16 @@ class LocationService {
     if (!location) {
       return {
         success: false,
-        message: '房间不存在'
+        message: 'Room不存在'
       };
     }
 
-    // 添加一些额外的详细信息
+    // Add一些额外的详细Information
     const detailedLocation = {
       ...location,
       bookingHistory: await this.getLocationBookingHistory(id),
-      utilization: Math.floor(Math.random() * 40) + 50, // 模拟使用率
-      rating: (Math.random() * 1.5 + 3.5).toFixed(1), // 模拟评分
+      utilization: Math.floor(Math.random() * 40) + 50, // 模拟使用Rate
+      rating: (Math.random() * 1.5 + 3.5).toFixed(1), // 模拟Rating
       lastMaintenance: dayjs().subtract(Math.floor(Math.random() * 30), 'day').format('YYYY-MM-DD')
     };
 
@@ -177,28 +177,28 @@ class LocationService {
     };
   }
 
-  // 创建新房间
+  // 创建新Room
   async createLocation(locationData) {
     await this.sleep();
 
-    // 简单的数据验证
+    // 简单的Data验证
     if (!locationData.name || !locationData.type || !locationData.capacity) {
       return {
         success: false,
-        message: '请填写必要的房间信息'
+        message: '请填写必要的RoomInformation'
       };
     }
 
-    // 检查房间名称是否重复
+    // 检查RoomName是否重复
     const existingLocation = this.locations.find(loc => loc.name === locationData.name);
     if (existingLocation) {
       return {
         success: false,
-        message: '房间名称已存在'
+        message: 'RoomNameCompleted存在'
       };
     }
 
-    // 创建新房间
+    // 创建新Room
     const newLocation = {
       id: Math.max(...this.locations.map(loc => loc.id)) + 1,
       ...locationData,
@@ -214,11 +214,11 @@ class LocationService {
     return {
       success: true,
       data: newLocation,
-      message: '房间创建成功'
+      message: 'Room创建Success'
     };
   }
 
-  // 更新房间信息
+  // 更新RoomInformation
   async updateLocation(id, locationData) {
     await this.sleep();
 
@@ -227,11 +227,11 @@ class LocationService {
     if (locationIndex === -1) {
       return {
         success: false,
-        message: '房间不存在'
+        message: 'Room不存在'
       };
     }
 
-    // 如果更新名称，检查是否重复
+    // 如果更新Name，检查是否重复
     if (locationData.name && locationData.name !== this.locations[locationIndex].name) {
       const existingLocation = this.locations.find(loc => 
         loc.name === locationData.name && loc.id !== parseInt(id)
@@ -239,12 +239,12 @@ class LocationService {
       if (existingLocation) {
         return {
           success: false,
-          message: '房间名称已存在'
+          message: 'RoomNameCompleted存在'
         };
       }
     }
 
-    // 更新房间信息
+    // 更新RoomInformation
     this.locations[locationIndex] = {
       ...this.locations[locationIndex],
       ...locationData,
@@ -255,11 +255,11 @@ class LocationService {
     return {
       success: true,
       data: this.locations[locationIndex],
-      message: '房间信息更新成功'
+      message: 'RoomInformation更新Success'
     };
   }
 
-  // 删除房间
+  // DeleteRoom
   async deleteLocation(id) {
     await this.sleep();
 
@@ -268,29 +268,29 @@ class LocationService {
     if (locationIndex === -1) {
       return {
         success: false,
-        message: '房间不存在'
+        message: 'Room不存在'
       };
     }
 
-    // 检查是否有未完成的预订
-    const hasActiveBookings = Math.random() > 0.7; // 模拟30%的概率有活跃预订
+    // 检查是否有Not完成的预订
+    const hasActiveBookings = Math.random() > 0.7; // 模拟30%的概Rate有Active预订
     if (hasActiveBookings) {
       return {
         success: false,
-        message: '该房间还有未完成的预订，无法删除'
+        message: '该Room还有Not完成的预订，无法Delete'
       };
     }
 
-    // 删除房间
+    // DeleteRoom
     this.locations.splice(locationIndex, 1);
 
     return {
       success: true,
-      message: '房间删除成功'
+      message: 'RoomDeleteSuccess'
     };
   }
 
-  // 获取房间类型选项
+  // 获取RoomType选项
   async getRoomTypes() {
     await this.sleep(200);
 
@@ -308,7 +308,7 @@ class LocationService {
     };
   }
 
-  // 获取可用设备列表
+  // 获取AvailableEquipmentList
   async getAvailableEquipment() {
     await this.sleep(200);
 
@@ -316,13 +316,13 @@ class LocationService {
       success: true,
       data: [
         '投影仪', 'WiFi', '空调', '白板', '音响', '电脑', 
-        '打印机', '插座', '台灯', '阅读灯', '摄像设备', 
+        '打印机', '插座', '台灯', '阅读灯', '摄像Equipment', 
         '话筒', '桌椅', '储物柜', '饮水机'
       ]
     };
   }
 
-  // 获取房间预订历史
+  // 获取Room预订历史
   async getLocationBookingHistory(locationId, limit = 10) {
     await this.sleep(300);
 
@@ -330,7 +330,7 @@ class LocationService {
     for (let i = 0; i < limit; i++) {
       history.push({
         id: i + 1,
-        userName: `用户${Math.floor(Math.random() * 100) + 1}`,
+        userName: `User${Math.floor(Math.random() * 100) + 1}`,
         date: dayjs().subtract(Math.floor(Math.random() * 30), 'day').format('YYYY-MM-DD'),
         startTime: `${8 + Math.floor(Math.random() * 10)}:00`,
         endTime: `${10 + Math.floor(Math.random() * 10)}:00`,
@@ -342,7 +342,7 @@ class LocationService {
     return history.sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf());
   }
 
-  // 批量更新房间状态
+  // 批量更新RoomStatus
   async batchUpdateStatus(locationIds, status) {
     await this.sleep();
 
@@ -360,7 +360,7 @@ class LocationService {
     return {
       success: true,
       data: updatedLocations,
-      message: `成功更新${updatedLocations.length}个房间的状态`
+      message: `Success更新${updatedLocations.length}个Room的Status`
     };
   }
 }
