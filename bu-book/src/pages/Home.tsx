@@ -66,8 +66,10 @@ export default function Home() {
         </aside>
 
         <section className="map-area">
-          <div className="map-placeholder">Map will go here</div>
-          {/* <Map />*/}
+          <div className="map-placeholder">
+
+            <Map />
+          </div>
         </section>
       </div>
     </div>

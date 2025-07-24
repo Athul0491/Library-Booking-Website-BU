@@ -1,36 +1,31 @@
 import type { Slot } from '../types/availability';
 
 export const fetchLibCalAvailability = async (
-  lid: number,
+  library: number,
   start: string,
-  end: string
+  end: string,
+  start_time?: string,
+  end_time?: string
 ): Promise<Slot[]> => {
   try {
-    const formData = new URLSearchParams({
-      lid: String(lid),
-      gid: '0',
-      eid: '-1',
-      seat: '0',
-      seatId: '0',
-      zone: '0',
-      start,
-      end,
-      pageIndex: '0',
-      pageSize: '18',
-    });
-
     const res = await fetch('/api/availability', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       },
-      body: formData.toString(),
+      body: JSON.stringify({
+        library,      // id
+        start,        // 'YYYY-MM-DD'
+        end,          // 'YYYY-MM-DD'
+        start_time,   // optional: 'HH:MM' 24hr format
+        end_time      // optional: 'HH:MM' 24hr format
+      }),
     });
 
     const { slots } = await res.json();
-    return slots;
+    return slots || [];
   } catch (err) {
-    console.error(`Failed to fetch LibCal availability for lid ${lid}:`, err);
+    console.error(`❌ Failed to fetch LibCal availability for library ${library}:`, err);
     return [];
   }
 };

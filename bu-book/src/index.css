@@ -57,3 +57,39 @@ button:focus-visible {
     background-color: #f9f9f9;
   }
 }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.home-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* full screen height */
+}
+
+.list-map-wrapper {
+  display: flex;
+  flex: 1;
+}
+
+.building-list {
+  width: 300px;
+  overflow-y: auto;
+  border-right: 1px solid #ddd;
+}
+
+.map-area {
+  flex: 1;
+  position: relative;
+}
+
+.map-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}

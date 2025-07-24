@@ -1,3 +1,29 @@
 /bub-backend/venv
 /bub-backend/__pycache__
 /.vscode
+
+# Logs
+bu-book/logs
+bu-book/*.log
+bu-book/npm-debug.log*
+bu-book/yarn-debug.log*
+bu-book/yarn-error.log*
+bu-book/pnpm-debug.log*
+bu-book/lerna-debug.log*
+
+bu-book/node_modules
+bu-book/dist
+bu-book/dist-ssr
+bu-book/*.local
+
+# Editor directories and files
+bu-book/.vscode/*
+bu-book/!.vscode/extensions.json
+bu-book/.idea
+bu-book/.DS_Store
+bu-book/*.suo
+bu-book/*.ntvs*
+bu-book/*.njsproj
+bu-book/*.sln
+bu-book/*.sw?
+/bu-book/.env
