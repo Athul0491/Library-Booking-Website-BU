@@ -126,9 +126,9 @@ const AvailabilityPage = () => {
   };
 
   // 获取日期的显示内容（用于日历）
-  const getDateCellRender = (value) => {
+  const getCellRender = (current, info) => {
     // 这里可以添加逻辑来显示每天的可用性状态
-    const date = value.format('YYYY-MM-DD');
+    const date = current.format('YYYY-MM-DD');
     const today = dayjs().format('YYYY-MM-DD');
     
     if (date === today) {
@@ -227,7 +227,7 @@ const AvailabilityPage = () => {
             <Calendar
               value={selectedDate}
               onSelect={setSelectedDate}
-              dateCellRender={getDateCellRender}
+              cellRender={getCellRender}
               headerRender={({ value, type, onChange, onTypeChange }) => (
                 <div style={{ padding: 8 }}>
                   <Row justify="space-between" align="middle">

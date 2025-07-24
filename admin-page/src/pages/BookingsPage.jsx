@@ -414,7 +414,7 @@ const BookingsPage = () => {
       {/* 预订详情模态框 */}
       <Modal
         title="预订详情"
-        visible={detailModalVisible}
+        open={detailModalVisible}
         onCancel={() => setDetailModalVisible(false)}
         footer={[
           <Button key="close" onClick={() => setDetailModalVisible(false)}>
