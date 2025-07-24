@@ -1,4 +1,4 @@
-// 主布局组件 - 包含侧边栏、顶部导航和内容区域
+// Main layout component - Contains sidebar, top navigation and content area
 import React, { useState } from 'react';
 import { Layout, Menu, Button, Avatar, Dropdown, Space, Typography } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -20,54 +20,54 @@ const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
 
 /**
- * 主布局组件
- * 提供应用的整体布局结构
+ * Main layout component
+ * Provides the overall layout structure of the application
  */
 const MainLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
-  // 菜单项配置
+  // Menu items configuration
   const menuItems = [
     {
       key: '/dashboard',
       icon: <DashboardOutlined />,
-      label: '仪表板',
+      label: 'Dashboard',
     },
     {
       key: '/locations',
       icon: <EnvironmentOutlined />,
-      label: '场地管理',
+      label: 'Location Management',
     },
     {
       key: '/bookings',
       icon: <CalendarOutlined />,
-      label: '预订管理',
+      label: 'Booking Management',
     },
     {
       key: '/availability',
       icon: <ClockCircleOutlined />,
-      label: '可用性管理',
+      label: 'Availability Management',
     },
     {
       key: '/statistics',
       icon: <BarChartOutlined />,
-      label: '统计报表',
+      label: 'Statistics & Reports',
     },
   ];
 
-  // 用户菜单配置
+  // User menu configuration
   const userMenuItems = [
     {
       key: 'profile',
       icon: <UserOutlined />,
-      label: '个人资料',
+      label: 'Profile',
     },
     {
       key: 'settings',
       icon: <SettingOutlined />,
-      label: '系统设置',
+      label: 'Settings',
     },
     {
       type: 'divider',
@@ -75,28 +75,28 @@ const MainLayout = ({ children }) => {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: '退出登录',
+      label: 'Logout',
       danger: true,
     },
   ];
 
-  // 处理菜单点击
+  // Handle menu click
   const handleMenuClick = ({ key }) => {
     navigate(key);
   };
 
-  // 处理用户菜单点击
+  // Handle user menu click
   const handleUserMenuClick = ({ key }) => {
     switch (key) {
       case 'logout':
-        // 这里可以添加登出逻辑
-        console.log('用户登出');
+        // Add logout logic here
+        console.log('User logout');
         break;
       case 'profile':
-        console.log('打开个人资料');
+        console.log('Open profile');
         break;
       case 'settings':
-        console.log('打开系统设置');
+        console.log('Open settings');
         break;
       default:
         break;
@@ -105,9 +105,9 @@ const MainLayout = ({ children }) => {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      {/* 侧边栏 */}
+      {/* Sidebar */}
       <Sider trigger={null} collapsible collapsed={collapsed} theme="dark">
-        {/* Logo 区域 */}
+        {/* Logo area */}
         <div style={{ 
           height: '64px', 
           display: 'flex', 
@@ -123,11 +123,11 @@ const MainLayout = ({ children }) => {
               fontSize: collapsed ? '16px' : '18px'
             }}
           >
-            {collapsed ? '图书馆' : '图书馆管理系统'}
+            {collapsed ? 'Library' : 'Library Management System'}
           </Title>
         </div>
         
-        {/* 导航菜单 */}
+        {/* Navigation menu */}
         <Menu
           theme="dark"
           mode="inline"
@@ -139,7 +139,7 @@ const MainLayout = ({ children }) => {
       </Sider>
 
       <Layout>
-        {/* 顶部导航栏 */}
+        {/* Top navigation bar */}
         <Header style={{ 
           background: '#fff', 
           padding: '0 24px',
@@ -148,7 +148,7 @@ const MainLayout = ({ children }) => {
           justifyContent: 'space-between',
           boxShadow: '0 1px 4px rgba(0,21,41,.08)'
         }}>
-          {/* 左侧：折叠按钮和页面标题 */}
+          {/* Left side: collapse button and page title */}
           <Space>
             <Button
               type="text"
@@ -157,21 +157,21 @@ const MainLayout = ({ children }) => {
               style={{ fontSize: '16px', width: 64, height: 64 }}
             />
             <Text strong style={{ fontSize: '16px' }}>
-              {menuItems.find(item => item.key === location.pathname)?.label || '图书馆管理系统'}
+              {menuItems.find(item => item.key === location.pathname)?.label || 'Library Management System'}
             </Text>
           </Space>
 
-          {/* 右侧：通知和用户信息 */}
+          {/* Right side: notifications and user info */}
           <Space>
-            {/* 通知按钮 */}
+            {/* Notification button */}
             <Button 
               type="text" 
               icon={<BellOutlined />} 
               style={{ fontSize: '16px' }}
-              onClick={() => console.log('打开通知')}
+              onClick={() => console.log('Open notifications')}
             />
             
-            {/* 用户下拉菜单 */}
+            {/* User dropdown menu */}
             <Dropdown
               menu={{
                 items: userMenuItems,
@@ -182,13 +182,13 @@ const MainLayout = ({ children }) => {
             >
               <Space style={{ cursor: 'pointer' }}>
                 <Avatar size="small" icon={<UserOutlined />} />
-                <Text>管理员</Text>
+                <Text>Administrator</Text>
               </Space>
             </Dropdown>
           </Space>
         </Header>
 
-        {/* 主内容区域 */}
+        {/* Main content area */}
         <Content style={{ 
           margin: '24px',
           padding: '24px',

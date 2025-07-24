@@ -1,4 +1,4 @@
-// 仪表板页面 - 显示系统概览和关键指标
+// Dashboard page - Display system overview and key metrics
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -29,8 +29,8 @@ import statsService from '../services/statsService';
 const { Title, Paragraph } = Typography;
 
 /**
- * 仪表板页面组件
- * 显示系统的关键统计数据和最近活动
+ * Dashboard page component
+ * Display key statistical data and recent activities of the system
  */
 const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
