@@ -21,7 +21,7 @@ def parse_slot_time(time_str: str):
             continue
     raise ValueError(f"Unrecognized time format: {time_str}")
 
-@app.route('/api/availability', methods=['POST'])
+@app.route('/api/availability', methods=['GET'])
 def proxy_availability():
     try:
         # ✅ Get library + dates from request
