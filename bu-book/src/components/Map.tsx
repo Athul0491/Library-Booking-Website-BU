@@ -15,8 +15,8 @@ export default function Map() {
         const map = new mapboxgl.Map({
             container: mapContainerRef.current,
             style: 'https://api.mapbox.com/styles/v1/notakki/cm1o3v5kr00bl01pd2k7tho6i?sdk=js-3.7.0&access_token=pk.eyJ1Ijoibm90YWtraSIsImEiOiJjbTJsZ2wwMWwwYmx2MnFwdnhmb295amJvIn0.qWO7Ace5zXHDvd6nh-QQqg', // Use same style as in SPOTS
-            center: [-71.1056, 42.3505], // Boston University
-            zoom: 16,
+            center: [-71.10205336251416, 42.350269855271996], // Boston University
+            zoom: 17,
             pitch: 60,
             bearing: -30,
             antialias: true
