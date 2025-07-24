@@ -38,22 +38,22 @@ const MainLayout = ({ children }) => {
     {
       key: '/locations',
       icon: <EnvironmentOutlined />,
-      label: 'Location Management',
+      label: 'Locations',
     },
     {
       key: '/bookings',
       icon: <CalendarOutlined />,
-      label: 'Booking Management',
+      label: 'Bookings',
     },
     {
       key: '/availability',
       icon: <ClockCircleOutlined />,
-      label: 'Availability Management',
+      label: 'Availability',
     },
     {
       key: '/statistics',
       icon: <BarChartOutlined />,
-      label: 'Statistics & Reports',
+      label: 'Statistics',
     },
   ];
 
@@ -106,24 +106,36 @@ const MainLayout = ({ children }) => {
   return (
     <Layout style={{ minHeight: '100vh' }}>
       {/* Sidebar */}
-      <Sider trigger={null} collapsible collapsed={collapsed} theme="dark">
+      <Sider 
+        trigger={null} 
+        collapsible 
+        collapsed={collapsed} 
+        theme="dark"
+        width={280}
+        collapsedWidth={80}
+      >
         {/* Logo area */}
         <div style={{ 
           height: '64px', 
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
-          borderBottom: '1px solid #001529'
+          borderBottom: '1px solid #001529',
+          padding: '0 16px'
         }}>
           <Title 
             level={4} 
             style={{ 
               color: 'white', 
               margin: 0,
-              fontSize: collapsed ? '16px' : '18px'
+              fontSize: collapsed ? '14px' : '16px',
+              textAlign: 'center',
+              lineHeight: '1.2',
+              wordBreak: collapsed ? 'break-all' : 'normal',
+              width: '100%'
             }}
           >
-            {collapsed ? 'Library' : 'Library Management System'}
+            {collapsed ? 'LMS' : 'Library Management System'}
           </Title>
         </div>
         
@@ -134,7 +146,10 @@ const MainLayout = ({ children }) => {
           selectedKeys={[location.pathname]}
           items={menuItems}
           onClick={handleMenuClick}
-          style={{ borderRight: 0 }}
+          style={{ 
+            borderRight: 0,
+            fontSize: '14px'
+          }}
         />
       </Sider>
 
@@ -157,7 +172,16 @@ const MainLayout = ({ children }) => {
               style={{ fontSize: '16px', width: 64, height: 64 }}
             />
             <Text strong style={{ fontSize: '16px' }}>
-              {menuItems.find(item => item.key === location.pathname)?.label || 'Library Management System'}
+              {(() => {
+                const pageMap = {
+                  '/dashboard': 'Dashboard',
+                  '/locations': 'Location Management',
+                  '/bookings': 'Booking Management', 
+                  '/availability': 'Availability Management',
+                  '/statistics': 'Statistics & Reports'
+                };
+                return pageMap[location.pathname] || 'Library Management System';
+              })()}
             </Text>
           </Space>
 
@@ -190,12 +214,13 @@ const MainLayout = ({ children }) => {
 
         {/* Main content area */}
         <Content style={{ 
-          margin: '24px',
-          padding: '24px',
+          margin: '16px 24px',
+          padding: '24px 32px',
           background: '#fff',
           borderRadius: '8px',
           boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          overflow: 'auto'
+          overflow: 'auto',
+          minHeight: 'calc(100vh - 112px)'
         }}>
           {children}
         </Content>

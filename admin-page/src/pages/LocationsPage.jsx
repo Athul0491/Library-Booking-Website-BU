@@ -1,4 +1,4 @@
-// Location Management页面 - Management图书馆Room和场地Information
+// Location Management page - Manage library rooms and venue information
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -28,8 +28,8 @@ const { Title, Paragraph } = Typography;
 const { Option } = Select;
 
 /**
- * Location Management页面组件
- * 用于Management图书馆的Room和场地Information
+ * Location Management page component
+ * In useManagement library Room and venue Information
  */
 const LocationsPage = () => {
   const [loading, setLoading] = useState(false);
@@ -38,26 +38,26 @@ const LocationsPage = () => {
   const [editingLocation, setEditingLocation] = useState(null);
   const [form] = Form.useForm();
 
-  // 组件挂载时LoadData
+  // component handle Load Data
   useEffect(() => {
     loadLocations();
   }, []);
 
-  // Load场地List
+  // Load venue List
   const loadLocations = async () => {
     try {
       setLoading(true);
       const response = await locationService.getLocations();
       setLocations(response.data?.list || []);
     } catch (error) {
-      message.error('Load场地ListFailed');
-      console.error('Load场地ListFailed:', error);
+      message.error('Load venue list failed');
+      console.error('Load venue list failed:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // 打开Add New/Edit弹窗
+  // Open Add New/Edit Popup
   const openModal = (location = null) => {
     setEditingLocation(location);
     setModalVisible(true);
@@ -68,47 +68,47 @@ const LocationsPage = () => {
     }
   };
 
-  // Close弹窗
+  // Close popups
   const closeModal = () => {
     setModalVisible(false);
     setEditingLocation(null);
     form.resetFields();
   };
 
-  // Save场地Information
+  // Save venue information
   const handleSave = async (values) => {
     try {
       if (editingLocation) {
         await locationService.updateLocation(editingLocation.id, values);
-        message.success('更新场地InformationSuccess');
+        message.success('Update venue information success');
       } else {
         await locationService.createLocation(values);
-        message.success('创建场地Success');
+        message.success('Create venue success');
       }
       closeModal();
       loadLocations();
     } catch (error) {
-      message.error(editingLocation ? '更新场地InformationFailed' : '创建场地Failed');
-      console.error('Save场地InformationFailed:', error);
+      message.error(editingLocation ? 'Update venue information failed' : 'Create venue failed');
+      console.error('Save venue information failed:', error);
     }
   };
 
-  // Delete场地
+  // Delete venue
   const handleDelete = async (id) => {
     try {
       await locationService.deleteLocation(id);
-      message.success('Delete场地Success');
+      message.success('Delete venue success');
       loadLocations();
     } catch (error) {
-      message.error('Delete场地Failed');
-      console.error('Delete场地Failed:', error);
+      message.error('Delete venue failed');
+      console.error('Delete venue failed:', error);
     }
   };
 
-  // 表格列Configuration
+  // Table Column Configuration
   const columns = [
     {
-      title: '场地Name',
+      title: 'Venue Name',
       dataIndex: 'name',
       key: 'name',
       render: (text) => (
@@ -130,10 +130,10 @@ const LocationsPage = () => {
           reading_area: 'purple',
         };
         const typeNames = {
-          study_room: '自习室',
-          meeting_room: '会议室',
-          computer_lab: '机房',
-          reading_area: '阅读区',
+          study_room: 'Study Room',
+          meeting_room: 'Meeting Room',
+          computer_lab: 'Computer Lab',
+          reading_area: 'Reading Area',
         };
         return (
           <Tag color={typeColors[type]}>
@@ -149,7 +149,7 @@ const LocationsPage = () => {
       render: (capacity) => (
         <Space>
           <UsergroupAddOutlined />
-          {capacity} 人
+          {capacity}
         </Space>
       ),
     },
@@ -172,8 +172,8 @@ const LocationsPage = () => {
       render: (status) => {
         const statusConfig = {
           available: { color: 'green', text: 'Available' },
-          maintenance: { color: 'orange', text: 'Maintenance中' },
-          disabled: { color: 'red', text: '停用' },
+          maintenance: { color: 'orange', text: 'Maintenance' },
+          disabled: { color: 'red', text: 'Disabled' },
         };
         const config = statusConfig[status] || { color: 'default', text: status };
         return <Tag color={config.color}>{config.text}</Tag>;
@@ -192,9 +192,9 @@ const LocationsPage = () => {
             Edit
           </Button>
           <Popconfirm
-            title="确定要Delete这个场地吗？"
+            title="Sure you want to delete this location?"
             onConfirm={() => handleDelete(record.id)}
-            okText="确定"
+            okText="Confirm"
             cancelText="Cancel"
           >
             <Button type="link" danger icon={<DeleteOutlined />}>
@@ -210,20 +210,20 @@ const LocationsPage = () => {
     <div>
       <Title level={2}>Location Management</Title>
       <Paragraph>
-        Management图书馆的所有场地和RoomInformation，包括Capacity、Equipment和AvailableStatus。
+        Management library all venue and RoomInformation，include Capacity、Equipment and AvailableStatus。
       </Paragraph>
 
       <Card>
         <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
           <div>
-            <Title level={4}>场地List</Title>
+            <Title level={4}>venueList</Title>
           </div>
           <Button
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => openModal()}
           >
-            Add New场地
+            Add Newvenue
           </Button>
         </div>
 
@@ -235,14 +235,14 @@ const LocationsPage = () => {
           pagination={{
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total) => `共 ${total} 个场地`,
+            showTotal: (total) => ` In total of ${total} venues`,
           }}
         />
       </Card>
 
-      {/* Add New/Edit场地弹窗 */}
+      {/* Add New/Edit venue modal */}
       <Modal
-        title={editingLocation ? 'Edit场地' : 'Add New场地'}
+        title={editingLocation ? 'Editvenue' : 'Add Newvenue'}
         open={modalVisible}
         onCancel={closeModal}
         footer={null}
@@ -255,45 +255,45 @@ const LocationsPage = () => {
         >
           <Form.Item
             name="name"
-            label="场地Name"
-            rules={[{ required: true, message: '请输入场地Name' }]}
+            label="venueName"
+            rules={[{ required: true, message: 'Please enter venue name' }]}
           >
-            <Input placeholder="请输入场地Name" />
+            <Input placeholder="Please enter venue name" />
           </Form.Item>
 
           <Form.Item
             name="type"
-            label="场地Type"
-            rules={[{ required: true, message: '请选择场地Type' }]}
+            label="venueType"
+            rules={[{ required: true, message: 'Please select venue type' }]}
           >
-            <Select placeholder="请选择场地Type">
-              <Option value="study_room">自习室</Option>
-              <Option value="meeting_room">会议室</Option>
-              <Option value="computer_lab">机房</Option>
-              <Option value="reading_area">阅读区</Option>
+            <Select placeholder="Please select venue type">
+              <Option value="study_room">Study Room</Option>
+              <Option value="meeting_room">Meeting Room</Option>
+              <Option value="computer_lab">Computer Lab</Option>
+              <Option value="reading_area">Reading Area</Option>
             </Select>
           </Form.Item>
 
           <Form.Item
             name="capacity"
             label="Capacity"
-            rules={[{ required: true, message: '请输入场地Capacity' }]}
+            rules={[{ required: true, message: 'Please enter venue capacity' }]}
           >
             <InputNumber
               min={1}
               max={200}
-              placeholder="请输入场地Capacity"
+              placeholder="Please enter venue capacity"
               style={{ width: '100%' }}
-              addonAfter="人"
+              addonAfter="People"
             />
           </Form.Item>
 
           <Form.Item
             name="location"
-            label="位置Description"
-            rules={[{ required: true, message: '请输入位置Description' }]}
+            label="Location Description"
+            rules={[{ required: true, message: 'Please enter location description' }]}
           >
-            <Input placeholder="例如：二楼东侧" />
+            <Input placeholder="e.g., Second floor east side" />
           </Form.Item>
 
           <Form.Item
@@ -302,26 +302,26 @@ const LocationsPage = () => {
           >
             <Select
               mode="tags"
-              placeholder="输入EquipmentName后按回车Add"
+              placeholder="Please enter equipment name and press enter to add"
               style={{ width: '100%' }}
             >
-              <Option value="投影仪">投影仪</Option>
-              <Option value="白板">白板</Option>
-              <Option value="电脑">电脑</Option>
-              <Option value="空调">空调</Option>
-              <Option value="音响">音响</Option>
+              <Option value="projector">Projector</Option>
+              <Option value="whiteboard">Whiteboard</Option>
+              <Option value="computer">Computer</Option>
+              <Option value="air_conditioning">Air Conditioning</Option>
+              <Option value="audio_system">Audio System</Option>
             </Select>
           </Form.Item>
 
           <Form.Item
             name="status"
             label="Status"
-            rules={[{ required: true, message: '请选择场地Status' }]}
+            rules={[{ required: true, message: 'Please select venue status' }]}
           >
-            <Select placeholder="请选择场地Status">
+            <Select placeholder="Please select venue status">
               <Option value="available">Available</Option>
-              <Option value="maintenance">Maintenance中</Option>
-              <Option value="disabled">停用</Option>
+              <Option value="maintenance">Maintenance</Option>
+              <Option value="disabled">Disabled</Option>
             </Select>
           </Form.Item>
 
@@ -329,7 +329,7 @@ const LocationsPage = () => {
             name="description"
             label="Notes"
           >
-            <Input.TextArea rows={3} placeholder="请输入NotesInformation" />
+            <Input.TextArea rows={3} placeholder="Please enter notes information" />
           </Form.Item>
 
           <Form.Item>

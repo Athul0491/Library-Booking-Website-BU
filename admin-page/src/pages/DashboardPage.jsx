@@ -38,17 +38,17 @@ const DashboardPage = () => {
   const [recentBookings, setRecentBookings] = useState([]);
   const [popularRooms, setPopularRooms] = useState([]);
 
-  // 组件挂载时获取Data
+  // Load data when component mounts
   useEffect(() => {
     loadDashboardData();
   }, []);
 
-  // LoadDashboardData
+  // Load Dashboard Data
   const loadDashboardData = async () => {
     try {
       setLoading(true);
       
-      // 获取StatisticsData
+      // Get Statistics Data
       const [statsData, bookingsData, roomsData] = await Promise.all([
         statsService.getOverviewStats(),
         statsService.getRecentBookings(),
@@ -59,13 +59,13 @@ const DashboardPage = () => {
       setRecentBookings(bookingsData.data || []);
       setPopularRooms(roomsData.data || []);
     } catch (error) {
-      console.error('LoadDashboardDataFailed:', error);
+      console.error('Failed to load dashboard data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Recent预订表格列Configuration
+  // Recent booking table column configuration
   const bookingColumns = [
     {
       title: 'User',
@@ -94,9 +94,9 @@ const DashboardPage = () => {
       key: 'status',
       render: (status) => {
         const statusConfig = {
-          confirmed: { color: 'green', text: 'CompletedConfirm' },
-          pending: { color: 'orange', text: 'PendingConfirm' },
-          cancelled: { color: 'red', text: 'CompletedCancel' },
+          confirmed: { color: 'green', text: 'Confirmed' },
+          pending: { color: 'orange', text: 'Pending' },
+          cancelled: { color: 'red', text: 'Cancelled' },
         };
         const config = statusConfig[status] || { color: 'default', text: status };
         return <Tag color={config.color}>{config.text}</Tag>;
@@ -109,7 +109,7 @@ const DashboardPage = () => {
         <Button 
           type="link" 
           icon={<EyeOutlined />}
-          onClick={() => console.log('View预订Details:', record)}
+          onClick={() => console.log('View Booking Details:', record)}
         >
           View
         </Button>
@@ -121,15 +121,15 @@ const DashboardPage = () => {
     <div>
       <Title level={2}>Dashboard</Title>
       <Paragraph>
-        欢迎使用图书馆Booking ManagementSystem，这里是System的整体Overview和关键指标。
+        Welcome to the Library Booking Management System. Here you can find system overview and key metrics.
       </Paragraph>
 
-      {/* Statistics卡片区域 */}
+      {/* Statistics card area */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Today预订"
+              title="Today's Bookings"
               value={stats.todayBookings}
               prefix={<CalendarOutlined />}
               valueStyle={{ color: '#3f8600' }}
@@ -145,7 +145,7 @@ const DashboardPage = () => {
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="ActiveUser"
+              title="Active User"
               value={stats.activeUsers}
               prefix={<UserOutlined />}
               valueStyle={{ color: '#1890ff' }}
@@ -198,17 +198,18 @@ const DashboardPage = () => {
           </Card>
         </Col>
 
-        {/* PopularRoom和使用Rate */}
+        {/* Popular Rooms and Usage Rate */}
         <Col xs={24} lg={10}>
-          <Card title="PopularRoom" style={{ marginBottom: 16 }}>
+          <Card title="Popular Rooms" style={{ marginBottom: 16 }}>
             <List
               loading={loading}
               dataSource={popularRooms}
+              locale={{ emptyText: 'No data available' }}
               renderItem={(item) => (
                 <List.Item>
                   <List.Item.Meta
                     title={item.name}
-                    description={`Today预订 ${item.bookings} 次`}
+                    description={`Today's bookings: ${item.bookings} times`}
                   />
                   <Progress 
                     percent={item.usageRate} 
@@ -220,17 +221,17 @@ const DashboardPage = () => {
             />
           </Card>
 
-          {/* 快速Actions区域 */}
-          <Card title="快速Actions">
+          {/* Quick Actions area */}
+          <Card title="Quick Actions">
             <Space direction="vertical" style={{ width: '100%' }}>
-              <Button type="primary" block onClick={() => console.log('Add New预订')}>
-                Add New预订
+              <Button type="primary" block onClick={() => console.log('Add New Booking')}>
+                Add New Booking
               </Button>
-              <Button block onClick={() => console.log('RoomManagement')}>
-                RoomManagement
+              <Button block onClick={() => console.log('Room Management')}>
+                Room Management
               </Button>
-              <Button block onClick={() => console.log('ExportReport')}>
-                ExportReport
+              <Button block onClick={() => console.log('Export Report')}>
+                Export Report
               </Button>
             </Space>
           </Card>

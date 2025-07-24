@@ -13,8 +13,8 @@ import './assets/styles/index.css';
 dayjs.locale('zh-cn');
 
 /**
- * 应用程序根组件渲染
- * 使用 Ant Design 的 ConfigProvider 提供中文国际化Support
+ * 应用程序根component渲染
+ * usage Ant Design  ConfigProvider 提供中文国际化Support
  */
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

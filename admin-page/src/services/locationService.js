@@ -1,26 +1,26 @@
-// 位置/Room服务 - 提供RoomManagement相关的API模拟
+// Location/Room service - Provides room management related API simulation
 import dayjs from 'dayjs';
 
 /**
- * 模拟位置/RoomData服务
- * 提供RoomCRUDActions和相关DataManagement
+ * Mock location/room data service
+ * Provides room CRUD operations and related data management
  */
 class LocationService {
   constructor() {
-    // 模拟延迟，真实API调用的Time
+    // Simulate delay for realistic API call timing
     this.delay = 500;
     
-    // 模拟Data存储
+    // Mock data storage
     this.locations = [
       {
         id: 1,
-        name: '自习室A',
+        name: 'Study Room A',
         type: 'study',
         capacity: 50,
         floor: 1,
-        building: '图书馆主楼',
-        description: '安静的自习环境，配备个人座位和台灯',
-        equipment: ['WiFi', '空调', '插座', '台灯'],
+        building: 'Library Main Building',
+        description: 'Quiet study environment with individual seats and desk lamps',
+        equipment: ['WiFi', 'Air Conditioning', 'Power Outlets', 'Desk Lamps'],
         status: 'active',
         price: 10,
         images: ['/images/study-room-a.jpg'],
@@ -31,13 +31,13 @@ class LocationService {
       },
       {
         id: 2,
-        name: '会议室B',
+        name: 'Meeting Room B',
         type: 'meeting',
         capacity: 12,
         floor: 2,
-        building: '图书馆主楼',
-        description: '适合小型会议和团队讨论',
-        equipment: ['投影仪', 'WiFi', '空调', '白板', '音响'],
+        building: 'Library Main Building',
+        description: '适合小型会议 and 团队讨论',
+        equipment: ['Projector', 'WiFi', 'Air Conditioning', 'Whiteboard', '音响'],
         status: 'active',
         price: 50,
         images: ['/images/meeting-room-b.jpg'],
@@ -48,13 +48,13 @@ class LocationService {
       },
       {
         id: 3,
-        name: '讨论室C',
+        name: 'Discussion Room C',
         type: 'discussion',
         capacity: 8,
         floor: 1,
-        building: '图书馆主楼',
+        building: 'Library Main Building',
         description: '小组讨论专用空间',
-        equipment: ['WiFi', '空调', '白板'],
+        equipment: ['WiFi', 'Air Conditioning', 'Whiteboard'],
         status: 'active',
         price: 30,
         images: ['/images/discussion-room-c.jpg'],
@@ -65,13 +65,13 @@ class LocationService {
       },
       {
         id: 4,
-        name: '机房D',
+        name: 'Computer Lab D',
         type: 'computer',
         capacity: 30,
         floor: 3,
-        building: '图书馆主楼',
-        description: '配备高性能电脑的学习空间',
-        equipment: ['电脑', 'WiFi', '空调', '打印机'],
+        building: 'Library Main Building',
+        description: '配备High-Performance Computers学习空间',
+        equipment: ['电脑', 'WiFi', 'Air Conditioning', '打印机'],
         status: 'maintenance',
         price: 20,
         images: ['/images/computer-room-d.jpg'],
@@ -82,13 +82,13 @@ class LocationService {
       },
       {
         id: 5,
-        name: '阅读区E',
+        name: 'Reading Area E',
         type: 'reading',
         capacity: 100,
         floor: 2,
-        building: '图书馆主楼',
-        description: 'Open式阅读区域，安静舒适',
-        equipment: ['WiFi', '空调', '阅读灯'],
+        building: 'Library Main Building',
+        description: 'Open式阅读area，安静舒适',
+        equipment: ['WiFi', 'Air Conditioning', 'Reading Lights'],
         status: 'active',
         price: 5,
         images: ['/images/reading-area-e.jpg'],
@@ -100,12 +100,12 @@ class LocationService {
     ];
   }
 
-  // 模拟网络延迟
+  // Mock网络delay
   sleep(ms = this.delay) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // 获取所有RoomList
+  // GetallRoomList
   async getLocations(params = {}) {
     await this.sleep();
 
@@ -149,7 +149,7 @@ class LocationService {
     };
   }
 
-  // 获取单个RoomDetails
+  // Get单个RoomDetails
   async getLocationById(id) {
     await this.sleep();
 
@@ -158,16 +158,16 @@ class LocationService {
     if (!location) {
       return {
         success: false,
-        message: 'Room不存在'
+        message: 'Room not found'
       };
     }
 
-    // Add一些额外的详细Information
+    // Add一些额外详细Information
     const detailedLocation = {
       ...location,
       bookingHistory: await this.getLocationBookingHistory(id),
-      utilization: Math.floor(Math.random() * 40) + 50, // 模拟使用Rate
-      rating: (Math.random() * 1.5 + 3.5).toFixed(1), // 模拟Rating
+      utilization: Math.floor(Math.random() * 40) + 50, // MockusageRate
+      rating: (Math.random() * 1.5 + 3.5).toFixed(1), // MockRating
       lastMaintenance: dayjs().subtract(Math.floor(Math.random() * 30), 'day').format('YYYY-MM-DD')
     };
 
@@ -177,19 +177,19 @@ class LocationService {
     };
   }
 
-  // 创建新Room
+  // Create新Room
   async createLocation(locationData) {
     await this.sleep();
 
-    // 简单的Data验证
+    // 简单Data验证
     if (!locationData.name || !locationData.type || !locationData.capacity) {
       return {
         success: false,
-        message: '请填写必要的RoomInformation'
+        message: '请填写必要RoomInformation'
       };
     }
 
-    // 检查RoomName是否重复
+    // check roomName是否重复
     const existingLocation = this.locations.find(loc => loc.name === locationData.name);
     if (existingLocation) {
       return {
@@ -198,7 +198,7 @@ class LocationService {
       };
     }
 
-    // 创建新Room
+    // Create新Room
     const newLocation = {
       id: Math.max(...this.locations.map(loc => loc.id)) + 1,
       ...locationData,
@@ -218,7 +218,7 @@ class LocationService {
     };
   }
 
-  // 更新RoomInformation
+  // UpdateRoomInformation
   async updateLocation(id, locationData) {
     await this.sleep();
 
@@ -227,7 +227,7 @@ class LocationService {
     if (locationIndex === -1) {
       return {
         success: false,
-        message: 'Room不存在'
+        message: 'Room not found'
       };
     }
 
@@ -244,7 +244,7 @@ class LocationService {
       }
     }
 
-    // 更新RoomInformation
+    // UpdateRoomInformation
     this.locations[locationIndex] = {
       ...this.locations[locationIndex],
       ...locationData,
@@ -268,16 +268,16 @@ class LocationService {
     if (locationIndex === -1) {
       return {
         success: false,
-        message: 'Room不存在'
+        message: 'Room not found'
       };
     }
 
-    // 检查是否有Not完成的预订
-    const hasActiveBookings = Math.random() > 0.7; // 模拟30%的概Rate有Active预订
+    // 检查是否有Not完成booking
+    const hasActiveBookings = Math.random() > 0.7; // Mock30%概Rate有Activebooking
     if (hasActiveBookings) {
       return {
         success: false,
-        message: '该Room还有Not完成的预订，无法Delete'
+        message: '该Room还有Not完成booking，无法Delete'
       };
     }
 
@@ -290,7 +290,7 @@ class LocationService {
     };
   }
 
-  // 获取RoomType选项
+  // GetRoomType选项
   async getRoomTypes() {
     await this.sleep(200);
 
@@ -308,21 +308,21 @@ class LocationService {
     };
   }
 
-  // 获取AvailableEquipmentList
+  // GetAvailableEquipmentList
   async getAvailableEquipment() {
     await this.sleep(200);
 
     return {
       success: true,
       data: [
-        '投影仪', 'WiFi', '空调', '白板', '音响', '电脑', 
-        '打印机', '插座', '台灯', '阅读灯', '摄像Equipment', 
+        'Projector', 'WiFi', 'Air Conditioning', 'Whiteboard', '音响', '电脑', 
+        '打印机', 'Power Outlets', 'Desk Lamps', 'Reading Lights', '摄像Equipment', 
         '话筒', '桌椅', '储物柜', '饮水机'
       ]
     };
   }
 
-  // 获取Room预订历史
+  // GetRoombooking历史
   async getLocationBookingHistory(locationId, limit = 10) {
     await this.sleep(300);
 
@@ -342,7 +342,7 @@ class LocationService {
     return history.sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf());
   }
 
-  // 批量更新RoomStatus
+  // 批量update roomStatus
   async batchUpdateStatus(locationIds, status) {
     await this.sleep();
 
@@ -360,12 +360,12 @@ class LocationService {
     return {
       success: true,
       data: updatedLocations,
-      message: `Success更新${updatedLocations.length}个Room的Status`
+      message: `Success更新${updatedLocations.length}个RoomStatus`
     };
   }
 }
 
-// 创建单例实例
+// Create单例实例
 const locationService = new LocationService();
 
 export default locationService;

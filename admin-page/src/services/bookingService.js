@@ -1,20 +1,20 @@
-// 预订服务 - 提供Booking Management相关的API模拟
+// booking服务 - 提供Booking Management相关API模拟
 import dayjs from 'dayjs';
 
 /**
- * 模拟预订Data服务
- * 提供预订CRUDActions和相关DataManagement
+ * 模拟bookingData服务
+ * 提供bookingCRUDActions and 相关DataManagement
  */
 class BookingService {
   constructor() {
-    // 模拟延迟，真实API调用的Time
+    // 模拟延迟，真实API调用Time
     this.delay = 500;
     
-    // 模拟预订Data存储
+    // 模拟bookingData存储
     this.bookings = this.generateMockBookings();
   }
 
-  // 生成模拟预订Data
+  // 生成模拟bookingData
   generateMockBookings() {
     const bookings = [];
     const statuses = ['confirmed', 'pending', 'cancelled', 'completed', 'no-show'];
@@ -62,7 +62,7 @@ class BookingService {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
-  // 获取预订List
+  // 获取bookingList
   async getBookings(params = {}) {
     await this.sleep();
 
@@ -139,7 +139,7 @@ class BookingService {
     };
   }
 
-  // 获取单个预订Details
+  // 获取单个bookingDetails
   async getBookingById(id) {
     await this.sleep();
 
@@ -148,11 +148,11 @@ class BookingService {
     if (!booking) {
       return {
         success: false,
-        message: '预订不存在'
+        message: 'booking不存在'
       };
     }
 
-    // Add一些额外的详细Information
+    // Add一些额外详细Information
     const detailedBooking = {
       ...booking,
       paymentStatus: Math.random() > 0.2 ? 'paid' : 'pending',
@@ -170,16 +170,16 @@ class BookingService {
     };
   }
 
-  // 创建新预订
+  // 创建新booking
   async createBooking(bookingData) {
     await this.sleep();
 
-    // 简单的Data验证
+    // 简单Data验证
     if (!bookingData.userId || !bookingData.locationId || !bookingData.date || 
         !bookingData.startTime || !bookingData.endTime) {
       return {
         success: false,
-        message: '请填写必要的预订Information'
+        message: '请填写必要bookingInformation'
       };
     }
 
@@ -198,18 +198,18 @@ class BookingService {
     if (hasConflict) {
       return {
         success: false,
-        message: '该Time段Completed被预订'
+        message: '该Time slotCompleted被booking'
       };
     }
 
-    // 计算Duration和Price
+    // 计算Duration and Price
     const startHour = parseInt(bookingData.startTime.split(':')[0]);
     const endHour = parseInt(bookingData.endTime.split(':')[0]);
     const duration = endHour - startHour;
     const basePrice = 20; // 基础Price
     const price = duration * basePrice;
 
-    // 创建新预订
+    // 创建新booking
     const newBooking = {
       id: Math.max(...this.bookings.map(b => b.id)) + 1,
       bookingNumber: `BK${String(Date.now()).slice(-6)}`,
@@ -232,11 +232,11 @@ class BookingService {
     return {
       success: true,
       data: newBooking,
-      message: '预订创建Success'
+      message: 'booking创建Success'
     };
   }
 
-  // 更新预订Status
+  // 更新bookingStatus
   async updateBookingStatus(id, status, operator = 'Management员') {
     await this.sleep();
 
@@ -245,7 +245,7 @@ class BookingService {
     if (bookingIndex === -1) {
       return {
         success: false,
-        message: '预订不存在'
+        message: 'booking不存在'
       };
     }
 
@@ -255,11 +255,11 @@ class BookingService {
     if (oldStatus === 'completed' && status !== 'completed') {
       return {
         success: false,
-        message: 'Completed的预订无法ModifyStatus'
+        message: 'Completedbooking无法ModifyStatus'
       };
     }
 
-    // 更新预订Status
+    // 更新bookingStatus
     this.bookings[bookingIndex] = {
       ...this.bookings[bookingIndex],
       status,
@@ -269,7 +269,7 @@ class BookingService {
     return {
       success: true,
       data: this.bookings[bookingIndex],
-      message: `预订StatusCompleted更新为${this.getStatusText(status)}`
+      message: `bookingStatusCompleted更新为${this.getStatusText(status)}`
     };
   }
 
@@ -282,7 +282,7 @@ class BookingService {
     if (bookingIndex === -1) {
       return {
         success: false,
-        message: '预订不存在'
+        message: 'booking不存在'
       };
     }
 
@@ -291,7 +291,7 @@ class BookingService {
     if (booking.status !== 'confirmed') {
       return {
         success: false,
-        message: '只有ConfirmStatus的预订才能签到'
+        message: '只有ConfirmStatusbooking才能签到'
       };
     }
 
@@ -317,7 +317,7 @@ class BookingService {
     };
   }
 
-  // Cancel预订
+  // Cancelbooking
   async cancelBooking(id, reason = '') {
     await this.sleep();
 
@@ -326,7 +326,7 @@ class BookingService {
     if (bookingIndex === -1) {
       return {
         success: false,
-        message: '预订不存在'
+        message: 'booking不存在'
       };
     }
 
@@ -335,7 +335,7 @@ class BookingService {
     if (booking.status === 'completed' || booking.status === 'cancelled') {
       return {
         success: false,
-        message: '该预订无法Cancel'
+        message: '该booking无法Cancel'
       };
     }
 
@@ -346,7 +346,7 @@ class BookingService {
     const refundRate = hoursUntilBooking >= 24 ? 1.0 : 0.8;
     const refundAmount = booking.price * refundRate;
 
-    // 更新预订Status
+    // 更新bookingStatus
     this.bookings[bookingIndex] = {
       ...booking,
       status: 'cancelled',
@@ -358,7 +358,7 @@ class BookingService {
     return {
       success: true,
       data: this.bookings[bookingIndex],
-      message: `预订CompletedCancel，退款金额：¥${refundAmount}`
+      message: `bookingCompletedCancel，退款金额：¥${refundAmount}`
     };
   }
 
@@ -374,7 +374,7 @@ class BookingService {
     return statusMap[status] || status;
   }
 
-  // 获取预订Statistics
+  // 获取bookingStatistics
   async getBookingStats(dateRange = null) {
     await this.sleep();
 
@@ -437,28 +437,28 @@ class BookingService {
     return {
       success: true,
       data: updatedBookings,
-      message: `Success${action === 'confirm' ? 'Confirm' : action === 'cancel' ? 'Cancel' : '完成'}${updatedBookings.length}个预订`
+      message: `Success${action === 'confirm' ? 'Confirm' : action === 'cancel' ? 'Cancel' : '完成'}${updatedBookings.length}个booking`
     };
   }
 
-  // 获取AvailableTime段
+  // 获取AvailableTime slot
   async getAvailableSlots(locationId, date) {
     await this.sleep(300);
 
-    // 获取该Room当天的预订
+    // 获取该Room当天booking
     const dayBookings = this.bookings.filter(booking => 
       booking.locationId === parseInt(locationId) &&
       booking.date === date &&
       booking.status !== 'cancelled'
     );
 
-    // 生成AvailableTime段（8:00-22:00，按Hours划分）
+    // 生成AvailableTime slot（8:00-22:00，按Hours划分）
     const slots = [];
     for (let hour = 8; hour < 22; hour++) {
       const startTime = `${hour.toString().padStart(2, '0')}:00`;
       const endTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
       
-      // 检查该Time段是否被预订
+      // 检查该Time slot是否被booking
       const isBooked = dayBookings.some(booking => 
         booking.startTime <= startTime && booking.endTime > startTime
       );

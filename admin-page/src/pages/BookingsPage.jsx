@@ -1,4 +1,3 @@
-// Booking Management页面 - View和Management所有预订记录
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -19,405 +18,437 @@ import {
   Typography
 } from 'antd';
 import {
-  SearchOutlined,
-  ReloadOutlined,
-  EyeOutlined,
+  PlusOutlined,
   EditOutlined,
   DeleteOutlined,
+  EyeOutlined,
+  SearchOutlined,
+  CalendarOutlined,
+  UserOutlined,
+  HomeOutlined,
+  ClockCircleOutlined,
+  ReloadOutlined,
   CheckOutlined,
   CloseOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import bookingService from '../services/bookingService';
 
-const { Title, Paragraph } = Typography;
-const { RangePicker } = DatePicker;
 const { Option } = Select;
+const { RangePicker } = DatePicker;
+const { Title } = Typography;
 
-/**
- * Booking Management页面组件
- * 提供预订记录的View、Search、Filter和StatusManagement功能
- */
 const BookingsPage = () => {
-  const [loading, setLoading] = useState(false);
   const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [filteredBookings, setFilteredBookings] = useState([]);
+  const [searchText, setSearchText] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedDateRange, setSelectedDateRange] = useState(null);
+  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
-  const [detailModalVisible, setDetailModalVisible] = useState(false);
-  const [searchForm] = Form.useForm();
-  const [summary, setSummary] = useState({});
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editForm] = Form.useForm();
 
-  // Status选项
-  const statusOptions = [
-    { value: 'all', label: '全部Status' },
-    { value: 'pending', label: 'PendingConfirm' },
-    { value: 'confirmed', label: 'CompletedConfirm' },
-    { value: 'cancelled', label: 'CompletedCancel' },
-    { value: 'completed', label: 'Completed' },
-    { value: 'no-show', label: 'No Show' }
-  ];
-
-  // 组件挂载时LoadData
-  useEffect(() => {
-    loadBookings();
-  }, []);
-
-  // Load预订Data
-  const loadBookings = async (params = {}) => {
+  // Check In
+  const handleCheckIn = async (bookingId) => {
     try {
-      setLoading(true);
-      const response = await bookingService.getBookings(params);
-      
+      const response = await bookingService.checkIn(bookingId);
       if (response.success) {
-        setBookings(response.data.list);
-        setFilteredBookings(response.data.list);
-        setSummary(response.data.summary);
+        message.success('Check-in successful');
+        fetchBookings();
       } else {
-        message.error('Load预订DataFailed');
+        message.error(response.message || 'Check-in failed');
       }
     } catch (error) {
-      console.error('Load预订DataFailed:', error);
-      message.error('Load预订DataFailed');
+      message.error('Check-in failed');
+    }
+  };
+
+  // Check Out
+  const handleCheckOut = async (bookingId) => {
+    try {
+      const response = await bookingService.checkOut(bookingId);
+      if (response.success) {
+        message.success('Check-out successful');
+        fetchBookings();
+      } else {
+        message.error(response.message || 'Check-out failed');
+      }
+    } catch (error) {
+      message.error('Check-out failed');
+    }
+  };
+
+  // Load booking data
+  const fetchBookings = async () => {
+    try {
+      setLoading(true);
+      const response = await bookingService.getAllBookings();
+      if (response.success) {
+        setBookings(response.data);
+        setFilteredBookings(response.data);
+      } else {
+        message.error('Failed to load booking data');
+      }
+    } catch (error) {
+      message.error('Failed to load booking data');
     } finally {
       setLoading(false);
     }
   };
 
-  // Search处理
-  const handleSearch = async (values) => {
-    const params = {};
-    
-    if (values.status && values.status !== 'all') {
-      params.status = values.status;
-    }
-    
-    if (values.dateRange && values.dateRange.length === 2) {
-      params.dateRange = values.dateRange;
-    }
-    
-    if (values.keyword) {
-      params.keyword = values.keyword;
+  // Filter bookings
+  const filterBookings = () => {
+    let filtered = [...bookings];
+
+    // Search filter
+    if (searchText) {
+      filtered = filtered.filter(booking => 
+        booking.guestName?.toLowerCase().includes(searchText.toLowerCase()) ||
+        booking.roomNumber?.toLowerCase().includes(searchText.toLowerCase()) ||
+        booking.bookingId?.toLowerCase().includes(searchText.toLowerCase())
+      );
     }
 
-    await loadBookings(params);
+    // Status filter
+    if (selectedStatus !== 'all') {
+      filtered = filtered.filter(booking => booking.status === selectedStatus);
+    }
+
+    // Date range filter
+    if (selectedDateRange && selectedDateRange.length === 2) {
+      filtered = filtered.filter(booking => {
+        const bookingDate = new Date(booking.bookingDate);
+        return bookingDate >= selectedDateRange[0].toDate() && 
+               bookingDate <= selectedDateRange[1].toDate();
+      });
+    }
+
+    setFilteredBookings(filtered);
   };
 
-  // ResetSearch
-  const handleReset = () => {
-    searchForm.resetFields();
-    loadBookings();
+  // Status configuration
+  const statusConfig = {
+    'confirmed': { color: 'green', text: 'Confirmed' },
+    'pending': { color: 'orange', text: 'Pending' },
+    'cancelled': { color: 'red', text: 'Cancelled' },
+    'completed': { color: 'blue', text: 'Completed' },
+    'checked-in': { color: 'purple', text: 'Checked In' },
+    'checked-out': { color: 'gray', text: 'Checked Out' }
   };
 
-  // View预订Details
-  const viewBookingDetail = async (record) => {
-    try {
-      const response = await bookingService.getBookingById(record.id);
-      if (response.success) {
-        setSelectedBooking(response.data);
-        setDetailModalVisible(true);
-      } else {
-        message.error('获取预订DetailsFailed');
-      }
-    } catch (error) {
-      console.error('获取预订DetailsFailed:', error);
-      message.error('获取预订DetailsFailed');
-    }
-  };
+  // Status filter options
+  const statusFilterOptions = [
+    { value: 'all', label: 'All Status' },
+    { value: 'confirmed', label: 'Confirmed' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'cancelled', label: 'Cancelled' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'checked-in', label: 'Checked In' },
+    { value: 'checked-out', label: 'Checked Out' }
+  ];
 
-  // 更新预订Status
-  const updateBookingStatus = async (bookingId, status) => {
-    try {
-      const response = await bookingService.updateBookingStatus(bookingId, status);
-      if (response.success) {
-        message.success(response.message);
-        loadBookings(); // 重新LoadData
-      } else {
-        message.error(response.message);
-      }
-    } catch (error) {
-      console.error('更新预订StatusFailed:', error);
-      message.error('更新预订StatusFailed');
-    }
-  };
-
-  // 签到
-  const handleCheckIn = async (bookingId) => {
-    try {
-      const response = await bookingService.checkIn(bookingId);
-      if (response.success) {
-        message.success(response.message);
-        loadBookings();
-      } else {
-        message.error(response.message);
-      }
-    } catch (error) {
-      console.error('签到Failed:', error);
-      message.error('签到Failed');
-    }
-  };
-
-  // Cancel预订
-  const handleCancel = async (bookingId) => {
-    try {
-      const response = await bookingService.cancelBooking(bookingId, 'Management员Cancel');
-      if (response.success) {
-        message.success(response.message);
-        loadBookings();
-      } else {
-        message.error(response.message);
-      }
-    } catch (error) {
-      console.error('Cancel预订Failed:', error);
-      message.error('Cancel预订Failed');
-    }
-  };
-
-  // 获取Status标签
+  // Get status tag
   const getStatusTag = (status) => {
-    const statusConfig = {
-      pending: { color: 'orange', text: 'PendingConfirm' },
-      confirmed: { color: 'blue', text: 'CompletedConfirm' },
-      cancelled: { color: 'red', text: 'CompletedCancel' },
-      completed: { color: 'green', text: 'Completed' },
-      'no-show': { color: 'default', text: 'No Show' }
-    };
-    
     const config = statusConfig[status] || { color: 'default', text: status };
     return <Tag color={config.color}>{config.text}</Tag>;
   };
 
-  // 表格列Configuration
+  // Table columns
   const columns = [
     {
-      title: '预订编号',
-      dataIndex: 'bookingNumber',
-      key: 'bookingNumber',
-      width: 120,
+      title: 'Booking ID',
+      dataIndex: 'bookingId',
+      key: 'bookingId',
+      sorter: (a, b) => a.bookingId.localeCompare(b.bookingId),
+      render: (text) => <span style={{ fontFamily: 'monospace' }}>{text}</span>
     },
     {
-      title: 'User姓名',
-      dataIndex: 'userName',
-      key: 'userName',
-      width: 100,
+      title: 'Guest Name',
+      dataIndex: 'guestName',
+      key: 'guestName',
+      sorter: (a, b) => a.guestName.localeCompare(b.guestName),
+      render: (text) => (
+        <Space>
+          <UserOutlined />
+          {text}
+        </Space>
+      )
     },
     {
-      title: 'Room',
-      dataIndex: 'locationName',
-      key: 'locationName',
-      width: 120,
+      title: 'Room Number',
+      dataIndex: 'roomNumber',
+      key: 'roomNumber',
+      sorter: (a, b) => a.roomNumber.localeCompare(b.roomNumber)
     },
     {
-      title: '预订Date',
-      dataIndex: 'date',
-      key: 'date',
-      width: 110,
-      render: (date) => dayjs(date).format('MM-DD'),
+      title: 'Booking Date',
+      dataIndex: 'bookingDate',
+      key: 'bookingDate',
+      sorter: (a, b) => new Date(a.bookingDate) - new Date(b.bookingDate),
+      render: (date) => (
+        <Space>
+          <CalendarOutlined />
+          {new Date(date).toLocaleDateString()}
+        </Space>
+      )
     },
     {
-      title: 'Time段',
+      title: 'Time Slot',
+      dataIndex: 'timeSlot',
       key: 'timeSlot',
-      width: 140,
-      render: (_, record) => `${record.startTime} - ${record.endTime}`,
+      render: (timeSlot) => `${timeSlot.start} - ${timeSlot.end}`
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      width: 100,
-      render: getStatusTag,
-    },
-    {
-      title: '金额',
-      dataIndex: 'price',
-      key: 'price',
-      width: 80,
-      render: (price) => `¥${price}`,
-    },
-    {
-      title: '签到',
-      dataIndex: 'checkedIn',
-      key: 'checkedIn',
-      width: 80,
-      render: (checkedIn) => checkedIn ? <Tag color="green">Completed签到</Tag> : <Tag>Not签到</Tag>,
+      filters: statusFilterOptions.slice(1).map(option => ({
+        text: option.label,
+        value: option.value
+      })),
+      onFilter: (value, record) => record.status === value,
+      render: getStatusTag
     },
     {
       title: 'Actions',
-      key: 'action',
-      width: 200,
+      key: 'actions',
       render: (_, record) => (
         <Space size="small">
-          <Button
-            type="link"
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => viewBookingDetail(record)}
+          <Button 
+            type="link" 
+            icon={<EyeOutlined />} 
+            onClick={() => viewBookingDetails(record)}
           >
-            Details
+            View Details
           </Button>
-          
-          {record.status === 'pending' && (
-            <Button
-              type="link"
-              size="small"
-              icon={<CheckOutlined />}
-              onClick={() => updateBookingStatus(record.id, 'confirmed')}
+          <Button 
+            type="link" 
+            icon={<EditOutlined />} 
+            onClick={() => editBooking(record)}
+          >
+            Edit
+          </Button>
+          {record.status === 'confirmed' && (
+            <Button 
+              type="link" 
+              icon={<CheckOutlined />} 
+              onClick={() => handleCheckIn(record.bookingId)}
             >
-              Confirm
+              Check In
             </Button>
           )}
-          
-          {record.status === 'confirmed' && !record.checkedIn && (
-            <Button
-              type="link"
-              size="small"
-              onClick={() => handleCheckIn(record.id)}
+          {record.status === 'checked-in' && (
+            <Button 
+              type="link" 
+              icon={<CloseOutlined />} 
+              onClick={() => handleCheckOut(record.bookingId)}
             >
-              签到
+              Check Out
             </Button>
           )}
-          
-          {(record.status === 'pending' || record.status === 'confirmed') && (
-            <Popconfirm
-              title="确定要Cancel这个预订吗？"
-              onConfirm={() => handleCancel(record.id)}
-              okText="确定"
-              cancelText="Cancel"
-            >
-              <Button
-                type="link"
-                size="small"
-                icon={<CloseOutlined />}
-                danger
-              >
-                Cancel
-              </Button>
-            </Popconfirm>
-          )}
+          <Popconfirm
+            title="Are you sure you want to cancel this booking?"
+            onConfirm={() => cancelBooking(record.bookingId)}
+            okText="Yes"
+            cancelText="No"
+          >
+            <Button type="link" danger>
+              Cancel
+            </Button>
+          </Popconfirm>
         </Space>
-      ),
-    },
+      )
+    }
   ];
+
+  // View booking details
+  const viewBookingDetails = (booking) => {
+    setSelectedBooking(booking);
+    setIsDetailModalVisible(true);
+  };
+
+  // Edit booking
+  const editBooking = (booking) => {
+    setSelectedBooking(booking);
+    editForm.setFieldsValue(booking);
+    setIsEditModalVisible(true);
+  };
+
+  // Cancel booking
+  const cancelBooking = async (bookingId) => {
+    try {
+      const response = await bookingService.cancelBooking(bookingId);
+      if (response.success) {
+        message.success('Booking cancelled successfully');
+        fetchBookings();
+      } else {
+        message.error(response.message || 'Failed to cancel booking');
+      }
+    } catch (error) {
+      message.error('Failed to cancel booking');
+    }
+  };
+
+  // Save booking changes
+  const saveBookingChanges = async (values) => {
+    try {
+      const response = await bookingService.updateBooking(selectedBooking.bookingId, values);
+      if (response.success) {
+        message.success('Booking updated successfully');
+        setIsEditModalVisible(false);
+        fetchBookings();
+      } else {
+        message.error(response.message || 'Failed to update booking');
+      }
+    } catch (error) {
+      message.error('Failed to update booking');
+    }
+  };
+
+  // Calculate statistics
+  const getStatistics = () => {
+    const total = bookings.length;
+    const confirmed = bookings.filter(b => b.status === 'confirmed').length;
+    const pending = bookings.filter(b => b.status === 'pending').length;
+    const cancelled = bookings.filter(b => b.status === 'cancelled').length;
+    const completed = bookings.filter(b => b.status === 'completed').length;
+
+    return { total, confirmed, pending, cancelled, completed };
+  };
+
+  const stats = getStatistics();
+
+  useEffect(() => {
+    fetchBookings();
+  }, []);
+
+  useEffect(() => {
+    filterBookings();
+  }, [searchText, selectedStatus, selectedDateRange, bookings]);
 
   return (
     <div>
-      <Title level={2}>Booking Management</Title>
-      <Paragraph>
-        Management所有的Room预订记录，包括Confirm预订、处理Cancel和View详细Information。
-      </Paragraph>
-
-      {/* StatisticsOverview */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={12} sm={6}>
+      <Title level={2} style={{ marginBottom: 24 }}>Booking Management</Title>
+      
+      {/* Statistics Cards */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col span={4}>
           <Card>
             <Statistic
-              title="总预订数"
-              value={summary.totalRevenue ? Object.values(summary).reduce((a, b) => typeof b === 'number' ? a + b : a, 0) : 0}
-              prefix="📊"
+              title="Total Bookings"
+              value={stats.total}
+              valueStyle={{ color: '#1890ff' }}
             />
           </Card>
         </Col>
-        <Col xs={12} sm={6}>
+        <Col span={4}>
           <Card>
             <Statistic
-              title="CompletedConfirm"
-              value={summary.confirmedCount || 0}
-              prefix="✅"
-              valueStyle={{ color: '#3f8600' }}
+              title="Confirmed"
+              value={stats.confirmed}
+              valueStyle={{ color: '#52c41a' }}
             />
           </Card>
         </Col>
-        <Col xs={12} sm={6}>
+        <Col span={4}>
           <Card>
             <Statistic
-              title="PendingConfirm"
-              value={summary.pendingCount || 0}
-              prefix="⏳"
-              valueStyle={{ color: '#cf1322' }}
+              title="Pending"
+              value={stats.pending}
+              valueStyle={{ color: '#faad14' }}
             />
           </Card>
         </Col>
-        <Col xs={12} sm={6}>
+        <Col span={4}>
           <Card>
             <Statistic
-              title="总Revenue"
-              value={summary.totalRevenue || 0}
-              prefix="¥"
-              precision={0}
+              title="Cancelled"
+              value={stats.cancelled}
+              valueStyle={{ color: '#ff4d4f' }}
+            />
+          </Card>
+        </Col>
+        <Col span={4}>
+          <Card>
+            <Statistic
+              title="Completed"
+              value={stats.completed}
+              valueStyle={{ color: '#722ed1' }}
             />
           </Card>
         </Col>
       </Row>
 
-      {/* Search表单 */}
-      <Card style={{ marginBottom: 16 }}>
-        <Form
-          form={searchForm}
-          layout="inline"
-          onFinish={handleSearch}
-          style={{ gap: 16 }}
-        >
-          <Form.Item name="keyword" style={{ minWidth: 200 }}>
+      {/* Filters */}
+      <Card style={{ marginBottom: 24 }}>
+        <Row gutter={16}>
+          <Col span={8}>
             <Input
-              placeholder="Search预订编号、User名或Room"
+              placeholder="Search by guest name, room number, or booking ID"
               prefix={<SearchOutlined />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
             />
-          </Form.Item>
-          
-          <Form.Item name="status">
-            <Select placeholder="选择Status" style={{ width: 120 }}>
-              {statusOptions.map(option => (
-                <Option key={option.value} value={option.value}>
-                  {option.label}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
-          
-          <Form.Item name="dateRange">
-            <RangePicker placeholder={['StartDate', 'EndDate']} />
-          </Form.Item>
-          
-          <Form.Item>
+          </Col>
+          <Col span={6}>
+            <Select
+              style={{ width: '100%' }}
+              placeholder="Filter by status"
+              value={selectedStatus}
+              onChange={setSelectedStatus}
+              options={statusFilterOptions}
+            />
+          </Col>
+          <Col span={6}>
+            <RangePicker
+              style={{ width: '100%' }}
+              value={selectedDateRange}
+              onChange={setSelectedDateRange}
+              placeholder={['Start Date', 'End Date']}
+            />
+          </Col>
+          <Col span={4}>
             <Space>
-              <Button type="primary" htmlType="submit" loading={loading}>
-                Search
-              </Button>
-              <Button onClick={handleReset}>
-                Reset
-              </Button>
-              <Button icon={<ReloadOutlined />} onClick={() => loadBookings()}>
+              <Button 
+                type="primary" 
+                icon={<ReloadOutlined />} 
+                onClick={fetchBookings}
+              >
                 Refresh
               </Button>
             </Space>
-          </Form.Item>
-        </Form>
+          </Col>
+        </Row>
       </Card>
 
-      {/* 预订List */}
+      {/* Bookings Table */}
       <Card>
         <Table
           columns={columns}
           dataSource={filteredBookings}
+          rowKey="bookingId"
           loading={loading}
-          rowKey="id"
           pagination={{
             total: filteredBookings.length,
             pageSize: 10,
             showSizeChanger: true,
             showQuickJumper: true,
-            showTotal: (total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条记录`,
+            showTotal: (total, range) => 
+              `${range[0]}-${range[1]} of ${total} bookings`
           }}
           scroll={{ x: 1200 }}
         />
       </Card>
 
-      {/* 预订Details模态框 */}
+      {/* Booking Details Modal */}
       <Modal
-        title="预订Details"
-        open={detailModalVisible}
-        onCancel={() => setDetailModalVisible(false)}
+        title="Booking Details"
+        open={isDetailModalVisible}
+        onCancel={() => setIsDetailModalVisible(false)}
         footer={[
-          <Button key="close" onClick={() => setDetailModalVisible(false)}>
+          <Button key="close" onClick={() => setIsDetailModalVisible(false)}>
             Close
           </Button>
         ]}
@@ -425,65 +456,95 @@ const BookingsPage = () => {
       >
         {selectedBooking && (
           <div>
-            <Row gutter={[16, 16]}>
+            <Row gutter={16}>
               <Col span={12}>
-                <strong>预订编号：</strong>{selectedBooking.bookingNumber}
+                <p><strong>Booking ID:</strong> {selectedBooking.bookingId}</p>
+                <p><strong>Guest Name:</strong> {selectedBooking.guestName}</p>
+                <p><strong>Room Number:</strong> {selectedBooking.roomNumber}</p>
+                <p><strong>Status:</strong> {getStatusTag(selectedBooking.status)}</p>
               </Col>
               <Col span={12}>
-                <strong>Status：</strong>{getStatusTag(selectedBooking.status)}
-              </Col>
-              <Col span={12}>
-                <strong>User姓名：</strong>{selectedBooking.userName}
-              </Col>
-              <Col span={12}>
-                <strong>ContactEmail：</strong>{selectedBooking.userEmail}
-              </Col>
-              <Col span={12}>
-                <strong>ContactPhone：</strong>{selectedBooking.userPhone}
-              </Col>
-              <Col span={12}>
-                <strong>Room：</strong>{selectedBooking.locationName}
-              </Col>
-              <Col span={12}>
-                <strong>预订Date：</strong>{selectedBooking.date}
-              </Col>
-              <Col span={12}>
-                <strong>Time段：</strong>{selectedBooking.startTime} - {selectedBooking.endTime}
-              </Col>
-              <Col span={12}>
-                <strong>Duration：</strong>{selectedBooking.duration} Hours
-              </Col>
-              <Col span={12}>
-                <strong>Number of People：</strong>{selectedBooking.participants} 人
-              </Col>
-              <Col span={12}>
-                <strong>金额：</strong>¥{selectedBooking.price}
-              </Col>
-              <Col span={12}>
-                <strong>签到Status：</strong>
-                {selectedBooking.checkedIn ? (
-                  <Tag color="green">Completed签到 ({selectedBooking.checkedInTime})</Tag>
-                ) : (
-                  <Tag>Not签到</Tag>
-                )}
-              </Col>
-              <Col span={24}>
-                <strong>预订用途：</strong>{selectedBooking.purpose}
-              </Col>
-              {selectedBooking.notes && (
-                <Col span={24}>
-                  <strong>Notes：</strong>{selectedBooking.notes}
-                </Col>
-              )}
-              <Col span={12}>
-                <strong>创建Time：</strong>{dayjs(selectedBooking.createdAt).format('YYYY-MM-DD HH:mm')}
-              </Col>
-              <Col span={12}>
-                <strong>更新Time：</strong>{dayjs(selectedBooking.updatedAt).format('YYYY-MM-DD HH:mm')}
+                <p><strong>Booking Date:</strong> {new Date(selectedBooking.bookingDate).toLocaleDateString()}</p>
+                <p><strong>Time Slot:</strong> {selectedBooking.timeSlot?.start} - {selectedBooking.timeSlot?.end}</p>
+                <p><strong>Guest Count:</strong> {selectedBooking.guestCount || 1}</p>
+                <p><strong>Contact:</strong> {selectedBooking.contactInfo}</p>
               </Col>
             </Row>
+            {selectedBooking.notes && (
+              <div>
+                <p><strong>Notes:</strong></p>
+                <p>{selectedBooking.notes}</p>
+              </div>
+            )}
           </div>
         )}
+      </Modal>
+
+      {/* Edit Booking Modal */}
+      <Modal
+        title="Edit Booking"
+        open={isEditModalVisible}
+        onCancel={() => setIsEditModalVisible(false)}
+        onOk={() => editForm.submit()}
+        width={800}
+      >
+        <Form
+          form={editForm}
+          layout="vertical"
+          onFinish={saveBookingChanges}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="guestName"
+                label="Guest Name"
+                rules={[{ required: true, message: 'Please enter guest name' }]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="roomNumber"
+                label="Room Number"
+                rules={[{ required: true, message: 'Please enter room number' }]}
+              >
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="status"
+                label="Status"
+                rules={[{ required: true, message: 'Please select status' }]}
+              >
+                <Select options={statusFilterOptions.slice(1)} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="guestCount"
+                label="Guest Count"
+              >
+                <Input type="number" min={1} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item
+            name="contactInfo"
+            label="Contact Information"
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="notes"
+            label="Notes"
+          >
+            <Input.TextArea rows={3} />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );
