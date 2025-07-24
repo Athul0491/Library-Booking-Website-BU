@@ -21,12 +21,11 @@ def parse_slot_time(time_str: str):
             continue
     raise ValueError(f"Unrecognized time format: {time_str}")
 
-@app.route('/api/availability', methods=['GET'])
+@app.route('/api/availability', methods=['POST'])
 def proxy_availability():
     try:
         # ✅ Get library + dates from request
-        lib_prefix = request.json.get("library", "").lower()[:3]
-        lid = LIBRARY_LIDS.get(lib_prefix)
+        lid = request.json.get("library", "")
         if not lid:
             return jsonify({"error": "Invalid library prefix"}), 400
 
