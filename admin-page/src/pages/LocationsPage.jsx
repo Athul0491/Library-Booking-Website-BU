@@ -47,8 +47,8 @@ const LocationsPage = () => {
   const loadLocations = async () => {
     try {
       setLoading(true);
-      const data = await locationService.getLocations();
-      setLocations(data);
+      const response = await locationService.getLocations();
+      setLocations(response.data?.list || []);
     } catch (error) {
       message.error('加载场地列表失败');
       console.error('加载场地列表失败:', error);

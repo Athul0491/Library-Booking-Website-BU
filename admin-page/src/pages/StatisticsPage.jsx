@@ -17,7 +17,7 @@ import {
   DownloadOutlined,
   BarChartOutlined,
   PieChartOutlined,
-  TrendingUpOutlined,
+  RiseOutlined,
   UsergroupAddOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -273,7 +273,7 @@ const StatisticsPage = () => {
         <Col xs={24} lg={14}>
           <Card 
             title="房间使用统计" 
-            extra={<TrendingUpOutlined />}
+            extra={<RiseOutlined />}
           >
             <Table
               columns={roomColumns}

@@ -55,9 +55,9 @@ const DashboardPage = () => {
         statsService.getPopularRooms()
       ]);
 
-      setStats(statsData);
-      setRecentBookings(bookingsData);
-      setPopularRooms(roomsData);
+      setStats(statsData.data || {});
+      setRecentBookings(bookingsData.data || []);
+      setPopularRooms(roomsData.data || []);
     } catch (error) {
       console.error('加载仪表板数据失败:', error);
     } finally {
