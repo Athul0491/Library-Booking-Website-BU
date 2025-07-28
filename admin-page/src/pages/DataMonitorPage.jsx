@@ -291,7 +291,7 @@ const DataMonitorPage = () => {
       </Paragraph>
 
       {/* Connection Status */}
-      <ConnectionStatus />
+      <ConnectionStatus connection={connection} style={{ marginBottom: 24 }} />
 
       {/* Show loading skeleton when data is not available */}
       {!connection.isDataAvailable ? (

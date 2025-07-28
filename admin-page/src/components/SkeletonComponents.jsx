@@ -1,19 +1,19 @@
 /**
  * Skeleton Components
- * 用于显示加载状态和连接错误状态
+ * Used to display loading states and connection error states
  */
 import React from 'react';
 import { Card, Skeleton, Alert, Button, Space, Table } from 'antd';
 import { ReloadOutlined, DatabaseOutlined, CloudServerOutlined } from '@ant-design/icons';
 
-// 基础骨架屏组件
+// Basic skeleton component
 export const BaseSkeleton = ({ rows = 3, loading = true }) => (
   <Card>
     <Skeleton active loading={loading} paragraph={{ rows }} />
   </Card>
 );
 
-// 表格骨架屏
+// Table skeleton component
 export const TableSkeleton = ({ columns = 4, rows = 6 }) => {
   const skeletonColumns = Array.from({ length: columns }, (_, index) => ({
     title: <Skeleton.Input style={{ width: 100 }} active size="small" />,
@@ -39,7 +39,7 @@ export const TableSkeleton = ({ columns = 4, rows = 6 }) => {
   );
 };
 
-// 统计卡片骨架屏
+// Statistics card skeleton component
 export const StatCardSkeleton = () => (
   <Card>
     <Skeleton.Input style={{ width: '100%', height: 20 }} active />
@@ -49,13 +49,19 @@ export const StatCardSkeleton = () => (
   </Card>
 );
 
-// 连接状态提示组件
+// Connection status indicator component
 export const ConnectionStatus = ({ 
+  connection,
   supabaseStatus, 
   backendStatus, 
   onRefresh, 
-  loading = false 
+  loading = false,
+  style
 }) => {
+  // Use either the connection object or individual status objects
+  const effectiveSupabaseStatus = connection?.supabase || supabaseStatus || {};
+  const effectiveBackendStatus = connection?.backend || backendStatus || {};
+
   const getStatusType = (status) => {
     if (status.configured && status.connected) return 'success';
     if (status.configured && !status.connected) return 'error';
@@ -63,64 +69,66 @@ export const ConnectionStatus = ({
   };
 
   const getBackendType = (status) => {
-    return status.available ? 'success' : 'error';
+    return status.connected ? 'success' : 'error';
   };
 
   return (
-    <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>
-      {/* Supabase状态 */}
+    <Space direction="vertical" style={{ width: '100%', marginBottom: 16, ...style }}>
+      {/* Supabase Status */}
       <Alert
         message={
           <Space>
             <DatabaseOutlined />
-            数据库连接状态
+            Database Connection Status
           </Space>
         }
         description={
-          supabaseStatus.configured
-            ? supabaseStatus.connected
-              ? '✅ Supabase数据库连接正常'
-              : `❌ 数据库连接失败: ${supabaseStatus.error}`
-            : '⚠️ Supabase数据库未配置，使用演示数据'
+          effectiveSupabaseStatus.configured
+            ? effectiveSupabaseStatus.connected
+              ? '✅ Supabase database connection normal'
+              : `❌ Database connection failed: ${effectiveSupabaseStatus.error}`
+            : '⚠️ Supabase database not configured, using demo data'
         }
-        type={getStatusType(supabaseStatus)}
+        type={getStatusType(effectiveSupabaseStatus)}
         showIcon
       />
 
-      {/* 后端服务器状态 */}
+      {/* Backend Server Status */}
       <Alert
         message={
           <Space>
             <CloudServerOutlined />
-            后端服务器状态
+            Backend Server Status
           </Space>
         }
         description={
-          backendStatus.available
-            ? '✅ 后端服务器连接正常 (localhost:5000)'
-            : `❌ 无法连接到后端服务器: ${backendStatus.error || 'localhost:5000 不可用'}`
+          effectiveBackendStatus.connected
+            ? '✅ Backend server connection normal (localhost:5000)'
+            : `❌ Unable to connect to backend server: ${effectiveBackendStatus.error || 'localhost:5000 unavailable'}`
         }
-        type={getBackendType(backendStatus)}
+        type={getBackendType(effectiveBackendStatus)}
         showIcon
         action={
-          <Button
-            size="small"
-            icon={<ReloadOutlined />}
-            onClick={onRefresh}
-            loading={loading}
-          >
-            重试连接
-          </Button>
+          onRefresh && (
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={onRefresh}
+              loading={loading}
+            >
+              Retry Connection
+            </Button>
+          )
         }
       />
     </Space>
   );
 };
 
-// 数据不可用时的占位符
+// Data unavailable placeholder
 export const DataUnavailablePlaceholder = ({ 
-  title = "数据不可用", 
-  description = "无法连接到数据源",
+  title = "Data Unavailable", 
+  description = "Unable to connect to data source",
   onRefresh 
 }) => (
   <Card>
@@ -134,14 +142,14 @@ export const DataUnavailablePlaceholder = ({
           icon={<ReloadOutlined />}
           onClick={onRefresh}
         >
-          重新加载
+          Reload
         </Button>
       )}
     </div>
   </Card>
 );
 
-// 加载中的页面布局
+// Loading page layout skeleton
 export const PageLoadingSkeleton = ({ title }) => (
   <div>
     <div style={{ marginBottom: 16 }}>

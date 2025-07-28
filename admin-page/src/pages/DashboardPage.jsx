@@ -240,7 +240,7 @@ const DashboardPage = () => {
       </Paragraph>
 
       {/* Connection Status */}
-      <ConnectionStatus />
+      <ConnectionStatus connection={connection} style={{ marginBottom: 24 }} />
 
       {/* Show appropriate content based on connection status */}
       {!connection.isDataAvailable ? (
