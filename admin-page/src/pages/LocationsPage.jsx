@@ -23,6 +23,7 @@ import {
   ReloadOutlined
 } from '@ant-design/icons';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useDataSource } from '../contexts/DataSourceContext';
 import { 
   ConnectionStatus, 
   TableSkeleton, 
@@ -40,6 +41,7 @@ const { Option } = Select;
  */
 const LocationsPage = () => {
   const connection = useConnection();
+  const { useRealData } = useDataSource();
   const [loading, setLoading] = useState(false);
   const [buildings, setBuildings] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -48,52 +50,62 @@ const LocationsPage = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [modalType, setModalType] = useState('building'); // 'building' or 'room'
   const [form] = Form.useForm();
+  const [dataError, setDataError] = useState(null);
 
-  // Load buildings data
+  // Load buildings data with proper data source handling
   const loadBuildings = async () => {
-    if (!connection.isDataAvailable) {
-      console.log('⚠️ Data not available, skipping buildings load');
-      return;
-    }
-
     try {
       setLoading(true);
-      const result = await locationService.getAllBuildings();
+      setDataError(null);
+      
+      // Use real data or mock data based on DataSource context
+      const options = { forceUseMockData: !useRealData };
+      const result = await locationService.getAllBuildings(options);
       
       if (result.success) {
-        setBuildings(result.data);
-        message.success(`Loaded ${result.data.length} buildings`);
-      } else {
-        message.error('Failed to load buildings');
+        setBuildings(result.data?.buildings || []);
+        message.success(`Loaded ${result.data?.buildings?.length || 0} buildings`);
+      } else if (useRealData) {
+        throw new Error(`Failed to load buildings: ${result.error}`);
       }
     } catch (error) {
       console.error('Error loading buildings:', error);
-      message.error('Failed to load buildings data');
+      if (useRealData) {
+        setDataError(error.message);
+        message.error('Failed to load buildings data');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Load rooms for selected building
+  // Load rooms for selected building with proper data source handling
   const loadRooms = async (buildingId) => {
-    if (!connection.isDataAvailable || !buildingId) {
-      console.log('⚠️ Data not available or no building selected, skipping rooms load');
+    if (!buildingId) {
+      console.log('⚠️ No building selected, skipping rooms load');
       return;
     }
 
     try {
       setLoading(true);
-      const result = await locationService.getRoomsByBuilding(buildingId);
+      setDataError(null);
+      
+      // Use real data or mock data based on DataSource context
+      const options = { forceUseMockData: !useRealData };
+      const result = await locationService.getRoomsByBuilding(buildingId, options);
       
       if (result.success) {
-        setRooms(result.data);
-        message.success(`Loaded ${result.data.length} rooms for building`);
-      } else {
-        message.error('Failed to load rooms');
+        setRooms(result.data?.rooms || []);
+        message.success(`Loaded ${result.data?.rooms?.length || 0} rooms for building`);
+      } else if (useRealData) {
+        throw new Error(`Failed to load rooms: ${result.error}`);
       }
     } catch (error) {
       console.error('Error loading rooms:', error);
-      message.error('Failed to load rooms data');
+      if (useRealData) {
+        setDataError(error.message);
+        message.error('Failed to load rooms data');
+      }
     } finally {
       setLoading(false);
     }
@@ -104,7 +116,7 @@ const LocationsPage = () => {
     if (connection.isDataAvailable) {
       loadBuildings();
     }
-  }, [connection.isDataAvailable]);
+  }, [connection.isDataAvailable, useRealData]);
 
   // Load rooms when building is selected
   useEffect(() => {
@@ -115,12 +127,12 @@ const LocationsPage = () => {
     }
   }, [selectedBuilding]);
 
-  // Building table columns
+  // Building table columns (updated for new database schema)
   const buildingColumns = [
     {
       title: 'Building Name',
-      dataIndex: 'name',
-      key: 'name',
+      dataIndex: 'building_name',
+      key: 'building_name',
       render: (text, record) => (
         <Space>
           <EnvironmentOutlined />
@@ -129,21 +141,32 @@ const LocationsPage = () => {
       ),
     },
     {
-      title: 'Code',
-      dataIndex: 'code',
-      key: 'code',
+      title: 'Short Name',
+      dataIndex: 'building_short_name',
+      key: 'building_short_name',
       render: (text) => <Tag color="blue">{text}</Tag>,
     },
     {
-      title: 'Address',
-      dataIndex: 'address',
-      key: 'address',
+      title: 'Location/Address',
+      dataIndex: 'location',
+      key: 'location',
+      render: (location) => location || 'N/A',
     },
     {
       title: 'Total Rooms',
-      dataIndex: 'totalRooms',
-      key: 'totalRooms',
-      render: (count) => <Tag color="green">{count} rooms</Tag>,
+      dataIndex: 'room_count',
+      key: 'room_count',
+      render: (count) => <Tag color="green">{count || 0} rooms</Tag>,
+    },
+    {
+      title: 'Status',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      render: (isActive) => (
+        <Tag color={isActive ? 'success' : 'default'}>
+          {isActive ? 'Active' : 'Inactive'}
+        </Tag>
+      ),
     },
     {
       title: 'Actions',
@@ -169,18 +192,18 @@ const LocationsPage = () => {
     },
   ];
 
-  // Room table columns
+  // Room table columns (updated for new database schema)
   const roomColumns = [
     {
       title: 'Room Name',
-      dataIndex: 'name',
-      key: 'name',
+      dataIndex: 'room_name',
+      key: 'room_name',
       render: (text) => <strong>{text}</strong>,
     },
     {
       title: 'Room Number',
-      dataIndex: 'roomNumber',
-      key: 'roomNumber',
+      dataIndex: 'room_number',
+      key: 'room_number',
     },
     {
       title: 'Capacity',
@@ -192,21 +215,27 @@ const LocationsPage = () => {
       title: 'Equipment',
       dataIndex: 'equipment',
       key: 'equipment',
-      render: (equipment) => (
-        <Space wrap>
-          {equipment?.map((item, index) => (
-            <Tag key={index} color="purple">{item}</Tag>
-          ))}
-        </Space>
-      ),
+      render: (equipment) => {
+        if (!equipment) return <span style={{ color: '#ccc' }}>None</span>;
+        // Handle equipment as array or JSON string
+        const equipmentArray = Array.isArray(equipment) ? equipment : 
+                              typeof equipment === 'string' ? JSON.parse(equipment) : [];
+        return (
+          <Space wrap>
+            {equipmentArray.map((item, index) => (
+              <Tag key={index} color="purple">{item}</Tag>
+            ))}
+          </Space>
+        );
+      },
     },
     {
       title: 'Status',
-      dataIndex: 'available',
-      key: 'available',
-      render: (available) => (
-        <Tag color={available ? 'green' : 'red'}>
-          {available ? 'Available' : 'Unavailable'}
+      dataIndex: 'is_active',
+      key: 'is_active',
+      render: (isActive) => (
+        <Tag color={isActive ? 'green' : 'red'}>
+          {isActive ? 'Active' : 'Inactive'}
         </Tag>
       ),
     },

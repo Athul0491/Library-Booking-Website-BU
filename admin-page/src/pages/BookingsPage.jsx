@@ -30,6 +30,7 @@ import {
 import dayjs from 'dayjs';
 import bookingService from '../services/bookingService';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useDataSource } from '../contexts/DataSourceContext';
 import { 
   ConnectionStatus, 
   TableSkeleton, 
@@ -46,6 +47,7 @@ const { Search } = Input;
  */
 const BookingsPage = () => {
   const connection = useConnection();
+  const { useRealData } = useDataSource();
   const [loading, setLoading] = useState(false);
   const [bookings, setBookings] = useState([]);
   const [filteredBookings, setFilteredBookings] = useState([]);
@@ -54,36 +56,45 @@ const BookingsPage = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [stats, setStats] = useState({});
+  const [dataError, setDataError] = useState(null);
 
-  // Table columns configuration
+  // Table columns configuration (updated for new database schema)
   const columns = [
     {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 80,
-      render: (id) => <code>#{id}</code>
+      title: 'Booking ID',
+      dataIndex: 'booking_id',
+      key: 'booking_id',
+      width: 120,
+      render: (id) => (
+        <code style={{ fontSize: '12px', color: '#666' }}>
+          {id || 'N/A'}
+        </code>
+      )
     },
     {
       title: 'User',
-      dataIndex: 'user',
       key: 'user',
-      render: (user, record) => (
+      render: (_, record) => (
         <div>
-          <div><UserOutlined style={{ marginRight: 4 }} />{user}</div>
-          <div style={{ color: '#666', fontSize: '12px' }}>{record.email}</div>
+          <div>
+            <UserOutlined style={{ marginRight: 4 }} />
+            {record.user_name || 'Unknown User'}
+          </div>
+          <div style={{ color: '#666', fontSize: '12px' }}>
+            {record.user_email}
+          </div>
         </div>
       )
     },
     {
-      title: 'Room & Library',
+      title: 'Room & Building',
       key: 'location',
       render: (_, record) => (
         <div>
-          <div><strong>{record.room}</strong></div>
+          <div><strong>{record.room_name || 'N/A'}</strong></div>
           <div style={{ color: '#666', fontSize: '12px' }}>
             <EnvironmentOutlined style={{ marginRight: 4 }} />
-            {record.library}
+            {record.building_name} ({record.building_short_name})
           </div>
         </div>
       )
@@ -95,11 +106,11 @@ const BookingsPage = () => {
         <div>
           <div>
             <CalendarOutlined style={{ marginRight: 4 }} />
-            {dayjs(record.date).format('YYYY-MM-DD')}
+            {record.booking_date}
           </div>
           <div style={{ color: '#666', fontSize: '12px' }}>
             <ClockCircleOutlined style={{ marginRight: 4 }} />
-            {record.startTime} - {record.endTime}
+            {record.start_time} - {record.end_time}
           </div>
         </div>
       )
@@ -113,19 +124,20 @@ const BookingsPage = () => {
           confirmed: { color: 'success', text: 'Confirmed' },
           cancelled: { color: 'error', text: 'Cancelled' },
           completed: { color: 'default', text: 'Completed' },
-          'no-show': { color: 'warning', text: 'No Show' }
+          pending: { color: 'warning', text: 'Pending' },
+          active: { color: 'processing', text: 'Active' }
         };
         const config = statusConfig[status] || { color: 'default', text: status };
         return <Tag color={config.color}>{config.text}</Tag>;
       }
     },
     {
-      title: 'Attendees',
-      dataIndex: 'attendees',
-      key: 'attendees',
+      title: 'Group Size',
+      dataIndex: 'group_size',
+      key: 'group_size',
       width: 100,
-      render: (attendees) => (
-        <Tag color="blue">{attendees} people</Tag>
+      render: (size) => (
+        <Tag color="blue">{size || 1} people</Tag>
       )
     },
     {
@@ -158,39 +170,45 @@ const BookingsPage = () => {
     }
   ];
 
-  // Load bookings data
+  // Load bookings data with proper data source handling
   const loadBookings = async () => {
-    if (!connection.isDataAvailable) {
-      console.log('⚠️ Data not available, skipping bookings load');
-      return;
-    }
-
     try {
       setLoading(true);
+      setDataError(null);
+      
+      // Use real data or mock data based on DataSource context
+      const options = { forceUseMockData: !useRealData };
+      
       const response = await bookingService.getBookings({
         status: statusFilter,
-        library: 'all'
+        library: 'all',
+        ...options
       });
       
       if (response.success) {
-        setBookings(response.data);
-        setFilteredBookings(response.data);
+        setBookings(response.data?.bookings || []);
+        setFilteredBookings(response.data?.bookings || []);
         
         // Load statistics
-        const statsResponse = await bookingService.getBookingStats();
+        const statsResponse = await bookingService.getBookingStats(options);
         if (statsResponse.success) {
-          setStats(statsResponse.data);
+          setStats(statsResponse.data || {});
         }
+      } else if (useRealData) {
+        throw new Error(`Failed to load bookings: ${response.error}`);
       }
     } catch (error) {
       console.error('Failed to load bookings:', error);
-      message.error('Failed to load booking data');
+      if (useRealData) {
+        setDataError(error.message);
+        message.error('Failed to load booking data');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Filter bookings based on search and status
+  // Filter bookings based on search and status (updated for new schema)
   const filterBookings = () => {
     let filtered = bookings;
     
@@ -199,15 +217,17 @@ const BookingsPage = () => {
       filtered = filtered.filter(booking => booking.status === statusFilter);
     }
     
-    // Search filter
+    // Search filter using new schema field names
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(booking =>
-        booking.user.toLowerCase().includes(query) ||
-        booking.email.toLowerCase().includes(query) ||
-        booking.room.toLowerCase().includes(query) ||
-        booking.library.toLowerCase().includes(query) ||
-        booking.id.toString().includes(query)
+        (booking.user_name || '').toLowerCase().includes(query) ||
+        (booking.user_email || '').toLowerCase().includes(query) ||
+        (booking.room_name || '').toLowerCase().includes(query) ||
+        (booking.building_name || '').toLowerCase().includes(query) ||
+        (booking.building_short_name || '').toLowerCase().includes(query) ||
+        (booking.booking_id || '').toString().includes(query) ||
+        (booking.booking_reference || '').toLowerCase().includes(query)
       );
     }
     
@@ -252,7 +272,7 @@ const BookingsPage = () => {
     if (connection.isDataAvailable) {
       loadBookings();
     }
-  }, [connection.isDataAvailable, statusFilter]);
+  }, [connection.isDataAvailable, statusFilter, useRealData]);
 
   // Filter bookings when search or status changes
   useEffect(() => {
