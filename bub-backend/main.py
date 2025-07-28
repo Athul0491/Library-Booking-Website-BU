@@ -277,6 +277,33 @@ def get_admin_rooms(short_name: str):
             "error": str(e)
         }), 500
 
+@app.route('/api/admin/v1/rooms', methods=['GET'])
+def get_all_rooms():
+    """Get all rooms with building information for admin interface."""
+    try:
+        if SUPABASE_URL and SUPABASE_ANON_KEY:
+            print("Admin: Fetching all rooms with building info")
+            # Get all rooms with building info using JOIN
+            rooms = make_supabase_request('/rooms?select=*,buildings(id,name,short_name)&available=eq.true&order=name')
+            
+            return jsonify({
+                "success": True,
+                "rooms": rooms,
+                "count": len(rooms) if rooms else 0
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Supabase not configured"
+            }), 500
+            
+    except Exception as e:
+        print(f"Admin all rooms error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
 @app.route('/api/admin/v1/stats', methods=['GET'])
 def get_admin_stats():
     """Get comprehensive statistics for admin dashboard."""
