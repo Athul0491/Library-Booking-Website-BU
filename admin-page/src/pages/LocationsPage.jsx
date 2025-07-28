@@ -1,4 +1,4 @@
-// Location Management page - Manage library rooms and venue information
+// Location Management page - Manage library buildings and rooms
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -13,171 +13,254 @@ import {
   InputNumber,
   message,
   Popconfirm,
-  Typography
+  Typography,
+  Collapse,
+  Descriptions,
+  Tooltip
 } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   EnvironmentOutlined,
-  UsergroupAddOutlined
+  HomeOutlined,
+  TeamOutlined,
+  LinkOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  InfoCircleOutlined
 } from '@ant-design/icons';
 import locationService from '../services/locationService';
 
 const { Title, Paragraph } = Typography;
 const { Option } = Select;
+const { Panel } = Collapse;
 
 /**
  * Location Management page component
- * In useManagement library Room and venue Information
+ * Manages library buildings and rooms using bu-book/bub-backend data structure
+ * - Buildings: id, Name, ShortName, Address, website, contacts, available, libcal_id, lid
+ * - Rooms: id, building_id, eid, title, url, grouping, capacity, gtype, available
  */
 const LocationsPage = () => {
   const [loading, setLoading] = useState(false);
-  const [locations, setLocations] = useState([]);
+  const [buildings, setBuildings] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingLocation, setEditingLocation] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
+  const [itemType, setItemType] = useState('building'); // 'building' or 'room'
   const [form] = Form.useForm();
 
-  // component handle Load Data
+  // Load data when component mounts
   useEffect(() => {
-    loadLocations();
+    loadBuildings();
   }, []);
 
-  // Load venue List
-  const loadLocations = async () => {
+  // Load buildings with rooms from Supabase (same as bu-book)
+  const loadBuildings = async () => {
     try {
       setLoading(true);
       const response = await locationService.getLocations();
-      setLocations(response.data?.list || []);
+      
+      // Parse buildings and rooms from the response
+      const buildingsData = response.data?.buildings || [];
+      const roomsData = [];
+      
+      buildingsData.forEach(building => {
+        if (building.Rooms) {
+          roomsData.push(...building.Rooms.map(room => ({
+            ...room,
+            building_name: building.Name
+          })));
+        }
+      });
+      
+      setBuildings(buildingsData);
+      setRooms(roomsData);
     } catch (error) {
-      message.error('Load venue list failed');
-      console.error('Load venue list failed:', error);
+      message.error('Failed to load buildings data');
+      console.error('Failed to load buildings:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Open Add New/Edit Popup
-  const openModal = (location = null) => {
-    setEditingLocation(location);
+  // Open Add New/Edit popup
+  const openModal = (item = null, type = 'building') => {
+    setEditingItem(item);
+    setItemType(type);
     setModalVisible(true);
-    if (location) {
-      form.setFieldsValue(location);
+    if (item) {
+      // Map the data fields correctly
+      if (type === 'building') {
+        form.setFieldsValue({
+          Name: item.Name,
+          ShortName: item.ShortName,
+          Address: item.Address,
+          website: item.website,
+          contacts: item.contacts ? JSON.stringify(item.contacts) : '',
+          libcal_id: item.libcal_id,
+          lid: item.lid,
+          available: item.available
+        });
+      } else {
+        form.setFieldsValue({
+          title: item.title,
+          capacity: item.capacity,
+          building_id: item.building_id,
+          eid: item.eid,
+          url: item.url,
+          grouping: item.grouping,
+          gtype: item.gtype,
+          available: item.available
+        });
+      }
     } else {
       form.resetFields();
     }
   };
 
-  // Close popups
+  // Close popup
   const closeModal = () => {
     setModalVisible(false);
-    setEditingLocation(null);
+    setEditingItem(null);
+    setItemType('building');
     form.resetFields();
   };
 
-  // Save venue information
+  // Save building or room information
   const handleSave = async (values) => {
     try {
-      if (editingLocation) {
-        await locationService.updateLocation(editingLocation.id, values);
-        message.success('Update venue information success');
+      if (itemType === 'building') {
+        // Process building data
+        const buildingData = {
+          ...values,
+          contacts: values.contacts ? JSON.parse(values.contacts) : {}
+        };
+        
+        if (editingItem) {
+          await locationService.updateBuilding(editingItem.id, buildingData);
+          message.success('Building updated successfully');
+        } else {
+          await locationService.createBuilding(buildingData);
+          message.success('Building created successfully');
+        }
       } else {
-        await locationService.createLocation(values);
-        message.success('Create venue success');
+        // Process room data
+        if (editingItem) {
+          await locationService.updateRoom(editingItem.id, values);
+          message.success('Room updated successfully');
+        } else {
+          await locationService.createRoom(values);
+          message.success('Room created successfully');
+        }
       }
       closeModal();
-      loadLocations();
+      loadBuildings();
     } catch (error) {
-      message.error(editingLocation ? 'Update venue information failed' : 'Create venue failed');
-      console.error('Save venue information failed:', error);
+      message.error(`Failed to save ${itemType}`);
+      console.error(`Failed to save ${itemType}:`, error);
     }
   };
 
-  // Delete venue
-  const handleDelete = async (id) => {
+  // Delete building or room
+  const handleDelete = async (id, type) => {
     try {
-      await locationService.deleteLocation(id);
-      message.success('Delete venue success');
-      loadLocations();
+      if (type === 'building') {
+        await locationService.deleteBuilding(id);
+        message.success('Building deleted successfully');
+      } else {
+        await locationService.deleteRoom(id);
+        message.success('Room deleted successfully');
+      }
+      loadBuildings();
     } catch (error) {
-      message.error('Delete venue failed');
-      console.error('Delete venue failed:', error);
+      message.error(`Failed to delete ${type}`);
+      console.error(`Failed to delete ${type}:`, error);
     }
   };
 
-  // Table Column Configuration
-  const columns = [
+  // Buildings Table Column Configuration (matches bu-book Building interface)
+  const buildingColumns = [
     {
-      title: 'Venue Name',
-      dataIndex: 'name',
-      key: 'name',
-      render: (text) => (
-        <Space>
-          <EnvironmentOutlined />
-          {text}
-        </Space>
-      ),
-    },
-    {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
-      render: (type) => {
-        const typeColors = {
-          study_room: 'blue',
-          meeting_room: 'green',
-          computer_lab: 'orange',
-          reading_area: 'purple',
-        };
-        const typeNames = {
-          study_room: 'Study Room',
-          meeting_room: 'Meeting Room',
-          computer_lab: 'Computer Lab',
-          reading_area: 'Reading Area',
-        };
-        return (
-          <Tag color={typeColors[type]}>
-            {typeNames[type] || type}
-          </Tag>
-        );
-      },
-    },
-    {
-      title: 'Capacity',
-      dataIndex: 'capacity',
-      key: 'capacity',
-      render: (capacity) => (
-        <Space>
-          <UsergroupAddOutlined />
-          {capacity}
-        </Space>
-      ),
-    },
-    {
-      title: 'Equipment',
-      dataIndex: 'equipment',
-      key: 'equipment',
-      render: (equipment) => (
+      title: 'Building Info',
+      key: 'buildingInfo',
+      render: (_, record) => (
         <div>
-          {equipment?.map((item, index) => (
-            <Tag key={index}>{item}</Tag>
-          ))}
+          <Space>
+            <HomeOutlined />
+            <div>
+              <strong>{record.Name}</strong>
+              {record.ShortName && (
+                <div style={{ color: '#666', fontSize: '12px' }}>
+                  {record.ShortName}
+                </div>
+              )}
+            </div>
+          </Space>
         </div>
       ),
     },
     {
+      title: 'Address',
+      dataIndex: 'Address',
+      key: 'address',
+      render: (address) => (
+        <Space>
+          <EnvironmentOutlined />
+          {address || 'N/A'}
+        </Space>
+      )
+    },
+    {
+      title: 'Rooms',
+      dataIndex: 'Rooms',
+      key: 'rooms',
+      render: (rooms) => (
+        <Space>
+          <TeamOutlined />
+          <span>{rooms ? rooms.length : 0} rooms</span>
+        </Space>
+      ),
+    },
+    {
+      title: 'LibCal Info',
+      key: 'libcalInfo',
+      render: (_, record) => (
+        <div>
+          <div>ID: <span style={{ fontFamily: 'monospace' }}>{record.libcal_id}</span></div>
+          <div>LID: <span style={{ fontFamily: 'monospace' }}>{record.lid}</span></div>
+        </div>
+      )
+    },
+    {
       title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => {
-        const statusConfig = {
-          available: { color: 'green', text: 'Available' },
-          maintenance: { color: 'orange', text: 'Maintenance' },
-          disabled: { color: 'red', text: 'Disabled' },
-        };
-        const config = statusConfig[status] || { color: 'default', text: status };
-        return <Tag color={config.color}>{config.text}</Tag>;
-      },
+      dataIndex: 'available',
+      key: 'available',
+      render: (available) => (
+        <Tag 
+          icon={available ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+          color={available ? 'green' : 'red'}
+        >
+          {available ? 'Available' : 'Unavailable'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Website',
+      dataIndex: 'website',
+      key: 'website',
+      render: (website) => website ? (
+        <Button 
+          type="link" 
+          icon={<LinkOutlined />}
+          href={website} 
+          target="_blank" 
+          size="small"
+        >
+          Visit
+        </Button>
+      ) : 'N/A'
     },
     {
       title: 'Actions',
@@ -187,13 +270,124 @@ const LocationsPage = () => {
           <Button
             type="link"
             icon={<EditOutlined />}
-            onClick={() => openModal(record)}
+            onClick={() => openModal(record, 'building')}
+          >
+            Edit
+          </Button>
+          <Button
+            type="link"
+            onClick={() => openModal(null, 'room')}
+          >
+            Add Room
+          </Button>
+          <Popconfirm
+            title="Sure you want to delete this building?"
+            onConfirm={() => handleDelete(record.id, 'building')}
+            okText="Confirm"
+            cancelText="Cancel"
+          >
+            <Button type="link" danger icon={<DeleteOutlined />}>
+              Delete
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ];
+
+  // Rooms Table Column Configuration (matches bu-book Room interface)
+  const roomColumns = [
+    {
+      title: 'Room Title',
+      dataIndex: 'title',
+      key: 'title',
+      render: (title, record) => (
+        <div>
+          <Space>
+            <TeamOutlined />
+            <div>
+              <strong>{title}</strong>
+              <div style={{ color: '#666', fontSize: '12px' }}>
+                Building: {record.building_name}
+              </div>
+            </div>
+          </Space>
+        </div>
+      ),
+    },
+    {
+      title: 'Capacity',
+      dataIndex: 'capacity',
+      key: 'capacity',
+      render: (capacity) => (
+        <span>{capacity} people</span>
+      )
+    },
+    {
+      title: 'Room Info',
+      key: 'roomInfo',
+      render: (_, record) => (
+        <div>
+          <div>EID: <span style={{ fontFamily: 'monospace' }}>{record.eid}</span></div>
+          <div>Type: <span style={{ fontFamily: 'monospace' }}>{record.gtype}</span></div>
+          {record.grouping && <div>Group: {record.grouping}</div>}
+        </div>
+      )
+    },
+    {
+      title: 'Booking',
+      dataIndex: 'gBookingSelectableTime',
+      key: 'booking',
+      render: (selectable) => (
+        <Tag color={selectable ? 'blue' : 'default'}>
+          {selectable ? 'Time Selectable' : 'Fixed Time'}
+        </Tag>
+      )
+    },
+    {
+      title: 'Status',
+      dataIndex: 'available',
+      key: 'available',
+      render: (available) => (
+        <Tag 
+          icon={available ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+          color={available ? 'green' : 'red'}
+        >
+          {available ? 'Available' : 'Unavailable'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'LibCal URL',
+      dataIndex: 'url',
+      key: 'url',
+      render: (url) => url ? (
+        <Button 
+          type="link" 
+          icon={<LinkOutlined />}
+          href={url} 
+          target="_blank" 
+          size="small"
+        >
+          Book
+        </Button>
+      ) : 'N/A'
+    },
+    {
+      title: 'Actions',
+      key: 'action',
+      render: (_, record) => (
+        <Space>
+          <Button
+            type="link"
+            icon={<EditOutlined />}
+            onClick={() => openModal(record, 'room')}
           >
             Edit
           </Button>
           <Popconfirm
-            title="Sure you want to delete this location?"
-            onConfirm={() => handleDelete(record.id)}
+            title="Sure you want to delete this room?"
+            onConfirm={() => handleDelete(record.id, 'room')}
             okText="Confirm"
             cancelText="Cancel"
           >
@@ -210,132 +404,304 @@ const LocationsPage = () => {
     <div>
       <Title level={2}>Location Management</Title>
       <Paragraph>
-        Management library all venue and RoomInformation，include Capacity、Equipment and AvailableStatus。
+        Manage library buildings and rooms, synchronized with bu-book and bub-backend data.
+        Buildings are fetched from Supabase, LibCal availability from bub-backend API.
       </Paragraph>
 
-      <Card>
-        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-          <div>
-            <Title level={4}>venueList</Title>
-          </div>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => openModal()}
-          >
-            Add Newvenue
-          </Button>
-        </div>
+      <Collapse defaultActiveKey={['1', '2']} ghost>
+        <Panel 
+          header={
+            <Title level={4}>
+              <HomeOutlined /> Buildings ({buildings.length})
+            </Title>
+          } 
+          key="1"
+        >
+          <Card>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+              <div>
+                <Paragraph>
+                  Library buildings with LibCal integration. Data structure matches bu-book Building interface.
+                </Paragraph>
+              </div>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => openModal(null, 'building')}
+              >
+                Add New Building
+              </Button>
+            </div>
 
-        <Table
-          columns={columns}
-          dataSource={locations}
-          loading={loading}
-          rowKey="id"
-          pagination={{
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total) => ` In total of ${total} venues`,
-          }}
-        />
-      </Card>
+            <Table
+              columns={buildingColumns}
+              dataSource={buildings}
+              loading={loading}
+              rowKey="id"
+              pagination={{
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total) => `Total of ${total} buildings`,
+              }}
+              expandable={{
+                expandedRowRender: (record) => (
+                  <div style={{ margin: 0 }}>
+                    <Descriptions title="Building Details" size="small" column={2}>
+                      <Descriptions.Item label="LibCal ID">{record.libcal_id}</Descriptions.Item>
+                      <Descriptions.Item label="Location ID (LID)">{record.lid}</Descriptions.Item>
+                      <Descriptions.Item label="Contacts">
+                        {record.contacts ? JSON.stringify(record.contacts) : 'None'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Rooms Count">
+                        {record.Rooms ? record.Rooms.length : 0}
+                      </Descriptions.Item>
+                    </Descriptions>
+                    {record.Rooms && record.Rooms.length > 0 && (
+                      <div style={{ marginTop: 16 }}>
+                        <strong>Rooms in this building:</strong>
+                        <div style={{ marginTop: 8 }}>
+                          {record.Rooms.map(room => (
+                            <Tag key={room.id} style={{ margin: '2px' }}>
+                              {room.title} (Cap: {room.capacity})
+                            </Tag>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ),
+                rowExpandable: (record) => record.Rooms && record.Rooms.length > 0,
+              }}
+            />
+          </Card>
+        </Panel>
 
-      {/* Add New/Edit venue modal */}
+        <Panel 
+          header={
+            <Title level={4}>
+              <TeamOutlined /> Rooms ({rooms.length})
+            </Title>
+          } 
+          key="2"
+        >
+          <Card>
+            <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+              <div>
+                <Paragraph>
+                  Individual rooms with booking capabilities. Data structure matches bu-book Room interface.
+                </Paragraph>
+              </div>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => openModal(null, 'room')}
+              >
+                Add New Room
+              </Button>
+            </div>
+
+            <Table
+              columns={roomColumns}
+              dataSource={rooms}
+              loading={loading}
+              rowKey="id"
+              pagination={{
+                showSizeChanger: true,
+                showQuickJumper: true,
+                showTotal: (total) => `Total of ${total} rooms`,
+              }}
+            />
+          </Card>
+        </Panel>
+      </Collapse>
+
+      {/* Dynamic Add New/Edit modal for Buildings and Rooms */}
       <Modal
-        title={editingLocation ? 'Editvenue' : 'Add Newvenue'}
+        title={
+          editingItem 
+            ? `Edit ${itemType === 'building' ? 'Building' : 'Room'}` 
+            : `Add New ${itemType === 'building' ? 'Building' : 'Room'}`
+        }
         open={modalVisible}
         onCancel={closeModal}
         footer={null}
-        width={600}
+        width={700}
       >
         <Form
           form={form}
           layout="vertical"
           onFinish={handleSave}
         >
-          <Form.Item
-            name="name"
-            label="venueName"
-            rules={[{ required: true, message: 'Please enter venue name' }]}
-          >
-            <Input placeholder="Please enter venue name" />
-          </Form.Item>
+          {itemType === 'building' ? (
+            // Building Form Fields (matching Building interface)
+            <>
+              <Form.Item
+                name="Name"
+                label="Building Name"
+                rules={[{ required: true, message: 'Please enter building name' }]}
+              >
+                <Input placeholder="e.g., Mugar Memorial Library" />
+              </Form.Item>
 
-          <Form.Item
-            name="type"
-            label="venueType"
-            rules={[{ required: true, message: 'Please select venue type' }]}
-          >
-            <Select placeholder="Please select venue type">
-              <Option value="study_room">Study Room</Option>
-              <Option value="meeting_room">Meeting Room</Option>
-              <Option value="computer_lab">Computer Lab</Option>
-              <Option value="reading_area">Reading Area</Option>
-            </Select>
-          </Form.Item>
+              <Form.Item
+                name="ShortName"
+                label="Short Name"
+              >
+                <Input placeholder="e.g., Mugar" />
+              </Form.Item>
 
-          <Form.Item
-            name="capacity"
-            label="Capacity"
-            rules={[{ required: true, message: 'Please enter venue capacity' }]}
-          >
-            <InputNumber
-              min={1}
-              max={200}
-              placeholder="Please enter venue capacity"
-              style={{ width: '100%' }}
-              addonAfter="People"
-            />
-          </Form.Item>
+              <Form.Item
+                name="Address"
+                label="Address"
+                rules={[{ required: true, message: 'Please enter building address' }]}
+              >
+                <Input placeholder="e.g., 771 Commonwealth Ave, Boston, MA 02215" />
+              </Form.Item>
 
-          <Form.Item
-            name="location"
-            label="Location Description"
-            rules={[{ required: true, message: 'Please enter location description' }]}
-          >
-            <Input placeholder="e.g., Second floor east side" />
-          </Form.Item>
+              <Form.Item
+                name="website"
+                label="Website URL"
+              >
+                <Input placeholder="https://www.bu.edu/library/" />
+              </Form.Item>
 
-          <Form.Item
-            name="equipment"
-            label="EquipmentList"
-          >
-            <Select
-              mode="tags"
-              placeholder="Please enter equipment name and press enter to add"
-              style={{ width: '100%' }}
-            >
-              <Option value="projector">Projector</Option>
-              <Option value="whiteboard">Whiteboard</Option>
-              <Option value="computer">Computer</Option>
-              <Option value="air_conditioning">Air Conditioning</Option>
-              <Option value="audio_system">Audio System</Option>
-            </Select>
-          </Form.Item>
+              <Form.Item
+                name="contacts"
+                label="Contacts (JSON format)"
+                tooltip="Enter contact information in JSON format, e.g., {'phone': '617-353-3732'}"
+              >
+                <Input.TextArea 
+                  rows={3} 
+                  placeholder='{"phone": "617-353-3732", "email": "library@bu.edu"}' 
+                />
+              </Form.Item>
 
-          <Form.Item
-            name="status"
-            label="Status"
-            rules={[{ required: true, message: 'Please select venue status' }]}
-          >
-            <Select placeholder="Please select venue status">
-              <Option value="available">Available</Option>
-              <Option value="maintenance">Maintenance</Option>
-              <Option value="disabled">Disabled</Option>
-            </Select>
-          </Form.Item>
+              <Form.Item
+                name="libcal_id"
+                label="LibCal ID"
+                rules={[{ required: true, message: 'Please enter LibCal ID' }]}
+              >
+                <InputNumber 
+                  style={{ width: '100%' }} 
+                  placeholder="e.g., 12345"
+                />
+              </Form.Item>
 
-          <Form.Item
-            name="description"
-            label="Notes"
-          >
-            <Input.TextArea rows={3} placeholder="Please enter notes information" />
-          </Form.Item>
+              <Form.Item
+                name="lid"
+                label="Location ID (LID)"
+                rules={[{ required: true, message: 'Please enter Location ID' }]}
+                tooltip="Location ID used by bub-backend API"
+              >
+                <InputNumber 
+                  style={{ width: '100%' }} 
+                  placeholder="e.g., 19336"
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="available"
+                label="Availability Status"
+                rules={[{ required: true, message: 'Please select availability status' }]}
+              >
+                <Select placeholder="Select availability status">
+                  <Option value={true}>Available</Option>
+                  <Option value={false}>Unavailable</Option>
+                </Select>
+              </Form.Item>
+            </>
+          ) : (
+            // Room Form Fields (matching Room interface)
+            <>
+              <Form.Item
+                name="title"
+                label="Room Title"
+                rules={[{ required: true, message: 'Please enter room title' }]}
+              >
+                <Input placeholder="e.g., Study Room 201" />
+              </Form.Item>
+
+              <Form.Item
+                name="building_id"
+                label="Building"
+                rules={[{ required: true, message: 'Please select building' }]}
+              >
+                <Select placeholder="Select building">
+                  {buildings.map(building => (
+                    <Option key={building.id} value={building.id}>
+                      {building.Name}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item
+                name="capacity"
+                label="Capacity"
+                rules={[{ required: true, message: 'Please enter room capacity' }]}
+              >
+                <InputNumber
+                  min={1}
+                  max={50}
+                  placeholder="e.g., 8"
+                  style={{ width: '100%' }}
+                  addonAfter="People"
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="eid"
+                label="Equipment ID (EID)"
+                rules={[{ required: true, message: 'Please enter Equipment ID' }]}
+              >
+                <InputNumber 
+                  style={{ width: '100%' }} 
+                  placeholder="e.g., 54321"
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="url"
+                label="LibCal Booking URL"
+              >
+                <Input placeholder="https://bu.libcal.com/..." />
+              </Form.Item>
+
+              <Form.Item
+                name="grouping"
+                label="Room Grouping"
+              >
+                <Input placeholder="e.g., Study Rooms" />
+              </Form.Item>
+
+              <Form.Item
+                name="gtype"
+                label="Group Type"
+                rules={[{ required: true, message: 'Please enter group type' }]}
+              >
+                <InputNumber 
+                  style={{ width: '100%' }} 
+                  placeholder="e.g., 1"
+                />
+              </Form.Item>
+
+              <Form.Item
+                name="available"
+                label="Availability Status"
+                rules={[{ required: true, message: 'Please select availability status' }]}
+              >
+                <Select placeholder="Select availability status">
+                  <Option value={true}>Available</Option>
+                  <Option value={false}>Unavailable</Option>
+                </Select>
+              </Form.Item>
+            </>
+          )}
 
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit">
-                Save
+                Save {itemType === 'building' ? 'Building' : 'Room'}
               </Button>
               <Button onClick={closeModal}>
                 Cancel

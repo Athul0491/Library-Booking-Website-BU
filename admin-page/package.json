@@ -16,6 +16,7 @@
     "@fullcalendar/interaction": "^6.1.15",
     "@fullcalendar/react": "^6.1.15",
     "@fullcalendar/timegrid": "^6.1.15",
+    "@supabase/supabase-js": "^2.52.1",
     "antd": "^5.22.2",
     "axios": "^1.11.0",
     "dayjs": "^1.11.13",

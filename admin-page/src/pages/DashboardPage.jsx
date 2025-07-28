@@ -1,4 +1,4 @@
-// Dashboard page - Display system overview and key metrics
+// Dashboard page - Real-time overview of bu-book and bub-backend system
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -8,12 +8,15 @@ import {
   Table,
   Tag,
   Progress,
-  Calendar,
   List,
   Avatar,
   Typography,
   Space,
-  Button
+  Button,
+  Alert,
+  Descriptions,
+  Timeline,
+  Tooltip
 } from 'antd';
 import {
   UserOutlined,
@@ -22,42 +25,66 @@ import {
   ClockCircleOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
-  EyeOutlined
+  EyeOutlined,
+  HomeOutlined,
+  TeamOutlined,
+  LinkOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ApiOutlined,
+  DatabaseOutlined
 } from '@ant-design/icons';
 import statsService from '../services/statsService';
+import locationService from '../services/locationService';
 
 const { Title, Paragraph } = Typography;
 
 /**
  * Dashboard page component
- * Display key statistical data and recent activities of the system
+ * Real-time overview of Library Booking System integrating:
+ * - bu-book: Building and Room data from Supabase
+ * - bub-backend: LibCal availability API proxy
+ * - System health and statistics monitoring
  */
 const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({});
-  const [recentBookings, setRecentBookings] = useState([]);
-  const [popularRooms, setPopularRooms] = useState([]);
+  const [systemStats, setSystemStats] = useState({});
+  const [buildingStats, setBuildingStats] = useState({});
+  const [availabilityStats, setAvailabilityStats] = useState({});
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [libcalStatus, setLibcalStatus] = useState('unknown');
 
   // Load data when component mounts
   useEffect(() => {
     loadDashboardData();
+    // Refresh data every 30 seconds
+    const interval = setInterval(loadDashboardData, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  // Load Dashboard Data
+  // Load comprehensive dashboard data
   const loadDashboardData = async () => {
     try {
       setLoading(true);
       
-      // Get Statistics Data
-      const [statsData, bookingsData, roomsData] = await Promise.all([
+      // Parallel data loading for better performance
+      const [
+        overviewData,
+        buildingsData,
+        availabilityData,
+        activityData
+      ] = await Promise.all([
         statsService.getOverviewStats(),
-        statsService.getRecentBookings(),
-        statsService.getPopularRooms()
+        loadBuildingStatistics(),
+        loadAvailabilityStatistics(),
+        statsService.getRecentBookings()
       ]);
 
-      setStats(statsData.data || {});
-      setRecentBookings(bookingsData.data || []);
-      setPopularRooms(roomsData.data || []);
+      setSystemStats(overviewData.data || {});
+      setBuildingStats(buildingsData);
+      setAvailabilityStats(availabilityData);
+      setRecentActivity(activityData.data || []);
+      
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -65,28 +92,108 @@ const DashboardPage = () => {
     }
   };
 
-  // Recent booking table column configuration
-  const bookingColumns = [
+  // Load building statistics from Supabase (bu-book data)
+  const loadBuildingStatistics = async () => {
+    try {
+      const response = await locationService.getLocations();
+      const buildings = response.data?.buildings || [];
+      const rooms = buildings.flatMap(b => b.Rooms || []);
+      
+      return {
+        totalBuildings: buildings.length,
+        totalRooms: rooms.length,
+        availableBuildings: buildings.filter(b => b.available).length,
+        availableRooms: rooms.filter(r => r.available).length,
+        buildingsWithRooms: buildings.filter(b => b.Rooms && b.Rooms.length > 0).length,
+        averageRoomsPerBuilding: buildings.length > 0 ? Math.round(rooms.length / buildings.length * 10) / 10 : 0
+      };
+    } catch (error) {
+      console.error('Failed to load building statistics:', error);
+      return {};
+    }
+  };
+
+  // Load availability statistics from bub-backend API
+  const loadAvailabilityStatistics = async () => {
+    try {
+      // Test bub-backend API health
+      const testResponse = await fetch('http://localhost:5000/api/availability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          library: 'mug',
+          start: new Date().toISOString().split('T')[0]
+        })
+      });
+      
+      if (testResponse.ok) {
+        const data = await testResponse.json();
+        setLibcalStatus('connected');
+        return {
+          totalSlots: data.slots?.length || 0,
+          availableSlots: data.slots?.filter(s => s.available)?.length || 0,
+          libcalApiStatus: 'healthy',
+          lastUpdate: new Date().toISOString()
+        };
+      } else {
+        setLibcalStatus('error');
+        return { libcalApiStatus: 'error' };
+      }
+    } catch (error) {
+      setLibcalStatus('disconnected');
+      console.error('bub-backend API error:', error);
+      return { libcalApiStatus: 'disconnected' };
+    }
+  };
+
+  // Recent activity table columns (bu-book Slot format)
+  const activityColumns = [
     {
-      title: 'User',
-      dataIndex: 'userName',
-      key: 'userName',
-      render: (name) => (
+      title: 'Activity Type',
+      key: 'type',
+      render: (_, record) => (
         <Space>
-          <Avatar size="small" icon={<UserOutlined />} />
-          {name}
+          <Avatar size="small" style={{ backgroundColor: '#1890ff' }}>
+            {record.type === 'booking' ? <CalendarOutlined /> : <UserOutlined />}
+          </Avatar>
+          <span>{record.type === 'booking' ? 'Booking' : 'User Activity'}</span>
         </Space>
       ),
     },
     {
-      title: 'Room',
-      dataIndex: 'roomName',
-      key: 'roomName',
+      title: 'Room/Building',
+      dataIndex: ['room', 'title'],
+      key: 'room',
+      render: (title, record) => (
+        <div>
+          <strong>{title || record.room?.name || 'N/A'}</strong>
+          {record.building && (
+            <div style={{ color: '#666', fontSize: '12px' }}>
+              {record.building.Name}
+            </div>
+          )}
+        </div>
+      ),
     },
     {
-      title: 'Time',
-      dataIndex: 'timeSlot',
+      title: 'Time Slot',
       key: 'timeSlot',
+      render: (_, record) => {
+        if (!record.timeSlot || !record.timeSlot.start || !record.timeSlot.end) {
+          return 'N/A';
+        }
+        // Handle bu-book Slot format with Date objects
+        const start = new Date(record.timeSlot.start);
+        const end = new Date(record.timeSlot.end);
+        return (
+          <div>
+            <div>{start.toLocaleDateString()}</div>
+            <div style={{ color: '#666', fontSize: '12px' }}>
+              {start.toLocaleTimeString()} - {end.toLocaleTimeString()}
+            </div>
+          </div>
+        );
+      }
     },
     {
       title: 'Status',
@@ -97,146 +204,261 @@ const DashboardPage = () => {
           confirmed: { color: 'green', text: 'Confirmed' },
           pending: { color: 'orange', text: 'Pending' },
           cancelled: { color: 'red', text: 'Cancelled' },
+          active: { color: 'blue', text: 'Active' }
         };
         const config = statusConfig[status] || { color: 'default', text: status };
         return <Tag color={config.color}>{config.text}</Tag>;
       },
     },
     {
-      title: 'Actions',
-      key: 'action',
+      title: 'LibCal Data',
+      key: 'libcalData',
       render: (_, record) => (
-        <Button 
-          type="link" 
-          icon={<EyeOutlined />}
-          onClick={() => console.log('View Booking Details:', record)}
-        >
-          View
-        </Button>
-      ),
-    },
+        <div style={{ fontSize: '12px', color: '#666' }}>
+          {record.itemId && <div>Item ID: {record.itemId}</div>}
+          {record.checksum && <div>Checksum: {record.checksum.substring(0, 8)}...</div>}
+        </div>
+      )
+    }
   ];
 
   return (
     <div>
-      <Title level={2}>Dashboard</Title>
+      <Title level={2}>System Dashboard</Title>
       <Paragraph>
-        Welcome to the Library Booking Management System. Here you can find system overview and key metrics.
+        Real-time monitoring of Library Booking System - bu-book frontend, bub-backend API, and Supabase database integration.
       </Paragraph>
 
-      {/* Statistics card area */}
+      {/* System Status Alert */}
+      <Alert
+        message={`LibCal API Status: ${libcalStatus}`}
+        description={
+          libcalStatus === 'connected' 
+            ? 'bub-backend is connected to LibCal API and functioning normally.'
+            : libcalStatus === 'disconnected'
+            ? 'bub-backend API is not responding. Please check if the server is running on localhost:5000.'
+            : 'Error connecting to LibCal API through bub-backend.'
+        }
+        type={libcalStatus === 'connected' ? 'success' : 'warning'}
+        style={{ marginBottom: 24 }}
+        showIcon
+      />
+
+      {/* Key Metrics Row */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Today's Bookings"
-              value={stats.todayBookings}
-              prefix={<CalendarOutlined />}
-              valueStyle={{ color: '#3f8600' }}
-              suffix={
-                <span style={{ fontSize: '14px' }}>
-                  <ArrowUpOutlined /> 12%
-                </span>
-              }
-              loading={loading}
+              title="Total Buildings"
+              value={buildingStats.totalBuildings || 0}
+              prefix={<HomeOutlined />}
+              suffix="buildings"
             />
+            <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+              {buildingStats.availableBuildings || 0} available
+            </div>
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Active User"
-              value={stats.activeUsers}
-              prefix={<UserOutlined />}
-              valueStyle={{ color: '#1890ff' }}
-              suffix={
-                <span style={{ fontSize: '14px' }}>
-                  <ArrowUpOutlined /> 8%
-                </span>
-              }
-              loading={loading}
+              title="Total Rooms"
+              value={buildingStats.totalRooms || 0}
+              prefix={<TeamOutlined />}
+              suffix="rooms"
             />
+            <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+              {buildingStats.availableRooms || 0} available
+            </div>
           </Card>
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <Card>
             <Statistic
-              title="Available Rooms"
-              value={stats.availableRooms}
-              prefix={<EnvironmentOutlined />}
-              valueStyle={{ color: '#52c41a' }}
-              loading={loading}
-            />
-          </Card>
-        </Col>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
-            <Statistic
-              title="Usage Rate"
-              value={stats.utilizationRate}
+              title="LibCal Slots"
+              value={availabilityStats.totalSlots || 0}
               prefix={<ClockCircleOutlined />}
-              suffix="%"
-              valueStyle={{ color: '#faad14' }}
-              loading={loading}
+              suffix="slots"
+            />
+            <div style={{ marginTop: 8, fontSize: '12px', color: '#666' }}>
+              {availabilityStats.availableSlots || 0} available
+            </div>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card>
+            <Statistic
+              title="Avg Rooms/Building"
+              value={buildingStats.averageRoomsPerBuilding || 0}
+              precision={1}
+              prefix={<EnvironmentOutlined />}
             />
           </Card>
         </Col>
       </Row>
 
+      {/* Detailed Analytics Row */}
       <Row gutter={[16, 16]}>
-        {/* Recent Bookings List */}
-        <Col xs={24} lg={14}>
-          <Card title="Recent Bookings" extra={<Button type="link">View All</Button>}>
-            <Table
-              columns={bookingColumns}
-              dataSource={recentBookings}
-              loading={loading}
-              pagination={false}
-              size="small"
-              rowKey="id"
-            />
+        <Col xs={24} lg={12}>
+          <Card 
+            title={
+              <Space>
+                <DatabaseOutlined />
+                <span>Building & Room Analytics</span>
+              </Space>
+            }
+            loading={loading}
+          >
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="Buildings with Rooms">
+                {buildingStats.buildingsWithRooms || 0} / {buildingStats.totalBuildings || 0}
+              </Descriptions.Item>
+              <Descriptions.Item label="Room Availability Rate">
+                <Progress 
+                  percent={
+                    buildingStats.totalRooms 
+                      ? Math.round((buildingStats.availableRooms / buildingStats.totalRooms) * 100)
+                      : 0
+                  } 
+                  size="small" 
+                />
+              </Descriptions.Item>
+              <Descriptions.Item label="Building Availability Rate">
+                <Progress 
+                  percent={
+                    buildingStats.totalBuildings
+                      ? Math.round((buildingStats.availableBuildings / buildingStats.totalBuildings) * 100)
+                      : 0
+                  } 
+                  size="small" 
+                />
+              </Descriptions.Item>
+            </Descriptions>
           </Card>
         </Col>
 
-        {/* Popular Rooms and Usage Rate */}
-        <Col xs={24} lg={10}>
-          <Card title="Popular Rooms" style={{ marginBottom: 16 }}>
-            <List
-              loading={loading}
-              dataSource={popularRooms}
-              locale={{ emptyText: 'No data available' }}
-              renderItem={(item) => (
-                <List.Item>
-                  <List.Item.Meta
-                    title={item.name}
-                    description={`Today's bookings: ${item.bookings} times`}
-                  />
-                  <Progress 
-                    percent={item.usageRate} 
-                    size="small" 
-                    status={item.usageRate > 80 ? 'exception' : 'active'}
-                  />
-                </List.Item>
-              )}
-            />
-          </Card>
-
-          {/* Quick Actions area */}
-          <Card title="Quick Actions">
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <Button type="primary" block onClick={() => console.log('Add New Booking')}>
-                Add New Booking
-              </Button>
-              <Button block onClick={() => console.log('Room Management')}>
-                Room Management
-              </Button>
-              <Button block onClick={() => console.log('Export Report')}>
-                Export Report
-              </Button>
-            </Space>
+        <Col xs={24} lg={12}>
+          <Card 
+            title={
+              <Space>
+                <ApiOutlined />
+                <span>LibCal API Health</span>
+              </Space>
+            }
+            loading={loading}
+          >
+            <Descriptions column={1} size="small">
+              <Descriptions.Item label="API Status">
+                <Tag 
+                  color={libcalStatus === 'connected' ? 'green' : 'red'}
+                  icon={libcalStatus === 'connected' ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+                >
+                  {libcalStatus.toUpperCase()}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Available Slots">
+                {availabilityStats.availableSlots || 0} / {availabilityStats.totalSlots || 0}
+              </Descriptions.Item>
+              <Descriptions.Item label="Slot Availability Rate">
+                <Progress 
+                  percent={
+                    availabilityStats.totalSlots 
+                      ? Math.round((availabilityStats.availableSlots / availabilityStats.totalSlots) * 100)
+                      : 0
+                  } 
+                  size="small" 
+                />
+              </Descriptions.Item>
+              <Descriptions.Item label="Last Update">
+                {availabilityStats.lastUpdate 
+                  ? new Date(availabilityStats.lastUpdate).toLocaleString()
+                  : 'Never'
+                }
+              </Descriptions.Item>
+            </Descriptions>
           </Card>
         </Col>
       </Row>
+
+      {/* Recent Activity Table */}
+      <Card 
+        title={
+          <Space>
+            <CalendarOutlined />
+            <span>Recent Activity</span>
+          </Space>
+        }
+        style={{ marginTop: 24 }}
+        extra={
+          <Button 
+            type="primary" 
+            icon={<EyeOutlined />}
+            onClick={loadDashboardData}
+          >
+            Refresh
+          </Button>
+        }
+      >
+        <Table
+          columns={activityColumns}
+          dataSource={recentActivity}
+          loading={loading}
+          rowKey={(record) => record.id || record.checksum || Math.random()}
+          pagination={{
+            pageSize: 10,
+            showSizeChanger: false,
+            showQuickJumper: true,
+            showTotal: (total) => `Total ${total} activities`
+          }}
+          scroll={{ x: 800 }}
+        />
+      </Card>
+
+      {/* System Integration Status Footer */}
+      <Card 
+        title="System Integration Status" 
+        style={{ marginTop: 24 }}
+        size="small"
+      >
+        <Timeline
+          items={[
+            {
+              color: 'green',
+              children: (
+                <div>
+                  <strong>Supabase Database</strong> - Buildings and Rooms data (bu-book)
+                  <br />
+                  <span style={{ color: '#666' }}>Connected and synced</span>
+                </div>
+              ),
+            },
+            {
+              color: libcalStatus === 'connected' ? 'green' : 'red',
+              children: (
+                <div>
+                  <strong>bub-backend API</strong> - LibCal availability proxy
+                  <br />
+                  <span style={{ color: '#666' }}>
+                    Status: {libcalStatus} | Port: 5000
+                  </span>
+                </div>
+              ),
+            },
+            {
+              color: 'blue',
+              children: (
+                <div>
+                  <strong>Admin Dashboard</strong> - Real-time monitoring interface
+                  <br />
+                  <span style={{ color: '#666' }}>
+                    Auto-refresh every 30 seconds
+                  </span>
+                </div>
+              ),
+            },
+          ]}
+        />
+      </Card>
     </div>
   );
 };

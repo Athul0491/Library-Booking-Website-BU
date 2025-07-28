@@ -37,7 +37,7 @@ class LocationService {
     }
   }
 
-  // Get real locations from Supabase
+  // Get real locations from Supabase (return buildings and rooms separately)
   async getRealLocations(filters = {}) {
     try {
       await this.sleep();
@@ -48,50 +48,17 @@ class LocationService {
 
       if (error) throw error;
 
-      // Transform Supabase data to match expected format
-      const locations = [];
-      
-      for (const building of buildings || []) {
-        if (building.Rooms && building.Rooms.length > 0) {
-          for (const room of building.Rooms) {
-            locations.push({
-              id: room.id,
-              name: room.name,
-              type: this.getRoomType(room.name),
-              capacity: room.capacity || 4,
-              building: building.name,
-              floor: Math.floor(Math.random() * 5) + 1, // Since floor is not in Supabase
-              equipment: this.getEquipmentByType(this.getRoomType(room.name)),
-              description: `${room.name} in ${building.name}`,
-              isActive: room.available !== false,
-              buildingId: building.id,
-              lid: building.lid,
-              createdAt: dayjs().subtract(30, 'days').toISOString(),
-              updatedAt: dayjs().subtract(1, 'days').toISOString()
-            });
-          }
-        }
-      }
-
-      // Apply filters
-      let filteredLocations = locations;
-      if (filters.type) {
-        filteredLocations = filteredLocations.filter(loc => loc.type === filters.type);
-      }
-      if (filters.building) {
-        filteredLocations = filteredLocations.filter(loc => 
-          loc.building.toLowerCase().includes(filters.building.toLowerCase())
-        );
-      }
-      if (filters.active !== undefined) {
-        filteredLocations = filteredLocations.filter(loc => loc.isActive === filters.active);
-      }
-
       return {
         success: true,
         data: {
-          list: filteredLocations,
-          total: filteredLocations.length
+          buildings: buildings || [],
+          rooms: buildings?.flatMap(building => 
+            building.Rooms?.map(room => ({
+              ...room,
+              building_name: building.Name
+            })) || []
+          ) || [],
+          total: buildings?.length || 0
         },
         isMockData: false
       };
@@ -436,6 +403,156 @@ class LocationService {
       };
     }
   }
+
+  // ================== Building CRUD Operations ==================
+
+  // Create a new building
+  async createBuilding(buildingData) {
+    try {
+      if (isSupabaseConfigured()) {
+        const { data, error } = await supabase
+          .from('Buildings')
+          .insert([buildingData])
+          .select();
+
+        if (error) throw error;
+        return { success: true, data: data[0] };
+      } else {
+        // Mock implementation
+        await this.sleep();
+        return { 
+          success: true, 
+          data: { id: Date.now(), ...buildingData }
+        };
+      }
+    } catch (error) {
+      console.error('Failed to create building:', error);
+      throw error;
+    }
+  }
+
+  // Update a building
+  async updateBuilding(buildingId, updateData) {
+    try {
+      if (isSupabaseConfigured()) {
+        const { data, error } = await supabase
+          .from('Buildings')
+          .update(updateData)
+          .eq('id', buildingId)
+          .select();
+
+        if (error) throw error;
+        return { success: true, data: data[0] };
+      } else {
+        // Mock implementation
+        await this.sleep();
+        return { 
+          success: true, 
+          data: { id: buildingId, ...updateData }
+        };
+      }
+    } catch (error) {
+      console.error('Failed to update building:', error);
+      throw error;
+    }
+  }
+
+  // Delete a building
+  async deleteBuilding(buildingId) {
+    try {
+      if (isSupabaseConfigured()) {
+        const { error } = await supabase
+          .from('Buildings')
+          .delete()
+          .eq('id', buildingId);
+
+        if (error) throw error;
+        return { success: true };
+      } else {
+        // Mock implementation
+        await this.sleep();
+        return { success: true };
+      }
+    } catch (error) {
+      console.error('Failed to delete building:', error);
+      throw error;
+    }
+  }
+
+  // ================== Room CRUD Operations ==================
+
+  // Create a new room
+  async createRoom(roomData) {
+    try {
+      if (isSupabaseConfigured()) {
+        const { data, error } = await supabase
+          .from('Rooms')
+          .insert([roomData])
+          .select();
+
+        if (error) throw error;
+        return { success: true, data: data[0] };
+      } else {
+        // Mock implementation
+        await this.sleep();
+        return { 
+          success: true, 
+          data: { id: Date.now(), ...roomData }
+        };
+      }
+    } catch (error) {
+      console.error('Failed to create room:', error);
+      throw error;
+    }
+  }
+
+  // Update a room
+  async updateRoom(roomId, updateData) {
+    try {
+      if (isSupabaseConfigured()) {
+        const { data, error } = await supabase
+          .from('Rooms')
+          .update(updateData)
+          .eq('id', roomId)
+          .select();
+
+        if (error) throw error;
+        return { success: true, data: data[0] };
+      } else {
+        // Mock implementation
+        await this.sleep();
+        return { 
+          success: true, 
+          data: { id: roomId, ...updateData }
+        };
+      }
+    } catch (error) {
+      console.error('Failed to update room:', error);
+      throw error;
+    }
+  }
+
+  // Delete a room
+  async deleteRoom(roomId) {
+    try {
+      if (isSupabaseConfigured()) {
+        const { error } = await supabase
+          .from('Rooms')
+          .delete()
+          .eq('id', roomId);
+
+        if (error) throw error;
+        return { success: true };
+      } else {
+        // Mock implementation
+        await this.sleep();
+        return { success: true };
+      }
+    } catch (error) {
+      console.error('Failed to delete room:', error);
+      throw error;
+    }
+  }
 }
 
 // Create and export service instance
@@ -450,6 +567,16 @@ export const getRoomTypes = () => locationService.getRoomTypes();
 export const getEquipmentOptions = () => locationService.getEquipmentOptions();
 export const getLocationStats = () => locationService.getLocationStats();
 
+// Building operations
+export const createBuilding = (buildingData) => locationService.createBuilding(buildingData);
+export const updateBuilding = (buildingId, updateData) => locationService.updateBuilding(buildingId, updateData);
+export const deleteBuilding = (buildingId) => locationService.deleteBuilding(buildingId);
+
+// Room operations  
+export const createRoom = (roomData) => locationService.createRoom(roomData);
+export const updateRoom = (roomId, updateData) => locationService.updateRoom(roomId, updateData);
+export const deleteRoom = (roomId) => locationService.deleteRoom(roomId);
+
 // Default export
 export default {
   getLocations,
@@ -459,5 +586,11 @@ export default {
   deleteLocation,
   getRoomTypes,
   getEquipmentOptions,
-  getLocationStats
+  getLocationStats,
+  createBuilding,
+  updateBuilding,
+  deleteBuilding,
+  createRoom,
+  updateRoom,
+  deleteRoom
 };

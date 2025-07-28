@@ -177,34 +177,40 @@ const BookingsPage = () => {
   const columns = [
     {
       title: 'Booking ID',
-      dataIndex: 'bookingId',
-      key: 'bookingId',
-      sorter: (a, b) => a.bookingId.localeCompare(b.bookingId),
+      dataIndex: 'id',
+      key: 'id',
+      sorter: (a, b) => a.id - b.id,
       render: (text) => <span style={{ fontFamily: 'monospace' }}>{text}</span>
     },
     {
       title: 'Guest Name',
-      dataIndex: 'guestName',
+      dataIndex: ['user', 'name'],
       key: 'guestName',
-      sorter: (a, b) => a.guestName.localeCompare(b.guestName),
+      sorter: (a, b) => (a.user?.name || '').localeCompare(b.user?.name || ''),
       render: (text) => (
         <Space>
           <UserOutlined />
-          {text}
+          {text || 'N/A'}
         </Space>
       )
     },
     {
-      title: 'Room Number',
-      dataIndex: 'roomNumber',
-      key: 'roomNumber',
-      sorter: (a, b) => a.roomNumber.localeCompare(b.roomNumber)
+      title: 'Room',
+      dataIndex: ['room', 'name'],
+      key: 'roomName',
+      sorter: (a, b) => (a.room?.name || '').localeCompare(b.room?.name || ''),
+      render: (roomName, record) => (
+        <div>
+          <div>{roomName || 'N/A'}</div>
+          <small style={{ color: '#666' }}>{record.room?.building || ''}</small>
+        </div>
+      )
     },
     {
       title: 'Booking Date',
-      dataIndex: 'bookingDate',
-      key: 'bookingDate',
-      sorter: (a, b) => new Date(a.bookingDate) - new Date(b.bookingDate),
+      dataIndex: 'date',
+      key: 'date',
+      sorter: (a, b) => new Date(a.date) - new Date(b.date),
       render: (date) => (
         <Space>
           <CalendarOutlined />
@@ -216,7 +222,12 @@ const BookingsPage = () => {
       title: 'Time Slot',
       dataIndex: 'timeSlot',
       key: 'timeSlot',
-      render: (timeSlot) => `${timeSlot.start} - ${timeSlot.end}`
+      render: (timeSlot) => {
+        if (!timeSlot || !timeSlot.start || !timeSlot.end) {
+          return 'N/A';
+        }
+        return `${timeSlot.start} - ${timeSlot.end}`;
+      }
     },
     {
       title: 'Status',
@@ -446,7 +457,7 @@ const BookingsPage = () => {
         <Table
           columns={columns}
           dataSource={filteredBookings}
-          rowKey="bookingId"
+          rowKey="id"
           loading={loading}
           pagination={{
             total: filteredBookings.length,

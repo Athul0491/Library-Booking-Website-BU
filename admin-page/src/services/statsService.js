@@ -1,6 +1,6 @@
 /**
  * Statistics service - Provides real statistics data by integrating with:
- * - bub-backend for LibCal booking data
+ * - bub-backend for LibCal booking data  
  * - Supabase for building/room data (same as bu-book)
  * - Real API endpoints for actual usage statistics
  */
@@ -53,39 +53,52 @@ class StatsService {
       if (error) throw error;
 
       // Get availability data from bub-backend for all libraries
-      const libraries = ['mug', 'par', 'pic', 'sci'];
       let totalBookings = 0;
       let totalSlots = 0;
       const roomStats = [];
 
       for (const building of buildings || []) {
         if (building.Rooms && building.Rooms.length > 0) {
-          const params = {
-            library: building.lid,
-            start: startDate.format('YYYY-MM-DD'),
-            end: endDate.format('YYYY-MM-DD'),
-            start_time: '08:00',
-            end_time: '22:00'
+          // Map building lid to library code for API call
+          const libraryCodeMap = {
+            19336: 'mug',
+            19818: 'par', 
+            18359: 'pic',
+            20177: 'sci'
           };
-
-          const availability = await apiService.getAvailability(params);
           
-          if (availability.success) {
-            const slots = availability.data?.slots || [];
-            const bookings = availability.data?.bookings || [];
-            totalSlots += slots.length;
-            totalBookings += bookings.length;
+          const libraryCode = libraryCodeMap[building.lid] || building.ShortName?.toLowerCase();
+          
+          if (libraryCode) {
+            const params = {
+              library: libraryCode,
+              start: startDate.format('YYYY-MM-DD'),
+              end: endDate.format('YYYY-MM-DD'),
+              start_time: '08:00',
+              end_time: '22:00'
+            };
 
-            // Add room statistics
-            for (const room of building.Rooms) {
-              const roomUtilization = slots.length > 0 ? (bookings.length / slots.length) * 100 : 0;
-              roomStats.push({
-                id: room.id,
-                name: `${room.name} (${building.name})`,
-                bookings: bookings.length,
-                utilization: Math.round(roomUtilization),
-                capacity: room.capacity || 4
-              });
+            const availability = await apiService.getAvailability(params);
+            
+            if (availability.success) {
+              const slots = availability.data?.slots || [];
+              const bookings = availability.data?.bookings || [];
+              totalSlots += slots.length;
+              totalBookings += bookings.length;
+
+              // Add room statistics matching bu-book data structure
+              for (const room of building.Rooms) {
+                const roomUtilization = slots.length > 0 ? (bookings.length / slots.length) * 100 : 0;
+                roomStats.push({
+                  id: room.id,
+                  name: `${room.title} (${building.Name})`,
+                  bookings: bookings.length,
+                  utilization: Math.round(roomUtilization),
+                  capacity: room.capacity || 4,
+                  building: building.Name,
+                  buildingId: building.id
+                });
+              }
             }
           }
         }
@@ -151,11 +164,11 @@ class StatsService {
     };
 
     const mockRoomStats = [
-      { id: 1, name: 'Study Room A', bookings: 156, utilization: 85 },
-      { id: 2, name: 'Meeting Room B', bookings: 89, utilization: 72 },
-      { id: 3, name: 'Discussion Room C', bookings: 124, utilization: 68 },
-      { id: 4, name: 'Computer Lab D', bookings: 67, utilization: 45 },
-      { id: 5, name: 'Reading Area E', bookings: 203, utilization: 92 },
+      { id: 1, name: 'Study Room A', bookings: 156, utilization: 85, capacity: 6, building: 'Mugar Library' },
+      { id: 2, name: 'Meeting Room B', bookings: 89, utilization: 72, capacity: 4, building: 'Pardee Library' },
+      { id: 3, name: 'Discussion Room C', bookings: 124, utilization: 68, capacity: 8, building: 'Science Library' },
+      { id: 4, name: 'Computer Lab D', bookings: 67, utilization: 45, capacity: 12, building: 'Pickering Library' },
+      { id: 5, name: 'Reading Area E', bookings: 203, utilization: 92, capacity: 20, building: 'Mugar Library' },
     ];
 
     const mockUserStats = [
@@ -239,66 +252,76 @@ class StatsService {
     return result;
   }
 
-  // Get recent bookings for dashboard
+  // Get recent bookings with proper data structure for BookingsPage
   async getRecentBookings(limit = 10) {
     try {
-      await this.sleep(200);
+      await this.sleep();
       
-      // Mock recent bookings data
-      const recentBookings = [];
-      const userNames = ['John Smith', 'Sarah Johnson', 'Michael Brown', 'Emily Davis', 'David Wilson'];
-      const rooms = ['Study Room A', 'Meeting Room B', 'Discussion Room C', 'Computer Lab D', 'Reading Area E'];
-      const statuses = ['confirmed', 'pending', 'completed'];
-
-      for (let i = 0; i < limit; i++) {
-        recentBookings.push({
-          id: i + 1,
-          userName: userNames[Math.floor(Math.random() * userNames.length)],
-          roomName: rooms[Math.floor(Math.random() * rooms.length)],
-          date: dayjs().subtract(Math.floor(Math.random() * 7), 'day').format('YYYY-MM-DD'),
-          startTime: `${8 + Math.floor(Math.random() * 12)}:00`,
-          status: statuses[Math.floor(Math.random() * statuses.length)],
-          createdAt: dayjs().subtract(Math.floor(Math.random() * 24), 'hour').toISOString()
-        });
-      }
-
-      return {
-        success: true,
-        data: recentBookings.sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf())
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to fetch recent bookings',
-        message: 'An error occurred while retrieving recent bookings'
-      };
-    }
-  }
-
-  // Get popular rooms for dashboard
-  async getPopularRooms(limit = 5) {
-    try {
-      await this.sleep(200);
-      
-      // Mock popular rooms data
-      const popularRooms = [
-        { id: 1, name: 'Study Room A', bookings: 156, utilization: 85 },
-        { id: 2, name: 'Meeting Room B', bookings: 89, utilization: 72 },
-        { id: 3, name: 'Discussion Room C', bookings: 124, utilization: 68 },
-        { id: 4, name: 'Computer Lab D', bookings: 67, utilization: 45 },
-        { id: 5, name: 'Reading Area E', bookings: 203, utilization: 92 },
+      const mockBookings = [
+        {
+          id: 1,
+          user: { name: 'John Doe', email: 'john.doe@bu.edu' },
+          room: { id: 101, name: 'Study Room A', building: 'Mugar Library' },
+          date: dayjs().format('YYYY-MM-DD'),
+          timeSlot: { start: '09:00', end: '11:00' },
+          status: 'confirmed',
+          bookingTime: dayjs().subtract(2, 'hour').toISOString(),
+          notes: 'Group study session'
+        },
+        {
+          id: 2,
+          user: { name: 'Jane Smith', email: 'jane.smith@bu.edu' },
+          room: { id: 102, name: 'Meeting Room B', building: 'Pardee Library' },
+          date: dayjs().add(1, 'day').format('YYYY-MM-DD'),
+          timeSlot: { start: '14:00', end: '16:00' },
+          status: 'pending',
+          bookingTime: dayjs().subtract(1, 'hour').toISOString(),
+          notes: 'Project meeting'
+        },
+        {
+          id: 3,
+          user: { name: 'Mike Johnson', email: 'mike.johnson@bu.edu' },
+          room: { id: 103, name: 'Discussion Room C', building: 'Science Library' },
+          date: dayjs().subtract(1, 'day').format('YYYY-MM-DD'),
+          timeSlot: { start: '10:00', end: '12:00' },
+          status: 'completed',
+          bookingTime: dayjs().subtract(1, 'day').subtract(3, 'hour').toISOString(),
+          notes: 'Research discussion'
+        }
       ];
 
       return {
         success: true,
-        data: popularRooms.slice(0, limit)
+        data: mockBookings.slice(0, limit),
+        isMockData: true
       };
     } catch (error) {
+      console.error('Failed to get recent bookings:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get popular rooms with proper data structure
+  async getPopularRooms(limit = 5) {
+    try {
+      await this.sleep();
+      
+      const popularRooms = [
+        { id: 1, name: 'Study Room A', building: 'Mugar Library', bookings: 45, utilization: 85 },
+        { id: 2, name: 'Meeting Room B', building: 'Pardee Library', bookings: 38, utilization: 72 },
+        { id: 3, name: 'Discussion Room C', building: 'Science Library', bookings: 42, utilization: 78 },
+        { id: 4, name: 'Computer Lab D', building: 'Pickering Library', bookings: 29, utilization: 65 },
+        { id: 5, name: 'Reading Area E', building: 'Mugar Library', bookings: 52, utilization: 92 }
+      ];
+
       return {
-        success: false,
-        error: 'Failed to fetch popular rooms',
-        message: 'An error occurred while retrieving popular rooms'
+        success: true,
+        data: popularRooms.slice(0, limit),
+        isMockData: true
       };
+    } catch (error) {
+      console.error('Failed to get popular rooms:', error);
+      return { success: false, error: error.message };
     }
   }
 }
