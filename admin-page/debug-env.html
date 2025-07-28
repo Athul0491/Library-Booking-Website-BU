@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Environment Variables Debug</title>
+</head>
+<body>
+    <h1>Environment Variables Debug</h1>
+    <div id="debug-info"></div>
+
+    <script>
+        // This simulates what the ApiService constructor does
+        const debugInfo = document.getElementById('debug-info');
+        
+        debugInfo.innerHTML = `
+            <h2>Environment Variables:</h2>
+            <p><strong>VITE_SUPABASE_URL:</strong> ${import.meta.env.VITE_SUPABASE_URL || 'NOT FOUND'}</p>
+            <p><strong>VITE_SUPABASE_ANON_KEY:</strong> ${import.meta.env.VITE_SUPABASE_ANON_KEY || 'NOT FOUND'}</p>
+            <p><strong>VITE_SUPABASE_SECRET_KEY:</strong> ${import.meta.env.VITE_SUPABASE_SECRET_KEY || 'NOT FOUND'}</p>
+            
+            <h2>All import.meta.env:</h2>
+            <pre>${JSON.stringify(import.meta.env, null, 2)}</pre>
+        `;
+    </script>
+</body>
+</html>

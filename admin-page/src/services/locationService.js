@@ -103,25 +103,32 @@ const mockBuildings = [
  */
 export const getBuildings = async (options = {}) => {
   try {
-    // Use the updated API service (now with direct Supabase REST API)
+    // Use the updated API service (now with backend proxy)
+    console.log('Fetching buildings from backend proxy...');
     const result = await apiService.getBuildings();
     
     if (result && result.success) {
+      console.log('Successfully got buildings from backend proxy');
       return {
         success: true,
         data: result.data || result.buildings,
-        error: null
+        count: result.count,
+        error: null,
+        source: 'backend-proxy'
       };
     }
   } catch (error) {
-    console.warn('API service failed, trying Supabase service:', error.message);
+    console.warn('Backend proxy failed, trying Supabase service:', error.message);
     
     // Fallback to Supabase service
     try {
       const result = await supabaseService.getBuildings(options);
       
       if (result.success) {
-        return result;
+        return {
+          ...result,
+          source: 'supabase-direct'
+        };
       } else {
         console.warn('Supabase query failed, using mock data:', result.error);
       }
@@ -146,18 +153,21 @@ export const getBuildings = async (options = {}) => {
       filteredBuildings = filteredBuildings.filter(b => b.available === options.available);
     }
     
-    console.warn('Using mock building data - Database connection in progress');
+    console.warn('Using mock building data - Backend connection in progress');
     return {
       success: true,
       data: filteredBuildings,
-      error: null
+      count: filteredBuildings.length,
+      error: null,
+      source: 'mock-data'
     };
   } catch (error) {
     console.error('Failed to fetch buildings:', error);
     return {
       success: false,
       data: null,
-      error: error.message
+      error: error.message,
+      source: 'error'
     };
   }
 };

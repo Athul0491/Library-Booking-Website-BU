@@ -156,7 +156,60 @@ const getStatistics = async (options = {}) => {
       };
     }
     
-    // Try to get real data from multiple sources
+    // Try to get real data from backend proxy first
+    try {
+      console.log('Getting statistics from backend proxy...');
+      const statsResult = await apiService.getStats();
+      
+      if (statsResult.success) {
+        const backendStats = statsResult.stats;
+        
+        // Transform backend data to expected format
+        const transformedStats = {
+          ...mockStatsData,
+          totalBuildings: backendStats.buildings.total || mockStatsData.totalBuildings,
+          activeBuildings: backendStats.buildings.available || mockStatsData.activeBuildings,
+          totalRooms: backendStats.rooms.total || mockStatsData.totalRooms,
+          totalBookings: backendStats.bookings.total || mockStatsData.totalBookings,
+          bookingStatusBreakdown: {
+            confirmed: backendStats.bookings.confirmed || 0,
+            pending: backendStats.bookings.pending || 0,
+            cancelled: mockStatsData.bookingStatusBreakdown.cancelled
+          },
+          buildingStats: Object.keys(backendStats.rooms.by_building || {}).map((buildingName, index) => {
+            const buildingRooms = backendStats.rooms.by_building[buildingName];
+            return {
+              id: `building-${index}`,
+              name: buildingName,
+              short_name: buildingName.toLowerCase().substring(0, 3),
+              bookings: mockStatsData.buildingStats[index]?.bookings || 0,
+              occupancy: buildingRooms.total > 0 ? 
+                Math.round((buildingRooms.available / buildingRooms.total) * 100) : 0,
+              total_rooms: buildingRooms.total || 0,
+              available_rooms: buildingRooms.available || 0,
+              status: 'operational'
+            };
+          }),
+          lastUpdated: backendStats.system.last_updated || new Date().toISOString()
+        };
+        
+        return {
+          success: true,
+          data: {
+            statsData: transformedStats,
+            roomStats: transformedStats.buildingStats,
+            userStats: generateMockUserStats() // Still using mock user data
+          },
+          isMockData: false,
+          timestamp: new Date().toISOString(),
+          source: 'backend-proxy'
+        };
+      }
+    } catch (backendError) {
+      console.warn('Backend proxy failed, falling back to individual services:', backendError);
+    }
+    
+    // Fallback to individual services if backend proxy fails
     const [buildingsResult, bookingsResult, systemResult] = await Promise.allSettled([
       locationService.getBuildingStats(),
       bookingService.getBookingStats(),

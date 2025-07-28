@@ -2,6 +2,19 @@
 -- BU Library Booking System Database Schema
 -- SIMPLIFIED VERSION FOR ANONYMOUS BOOKING
 -- ==============================================
+--
+-- IMPORTANT: SUPABASE NAMING CONVENTIONS
+-- Supabase uses lowercase table names with underscores (snake_case)
+-- While this schema shows PascalCase names for clarity, 
+-- the actual tables in Supabase will be:
+-- - Buildings -> buildings
+-- - Rooms -> rooms  
+-- - Bookings -> bookings
+-- - UserProfiles -> user_profiles
+-- - SystemConfig -> system_config
+-- 
+-- All API calls should use the lowercase names!
+--
 
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";

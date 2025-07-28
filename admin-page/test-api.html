@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test</title>
+</head>
+<body>
+    <h1>API Connection Test</h1>
+    <div id="results"></div>
+
+    <script>
+        // Test API connection with proper table names
+        async function testApi() {
+            const resultsDiv = document.getElementById('results');
+            const secretKey = 'sb_secret_bDupavBmYVAKh2SX5-x0IA_2z1SS0k7';
+            const baseUrl = 'https://eesdbstrjxilpirozhjg.supabase.co/rest/v1';
+            
+            const headers = {
+                'apikey': secretKey,
+                'Authorization': `Bearer ${secretKey}`,
+                'Content-Type': 'application/json'
+            };
+            
+            const tests = [
+                { name: 'Buildings (lowercase)', url: `${baseUrl}/buildings?select=count`, expectStatus: 200 },
+                { name: 'Rooms (lowercase)', url: `${baseUrl}/rooms?select=count`, expectStatus: 200 },
+                { name: 'Bookings (lowercase)', url: `${baseUrl}/bookings?select=count`, expectStatus: 200 },
+                { name: 'Buildings data', url: `${baseUrl}/buildings?select=*&limit=1`, expectStatus: 200 },
+                { name: 'Rooms data', url: `${baseUrl}/rooms?select=*&limit=1`, expectStatus: 200 }
+            ];
+            
+            resultsDiv.innerHTML = '<h2>Running Tests...</h2>';
+            
+            for (const test of tests) {
+                try {
+                    const response = await fetch(test.url, { 
+                        headers,
+                        method: 'GET'
+                    });
+                    
+                    const data = await response.text();
+                    const status = response.status === test.expectStatus ? '✅' : '❌';
+                    
+                    resultsDiv.innerHTML += `
+                        <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd;">
+                            <strong>${status} ${test.name}</strong><br>
+                            Status: ${response.status} (expected ${test.expectStatus})<br>
+                            Response: ${data.substring(0, 200)}${data.length > 200 ? '...' : ''}
+                        </div>
+                    `;
+                } catch (error) {
+                    resultsDiv.innerHTML += `
+                        <div style="margin: 10px 0; padding: 10px; border: 1px solid #f00;">
+                            <strong>❌ ${test.name}</strong><br>
+                            Error: ${error.message}
+                        </div>
+                    `;
+                }
+            }
+        }
+        
+        // Run tests when page loads
+        window.onload = testApi;
+    </script>
+</body>
+</html>

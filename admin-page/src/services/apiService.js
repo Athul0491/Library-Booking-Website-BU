@@ -1,7 +1,7 @@
 /**
- * API Service for Supabase REST API
- * This service directly calls Supabase REST API endpoints
- * Replaces the old backend-dependent implementation
+ * API Service for Admin Page
+ * This service calls the backend proxy instead of directly calling Supabase
+ * Backend proxy provides admin-specific endpoints with optimized data structures
  */
 
 // Library codes mapping to Location IDs (LID) - for compatibility
@@ -15,56 +15,43 @@ export const LIBRARY_CODES = {
 
 class ApiService {
   constructor() {
-    // Debug: Log all import.meta.env to see what's available
-    console.log('All environment variables:', import.meta.env);
+    // Use backend proxy instead of direct Supabase
+    this.backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+    this.baseUrl = `${this.backendUrl}/api/admin/v1`;
     
-    this.supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    this.apiKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    this.baseUrl = `${this.supabaseUrl}/rest/v1`;
-    
-    // Debug: Check if environment variables are loaded
     console.log('ApiService Debug:', {
-      supabaseUrl: this.supabaseUrl,
-      hasApiKey: !!this.apiKey,
-      apiKeyLength: this.apiKey ? this.apiKey.length : 0,
-      apiKeyPreview: this.apiKey ? this.apiKey.substring(0, 20) + '...' : 'NULL'
+      backendUrl: this.backendUrl,
+      baseUrl: this.baseUrl,
+      mode: 'backend-proxy'
     });
     
-    // Throw error if essential config is missing
-    if (!this.supabaseUrl || !this.apiKey) {
-      throw new Error('Missing Supabase configuration. Please check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local');
-    }
-    
-    // Default headers for Supabase REST API
-    this.defaultHeaders = {
-      'apikey': this.apiKey,
-      'Authorization': `Bearer ${this.apiKey}`,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=representation'
-    };
-    
-    // Debug: Log default headers
-    console.log('Default headers:', this.defaultHeaders);
+    console.log('ApiService initialized successfully (backend proxy mode)');
   }
 
   /**
-   * Make a request to Supabase REST API
+   * Make a request to backend proxy API
+   * @param {string} endpoint - API endpoint
+   * @param {object} options - Request options
    */
   async makeRequest(endpoint, options = {}) {
     try {
       const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
       
+      const defaultHeaders = {
+        'Content-Type': 'application/json'
+      };
+      
       const requestOptions = {
         headers: {
-          ...this.defaultHeaders,
+          ...defaultHeaders,
           ...options.headers
         },
         ...options
       };
       
       // Debug: Log request details
-      console.log('Making request to:', url);
-      console.log('Request headers:', requestOptions.headers);
+      console.log('Making backend request to:', url);
+      console.log('Request method:', requestOptions.method || 'GET');
       
       const response = await fetch(url, requestOptions);
 
@@ -81,40 +68,43 @@ class ApiService {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('API request failed:', error);
+      console.error('Backend API request failed:', error);
       throw error;
     }
   }
 
   /**
-   * Health check - test if Supabase is accessible
+   * Health check - test if backend is accessible
    */
   async healthCheck() {
     try {
-      // Simple query to test connection
-      const data = await this.makeRequest('/buildings?select=count', {
-        method: 'GET',
-        headers: {
-          'Prefer': 'count=exact'
-        }
-      });
+      console.log('Testing backend connection...');
+      const response = await fetch(`${this.backendUrl}/api/health`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      const data = await response.json();
       
       return {
         status: 'healthy',
-        message: 'Supabase REST API is accessible',
-        timestamp: new Date().toISOString()
+        message: 'Backend proxy is accessible',
+        timestamp: new Date().toISOString(),
+        backend: data
       };
     } catch (error) {
       return {
         status: 'unhealthy',
-        message: `Supabase REST API error: ${error.message}`,
-        timestamp: new Date().toISOString()
+        message: `Backend proxy error: ${error.message}`,
+        timestamp: new Date().toISOString(),
+        backend: null
       };
     }
   }
 
   /**
-   * Test backend connection (alias for healthCheck for compatibility)
+   * Test backend connection (for compatibility)
    */
   async testBackendConnection() {
     const result = await this.healthCheck();
@@ -126,9 +116,10 @@ class ApiService {
   }
 
   /**
-   * Test Supabase connection (alias for healthCheck for compatibility)
+   * Test Supabase connection (for compatibility)
    */
   async testSupabaseConnection() {
+    // This now tests the backend's Supabase connection
     const result = await this.healthCheck();
     return {
       success: result.status === 'healthy',
@@ -138,21 +129,58 @@ class ApiService {
   }
 
   /**
+   * Get dashboard data in one call (optimized for admin interface)
+   */
+  async getDashboardData() {
+    try {
+      console.log('Fetching dashboard data...');
+      const response = await this.makeRequest('/dashboard', {
+        method: 'GET'
+      });
+      
+      if (response.success) {
+        return {
+          success: true,
+          data: response.data,
+          error: null,
+          source: 'backend-proxy'
+        };
+      } else {
+        throw new Error(response.error || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+      return {
+        success: false,
+        data: null,
+        error: error.message,
+        source: 'backend-proxy'
+      };
+    }
+  }
+
+  /**
    * Get all buildings
    */
   async getBuildings() {
     try {
-      const data = await this.makeRequest('/buildings?select=*&available=eq.true&order=name', {
+      console.log('Fetching buildings...');
+      const response = await this.makeRequest('/buildings', {
         method: 'GET'
       });
       
-      return { 
-        success: true,
-        data: data,
-        buildings: data, // For compatibility
-        error: null,
-        source: 'supabase-rest'
-      };
+      if (response.success) {
+        return { 
+          success: true,
+          data: response.buildings,
+          buildings: response.buildings, // For compatibility
+          count: response.count,
+          error: null,
+          source: 'backend-proxy'
+        };
+      } else {
+        throw new Error(response.error || 'Unknown error');
+      }
     } catch (error) {
       console.error('Failed to fetch buildings:', error);
       return {
@@ -160,7 +188,7 @@ class ApiService {
         data: [],
         buildings: [],
         error: error.message,
-        source: 'supabase-rest'
+        source: 'backend-proxy'
       };
     }
   }
@@ -170,11 +198,17 @@ class ApiService {
    */
   async getBuildingById(id) {
     try {
-      const data = await this.makeRequest(`/buildings?id=eq.${id}&select=*`, {
+      // Use buildings endpoint with filter, but this is not optimized
+      const response = await this.makeRequest('/buildings', {
         method: 'GET'
       });
       
-      return data[0] || null;
+      if (response.success) {
+        const building = response.buildings.find(b => b.id === id);
+        return building || null;
+      } else {
+        throw new Error(response.error || 'Unknown error');
+      }
     } catch (error) {
       console.error('Failed to fetch building:', error);
       throw error;
@@ -182,18 +216,40 @@ class ApiService {
   }
 
   /**
-   * Update building
+   * Update building (placeholder - would need backend endpoint)
    */
   async updateBuilding(id, updates) {
     try {
-      const data = await this.makeRequest(`/buildings?id=eq.${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(updates)
-      });
-      
-      return data[0] || null;
+      console.warn('updateBuilding: Backend endpoint not implemented yet');
+      throw new Error('Update building endpoint not yet implemented in backend');
     } catch (error) {
       console.error('Failed to update building:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get rooms by building ID
+   */
+  async getRoomsByBuildingId(buildingId) {
+    try {
+      // First need to find building short_name by ID
+      const buildingsResponse = await this.makeRequest('/buildings', {
+        method: 'GET'
+      });
+      
+      if (!buildingsResponse.success) {
+        throw new Error('Failed to fetch buildings');
+      }
+      
+      const building = buildingsResponse.buildings.find(b => b.id === buildingId);
+      if (!building) {
+        throw new Error(`Building with ID ${buildingId} not found`);
+      }
+      
+      return this.getRoomsByBuilding(building.short_name);
+    } catch (error) {
+      console.error('Failed to fetch rooms by building ID:', error);
       throw error;
     }
   }
@@ -203,11 +259,20 @@ class ApiService {
    */
   async getRoomsByBuilding(shortName) {
     try {
-      const data = await this.makeRequest(`/rooms?building_short_name=eq.${shortName}&select=*&order=room_name`, {
+      console.log(`Fetching rooms for building: ${shortName}`);
+      const response = await this.makeRequest(`/buildings/${shortName}/rooms`, {
         method: 'GET'
       });
       
-      return { rooms: data };
+      if (response.success) {
+        return { 
+          rooms: response.rooms,
+          building: response.building,
+          count: response.count
+        };
+      } else {
+        throw new Error(response.error || 'Unknown error');
+      }
     } catch (error) {
       console.error('Failed to fetch rooms:', error);
       throw error;
@@ -215,36 +280,47 @@ class ApiService {
   }
 
   /**
-   * Get bookings with optional filters
+   * Get comprehensive statistics
    */
-  async getBookings(filters = {}) {
+  async getStats() {
     try {
-      let query = '/bookings?select=*';
-      
-      // Add filters
-      if (filters.building) {
-        query += `&building_short_name=eq.${filters.building}`;
-      }
-      if (filters.status) {
-        query += `&status=eq.${filters.status}`;
-      }
-      if (filters.user_email) {
-        query += `&user_email=eq.${filters.user_email}`;
-      }
-      if (filters.startDate) {
-        query += `&booking_date=gte.${filters.startDate}`;
-      }
-      if (filters.endDate) {
-        query += `&booking_date=lte.${filters.endDate}`;
-      }
-      
-      query += '&order=created_at.desc';
-      
-      const data = await this.makeRequest(query, {
+      console.log('Fetching comprehensive statistics...');
+      const response = await this.makeRequest('/stats', {
         method: 'GET'
       });
       
-      return { bookings: data };
+      if (response.success) {
+        return {
+          success: true,
+          stats: response.stats,
+          error: null,
+          source: 'backend-proxy'
+        };
+      } else {
+        throw new Error(response.error || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+      return {
+        success: false,
+        stats: null,
+        error: error.message,
+        source: 'backend-proxy'
+      };
+    }
+  }
+
+  /**
+   * Get bookings with optional filters (placeholder - would need backend endpoint)
+   */
+  async getBookings(filters = {}) {
+    try {
+      console.warn('getBookings: Backend endpoint not implemented yet');
+      // For now, return empty bookings as this would require backend implementation
+      return { 
+        bookings: [],
+        message: 'Bookings endpoint not yet implemented in backend proxy'
+      };
     } catch (error) {
       console.error('Failed to fetch bookings:', error);
       throw error;
@@ -252,16 +328,12 @@ class ApiService {
   }
 
   /**
-   * Create a new booking
+   * Create a new booking (placeholder - would need backend endpoint)
    */
   async createBooking(bookingData) {
     try {
-      const data = await this.makeRequest('/bookings', {
-        method: 'POST',
-        body: JSON.stringify(bookingData)
-      });
-      
-      return data[0] || null;
+      console.warn('createBooking: Backend endpoint not implemented yet');
+      throw new Error('Create booking endpoint not yet implemented in backend proxy');
     } catch (error) {
       console.error('Failed to create booking:', error);
       throw error;
@@ -269,25 +341,12 @@ class ApiService {
   }
 
   /**
-   * Update booking status
+   * Update booking status (placeholder - would need backend endpoint)
    */
   async updateBookingStatus(bookingId, status, cancellationReason = null) {
     try {
-      const updates = { 
-        status,
-        updated_at: new Date().toISOString()
-      };
-      
-      if (cancellationReason) {
-        updates.cancellation_reason = cancellationReason;
-      }
-      
-      const data = await this.makeRequest(`/bookings?id=eq.${bookingId}`, {
-        method: 'PATCH',
-        body: JSON.stringify(updates)
-      });
-      
-      return data[0] || null;
+      console.warn('updateBookingStatus: Backend endpoint not implemented yet');
+      throw new Error('Update booking status endpoint not yet implemented in backend proxy');
     } catch (error) {
       console.error('Failed to update booking status:', error);
       throw error;
@@ -295,15 +354,12 @@ class ApiService {
   }
 
   /**
-   * Get system configuration
+   * Get system configuration (placeholder - would need backend endpoint)
    */
   async getSystemConfig() {
     try {
-      const data = await this.makeRequest('/system_status?select=*&order=created_at.desc&limit=1', {
-        method: 'GET'
-      });
-      
-      return data[0] || null;
+      console.warn('getSystemConfig: Backend endpoint not implemented yet');
+      return null;
     } catch (error) {
       console.error('Failed to fetch system config:', error);
       throw error;
@@ -311,19 +367,12 @@ class ApiService {
   }
 
   /**
-   * Update system configuration
+   * Update system configuration (placeholder - would need backend endpoint)
    */
   async updateSystemConfig(config) {
     try {
-      const data = await this.makeRequest('/system_status', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...config,
-          created_at: new Date().toISOString()
-        })
-      });
-      
-      return data[0] || null;
+      console.warn('updateSystemConfig: Backend endpoint not implemented yet');
+      throw new Error('Update system config endpoint not yet implemented in backend proxy');
     } catch (error) {
       console.error('Failed to update system config:', error);
       throw error;

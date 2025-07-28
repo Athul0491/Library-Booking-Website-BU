@@ -17,6 +17,11 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
+# Supabase configuration
+SUPABASE_URL = os.getenv('SUPABASE_URL')
+SUPABASE_ANON_KEY = os.getenv('SUPABASE_ANON_KEY')
+SUPABASE_SECRET_KEY = os.getenv('SUPABASE_SECRET_KEY')
+
 # Database configuration
 DATABASE_CONFIG = {
     'host': os.getenv('DB_HOST', 'localhost'),
@@ -35,6 +40,45 @@ def get_db_connection():
     except psycopg2.Error as e:
         print(f"Database connection error: {e}")
         return None
+
+def make_supabase_request(endpoint: str, method: str = 'GET', data: Dict = None, use_secret_key: bool = False):
+    """Make a request to Supabase REST API."""
+    if not SUPABASE_URL:
+        raise ValueError("SUPABASE_URL not configured")
+    
+    # Choose API key based on operation
+    api_key = SUPABASE_SECRET_KEY if use_secret_key and SUPABASE_SECRET_KEY else SUPABASE_ANON_KEY
+    if not api_key:
+        raise ValueError("Supabase API key not configured")
+    
+    url = f"{SUPABASE_URL}/rest/v1{endpoint}"
+    headers = {
+        'apikey': api_key,
+        'Authorization': f'Bearer {api_key}',
+        'Content-Type': 'application/json',
+        'Prefer': 'return=representation'
+    }
+    
+    try:
+        if method == 'GET':
+            response = requests.get(url, headers=headers)
+        elif method == 'POST':
+            response = requests.post(url, headers=headers, json=data)
+        elif method == 'PATCH':
+            response = requests.patch(url, headers=headers, json=data)
+        elif method == 'DELETE':
+            response = requests.delete(url, headers=headers)
+        else:
+            raise ValueError(f"Unsupported HTTP method: {method}")
+        
+        response.raise_for_status()
+        return response.json() if response.content else None
+    except requests.exceptions.RequestException as e:
+        print(f"Supabase API error: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"Response status: {e.response.status_code}")
+            print(f"Response content: {e.response.text}")
+        raise
 
 # Mapping from 3-letter prefix to Location ID (LID)
 LIBRARY_LIDS = {
@@ -121,22 +165,214 @@ def proxy_availability():
 
 
 # ==============================================
+# ADMIN API ENDPOINTS
+# ==============================================
+
+@app.route('/api/admin/v1/dashboard', methods=['GET'])
+def get_admin_dashboard():
+    """Get all data needed for admin dashboard in one call."""
+    try:
+        dashboard_data = {
+            "timestamp": datetime.now().isoformat(),
+            "buildings": [],
+            "stats": {
+                "total_buildings": 0,
+                "total_rooms": 0,
+                "active_bookings": 0
+            }
+        }
+        
+        # Get buildings data
+        if SUPABASE_URL and SUPABASE_ANON_KEY:
+            print("Admin Dashboard: Fetching buildings from Supabase")
+            buildings = make_supabase_request('/buildings?select=*&available=eq.true&order=name')
+            dashboard_data["buildings"] = buildings
+            dashboard_data["stats"]["total_buildings"] = len(buildings)
+            
+            # Get total rooms count
+            rooms = make_supabase_request('/rooms?select=id&available=eq.true')
+            dashboard_data["stats"]["total_rooms"] = len(rooms)
+            
+            # Get active bookings count (if bookings table exists)
+            try:
+                bookings = make_supabase_request('/bookings?select=id&status=eq.confirmed')
+                dashboard_data["stats"]["active_bookings"] = len(bookings)
+            except:
+                dashboard_data["stats"]["active_bookings"] = 0
+        
+        print(f"Admin Dashboard: Returning {len(dashboard_data['buildings'])} buildings")
+        return jsonify({
+            "success": True,
+            "data": dashboard_data
+        })
+        
+    except Exception as e:
+        print(f"Admin Dashboard error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/admin/v1/buildings', methods=['GET'])
+def get_admin_buildings():
+    """Get buildings data for admin interface."""
+    try:
+        if SUPABASE_URL and SUPABASE_ANON_KEY:
+            print("Admin: Fetching buildings from Supabase")
+            data = make_supabase_request('/buildings?select=*&available=eq.true&order=name')
+            return jsonify({
+                "success": True,
+                "buildings": data,
+                "count": len(data)
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Supabase not configured"
+            }), 500
+            
+    except Exception as e:
+        print(f"Admin buildings error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/admin/v1/buildings/<short_name>/rooms', methods=['GET'])
+def get_admin_rooms(short_name: str):
+    """Get rooms for a specific building for admin interface."""
+    try:
+        if SUPABASE_URL and SUPABASE_ANON_KEY:
+            print(f"Admin: Fetching rooms for building {short_name}")
+            
+            # Get building ID
+            buildings = make_supabase_request(f'/buildings?short_name=eq.{short_name}&select=id,name')
+            if not buildings:
+                return jsonify({
+                    "success": False,
+                    "error": "Building not found"
+                }), 404
+            
+            building_info = buildings[0]
+            
+            # Get rooms
+            rooms = make_supabase_request(f'/rooms?building_id=eq.{building_info["id"]}&available=eq.true&select=*&order=name')
+            
+            return jsonify({
+                "success": True,
+                "building": building_info,
+                "rooms": rooms,
+                "count": len(rooms)
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Supabase not configured"
+            }), 500
+            
+    except Exception as e:
+        print(f"Admin rooms error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+@app.route('/api/admin/v1/stats', methods=['GET'])
+def get_admin_stats():
+    """Get comprehensive statistics for admin dashboard."""
+    try:
+        if SUPABASE_URL and SUPABASE_ANON_KEY:
+            print("Admin: Fetching comprehensive statistics")
+            stats = {
+                "buildings": {"total": 0, "available": 0},
+                "rooms": {"total": 0, "available": 0, "by_building": {}},
+                "bookings": {"total": 0, "confirmed": 0, "pending": 0},
+                "system": {"last_updated": datetime.now().isoformat()}
+            }
+            
+            # Buildings stats
+            all_buildings = make_supabase_request('/buildings?select=id,name,available')
+            stats["buildings"]["total"] = len(all_buildings)
+            stats["buildings"]["available"] = len([b for b in all_buildings if b.get("available", False)])
+            
+            # Rooms stats
+            all_rooms = make_supabase_request('/rooms?select=id,building_id,available')
+            stats["rooms"]["total"] = len(all_rooms)
+            stats["rooms"]["available"] = len([r for r in all_rooms if r.get("available", False)])
+            
+            # Group rooms by building
+            building_rooms = {}
+            for room in all_rooms:
+                building_id = room.get("building_id")
+                if building_id:
+                    if building_id not in building_rooms:
+                        building_rooms[building_id] = {"total": 0, "available": 0}
+                    building_rooms[building_id]["total"] += 1
+                    if room.get("available", False):
+                        building_rooms[building_id]["available"] += 1
+            
+            # Map building IDs to names
+            for building in all_buildings:
+                building_id = building["id"]
+                building_name = building["name"]
+                if building_id in building_rooms:
+                    stats["rooms"]["by_building"][building_name] = building_rooms[building_id]
+            
+            # Bookings stats (if bookings table exists)
+            try:
+                all_bookings = make_supabase_request('/bookings?select=id,status')
+                stats["bookings"]["total"] = len(all_bookings)
+                stats["bookings"]["confirmed"] = len([b for b in all_bookings if b.get("status") == "confirmed"])
+                stats["bookings"]["pending"] = len([b for b in all_bookings if b.get("status") == "pending"])
+            except:
+                print("Bookings table not accessible, setting default values")
+                stats["bookings"] = {"total": 0, "confirmed": 0, "pending": 0}
+            
+            return jsonify({
+                "success": True,
+                "stats": stats
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Supabase not configured"
+            }), 500
+            
+    except Exception as e:
+        print(f"Admin stats error: {e}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500
+
+# ==============================================
 # DATABASE API ENDPOINTS
 # ==============================================
 
 @app.route('/api/buildings', methods=['GET'])
 def get_buildings():
-    """Get all available buildings."""
+    """Get all available buildings using Supabase REST API or direct database connection."""
+    # Try Supabase first, fallback to direct database
+    try:
+        if SUPABASE_URL and SUPABASE_ANON_KEY:
+            print("Using Supabase REST API for buildings")
+            data = make_supabase_request('/buildings?select=*&available=eq.true&order=name')
+            return jsonify({"buildings": data})
+    except Exception as e:
+        print(f"Supabase request failed, trying direct database: {e}")
+    
+    # Fallback to direct database connection
     conn = get_db_connection()
     if not conn:
         return jsonify({"error": "Database connection failed"}), 500
     
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Use lowercase table name for Supabase compatibility
             cur.execute("""
                 SELECT id, name, short_name, address, website, contacts, 
                        available, libcal_id, lid, created_at, updated_at
-                FROM Buildings 
+                FROM buildings 
                 WHERE available = true
                 ORDER BY name
             """)
@@ -162,19 +398,37 @@ def get_buildings():
 
 @app.route('/api/buildings/<short_name>/rooms', methods=['GET'])
 def get_rooms_by_building(short_name: str):
-    """Get all rooms for a specific building."""
+    """Get all rooms for a specific building using Supabase REST API or direct database connection."""
+    # Try Supabase first, fallback to direct database
+    try:
+        if SUPABASE_URL and SUPABASE_ANON_KEY:
+            print(f"Using Supabase REST API for rooms in building: {short_name}")
+            # First get building ID by short_name
+            buildings = make_supabase_request(f'/buildings?short_name=eq.{short_name}&select=id')
+            if not buildings:
+                return jsonify({"error": "Building not found"}), 404
+            
+            building_id = buildings[0]['id']
+            # Then get rooms for that building
+            data = make_supabase_request(f'/rooms?building_id=eq.{building_id}&available=eq.true&select=*&order=name')
+            return jsonify({"rooms": data})
+    except Exception as e:
+        print(f"Supabase request failed, trying direct database: {e}")
+    
+    # Fallback to direct database connection
     conn = get_db_connection()
     if not conn:
         return jsonify({"error": "Database connection failed"}), 500
     
     try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # Use lowercase table names for Supabase compatibility
             cur.execute("""
                 SELECT r.id, r.eid, r.name, r.url, r.room_type, r.capacity, 
                        r.gtype, r.available, r.created_at, r.updated_at,
                        b.name as building_name, b.short_name as building_short_name
-                FROM Rooms r
-                JOIN Buildings b ON r.building_id = b.id
+                FROM rooms r
+                JOIN buildings b ON r.building_id = b.id
                 WHERE b.short_name = %s AND r.available = true
                 ORDER BY r.name
             """, (short_name,))
@@ -454,6 +708,72 @@ def get_system_config():
         return jsonify({"error": "Database query failed"}), 500
     finally:
         conn.close()
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Health check endpoint to test database and Supabase connectivity."""
+    health_status = {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "services": {}
+    }
+    
+    # Test Supabase connection
+    try:
+        if SUPABASE_URL and SUPABASE_ANON_KEY:
+            data = make_supabase_request('/buildings?select=count', use_secret_key=False)
+            health_status["services"]["supabase_api"] = {
+                "status": "healthy",
+                "message": "Supabase REST API accessible"
+            }
+        else:
+            health_status["services"]["supabase_api"] = {
+                "status": "not_configured",
+                "message": "Supabase configuration missing"
+            }
+    except Exception as e:
+        health_status["services"]["supabase_api"] = {
+            "status": "error",
+            "message": f"Supabase API error: {str(e)}"
+        }
+        health_status["status"] = "degraded"
+    
+    # Test direct database connection
+    try:
+        conn = get_db_connection()
+        if conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
+                cur.fetchone()
+            conn.close()
+            health_status["services"]["database"] = {
+                "status": "healthy",
+                "message": "Direct database connection successful"
+            }
+        else:
+            health_status["services"]["database"] = {
+                "status": "error",
+                "message": "Database connection failed"
+            }
+            health_status["status"] = "unhealthy"
+    except Exception as e:
+        health_status["services"]["database"] = {
+            "status": "error",
+            "message": f"Database error: {str(e)}"
+        }
+        health_status["status"] = "unhealthy"
+    
+    # Set overall status based on core functionality
+    # For admin interface, Supabase API access is more important than direct DB
+    if health_status["services"]["supabase_api"]["status"] == "healthy":
+        # If Supabase is working, system is functional even if direct DB fails
+        if health_status["status"] == "unhealthy":
+            health_status["status"] = "degraded"
+        return jsonify(health_status), 200
+    elif health_status["status"] == "degraded":
+        return jsonify(health_status), 206  # Partial Content
+    else:
+        return jsonify(health_status), 503  # Service Unavailable
 
 
 if __name__ == "__main__":

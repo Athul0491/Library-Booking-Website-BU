@@ -27,7 +27,7 @@ export const ConnectionProvider = ({ children }) => {
     backend: {
       connected: false,
       error: null,
-      url: import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000',
+      url: import.meta.env.VITE_BACKEND_API_URL || 'https://eesdbstrjxilpirozhjg.supabase.co/rest/v1',
       lastChecked: null
     },
     loading: true,

@@ -93,18 +93,18 @@ export const ConnectionStatus = ({
         showIcon
       />
 
-      {/* Backend Server Status */}
+      {/* API Server Status */}
       <Alert
         message={
           <Space>
             <CloudServerOutlined />
-            Backend Server Status
+            API Server Status
           </Space>
         }
         description={
           effectiveBackendStatus.connected
-            ? '✅ Backend server connection normal (localhost:5000)'
-            : `❌ Unable to connect to backend server: ${effectiveBackendStatus.error || 'localhost:5000 unavailable'}`
+            ? '✅ API connection normal (Supabase REST API)'
+            : `❌ Unable to connect to API server: ${effectiveBackendStatus.error || 'Supabase REST API unavailable'}`
         }
         type={getBackendType(effectiveBackendStatus)}
         showIcon
