@@ -1,6 +1,6 @@
 // Main layout component - Contains sidebar, top navigation and content area
 import React, { useState } from 'react';
-import { Layout, Menu, Button, Avatar, Dropdown, Space, Typography } from 'antd';
+import { Layout, Menu, Button, Avatar, Dropdown, Space, Typography, Switch, Divider, Drawer } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   DashboardOutlined,
@@ -8,13 +8,22 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
   BarChartOutlined,
+  MonitorOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   UserOutlined,
   SettingOutlined,
   LogoutOutlined,
-  BellOutlined
+  BellOutlined,
+  DatabaseOutlined,
+  ExperimentOutlined,
+  ApiOutlined,
+  ControlOutlined
 } from '@ant-design/icons';
+import { useDataSource } from '../contexts/DataSourceContext';
+import DataSourceConfig from '../components/DataSourceConfig';
+import ConnectionStatus from '../components/ConnectionStatus';
+import NotificationCenter from '../components/NotificationCenter';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -25,8 +34,17 @@ const { Title, Text } = Typography;
  */
 const MainLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const [configDrawerVisible, setConfigDrawerVisible] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { 
+    dataSourceLabel,
+    dataSourceMode,
+    isBackendProxyMode,
+    isDirectSupabaseMode,
+    isMockDataMode,
+    toggleDataSource
+  } = useDataSource();
 
   // Menu items configuration
   const menuItems = [
@@ -48,12 +66,17 @@ const MainLayout = ({ children }) => {
     {
       key: '/availability',
       icon: <ClockCircleOutlined />,
-      label: 'Availability',
+      label: 'Rooms Management',
     },
     {
       key: '/statistics',
       icon: <BarChartOutlined />,
       label: 'Statistics',
+    },
+    {
+      key: '/monitor',
+      icon: <MonitorOutlined />,
+      label: 'Data Monitor',
     },
   ];
 
@@ -148,9 +171,56 @@ const MainLayout = ({ children }) => {
           onClick={handleMenuClick}
           style={{ 
             borderRight: 0,
-            fontSize: '14px'
+            fontSize: '14px',
+            flex: 1
           }}
         />
+        
+        {/* Data source toggle */}
+        <div style={{ 
+          padding: '16px', 
+          borderTop: '1px solid #003a8c',
+          backgroundColor: '#001529'
+        }}>
+          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Space>
+                {isBackendProxyMode ? <ApiOutlined style={{ color: '#52c41a' }} /> : 
+                 isDirectSupabaseMode ? <DatabaseOutlined style={{ color: '#1890ff' }} /> : 
+                 <ExperimentOutlined style={{ color: '#faad14' }} />}
+                {!collapsed && (
+                  <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: '12px' }}>
+                    Data Source
+                  </Text>
+                )}
+              </Space>
+              {!collapsed && (
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<ControlOutlined />}
+                  onClick={() => setConfigDrawerVisible(true)}
+                  style={{ color: 'rgba(255,255,255,0.65)' }}
+                />
+              )}
+            </div>
+            {!collapsed && (
+              <div>
+                <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: '11px', display: 'block' }}>
+                  {dataSourceLabel}
+                </Text>
+                <Switch
+                  size="small"
+                  checked={!isMockDataMode}
+                  onChange={toggleDataSource}
+                  checkedChildren="Real"
+                  unCheckedChildren="Mock"
+                  style={{ marginTop: '4px' }}
+                />
+              </div>
+            )}
+          </Space>
+        </div>
       </Sider>
 
       <Layout>
@@ -187,13 +257,11 @@ const MainLayout = ({ children }) => {
 
           {/* Right side: notifications and user info */}
           <Space>
-            {/* Notification button */}
-            <Button 
-              type="text" 
-              icon={<BellOutlined />} 
-              style={{ fontSize: '16px' }}
-              onClick={() => console.log('Open notifications')}
-            />
+            {/* Connection Status (compact) */}
+            <ConnectionStatus compact={true} showDetails={false} />
+            
+            {/* Notification Center */}
+            <NotificationCenter />
             
             {/* User dropdown menu */}
             <Dropdown
@@ -225,6 +293,17 @@ const MainLayout = ({ children }) => {
           {children}
         </Content>
       </Layout>
+
+      {/* Data Source Configuration Drawer */}
+      <Drawer
+        title="Data Source Configuration"
+        placement="right"
+        onClose={() => setConfigDrawerVisible(false)}
+        open={configDrawerVisible}
+        width={400}
+      >
+        <DataSourceConfig />
+      </Drawer>
     </Layout>
   );
 };

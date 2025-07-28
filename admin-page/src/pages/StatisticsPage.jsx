@@ -11,7 +11,8 @@ import {
   Table,
   Progress,
   Typography,
-  Space
+  Space,
+  message
 } from 'antd';
 import {
   DownloadOutlined,
@@ -21,6 +22,16 @@ import {
   UsergroupAddOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import statsService from '../services/statsService';
+import { useConnection } from '../contexts/ConnectionContext';
+import { useDataSource } from '../contexts/DataSourceContext';
+import { 
+  ConnectionStatus, 
+  TableSkeleton, 
+  DataUnavailablePlaceholder,
+  PageLoadingSkeleton 
+} from '../components/SkeletonComponents';
+import ServerStatusBanner from '../components/ServerStatusBanner';
 
 const { Title, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
@@ -31,6 +42,8 @@ const { Option } = Select;
  * Display various data analysis and statistical reports
  */
 const StatisticsPage = () => {
+  const connection = useConnection();
+  const { useRealData } = useDataSource();
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState([
     dayjs().subtract(30, 'day'),
@@ -41,53 +54,51 @@ const StatisticsPage = () => {
   const [roomStats, setRoomStats] = useState([]);
   const [userStats, setUserStats] = useState([]);
 
-  // Load data when component mounts
-  useEffect(() => {
-    loadStatistics();
-  }, [dateRange, selectedMetric]);
-
   // Load Statistics Data
   const loadStatistics = async () => {
     try {
       setLoading(true);
       
-      // Mock API call
-      const mockStatsData = {
-        totalBookings: 1248,
-        totalUsers: 456,
-        totalRevenue: 12450,
-        avgBookingDuration: 2.5,
-        bookingGrowth: 15.6,
-        userGrowth: 8.3,
-        revenueGrowth: 22.1,
-        utilizationRate: 68.5
-      };
+      // Use integrated statistics service that connects to real data sources
+      const result = await statsService.getStatistics({
+        dateRange,
+        selectedMetric,
+        forceUseMockData: !useRealData // Pass flag to force mock data when toggled
+      });
 
-      const mockRoomStats = [
-        { id: 1, name: 'Study Room A', bookings: 156, utilization: 85, revenue: 3120 },
-        { id: 2, name: 'Meeting Room B', bookings: 89, utilization: 72, revenue: 2670 },
-        { id: 3, name: 'Discussion Room C', bookings: 124, utilization: 68, revenue: 2480 },
-        { id: 4, name: 'Computer Lab D', bookings: 67, utilization: 45, revenue: 1340 },
-        { id: 5, name: 'Reading Area E', bookings: 203, utilization: 92, revenue: 4060 },
-      ];
+      if (result.success) {
+        setStatsData(result.data.statsData);
+        setRoomStats(result.data.roomStats);
+        setUserStats(result.data.userStats);
 
-      const mockUserStats = [
-        { id: 1, name: 'John Smith', email: 'john.smith@example.com', bookings: 15, lastActive: '2024-01-20' },
-        { id: 2, name: 'Sarah Johnson', email: 'sarah.johnson@example.com', bookings: 12, lastActive: '2024-01-19' },
-        { id: 3, name: 'Michael Brown', email: 'michael.brown@example.com', bookings: 18, lastActive: '2024-01-21' },
-        { id: 4, name: 'Emily Davis', email: 'emily.davis@example.com', bookings: 9, lastActive: '2024-01-18' },
-        { id: 5, name: 'David Wilson', email: 'david.wilson@example.com', bookings: 21, lastActive: '2024-01-22' },
-      ];
-
-      setStatsData(mockStatsData);
-      setRoomStats(mockRoomStats);
-      setUserStats(mockUserStats);
+        if (result.isMockData || !useRealData) {
+          message.info(useRealData ? 'Using mock data - backend connection unavailable' : 'Using mock demo data');
+        } else {
+          message.success('Statistics loaded from real data sources');
+        }
+      } else {
+        message.error(`Failed to load statistics: ${result.error}`);
+      }
     } catch (error) {
       console.error('Load Statistics Data Failed:', error);
+      message.error('Failed to load statistics data');
     } finally {
       setLoading(false);
     }
   };
+
+  // Initial load when component mounts
+  useEffect(() => {
+    loadStatistics();
+  }, []);
+
+  // Reload when date range or metric changes
+  useEffect(() => {
+    loadStatistics();
+  }, [dateRange, selectedMetric]);
+
+  // Note: Removed automatic reload when connection becomes available to reduce API calls
+  // Users can manually refresh data using the refresh button if needed
 
   // ExportReport
   const exportReport = () => {
@@ -126,13 +137,6 @@ const StatisticsPage = () => {
       ),
       sorter: (a, b) => a.utilization - b.utilization,
     },
-    {
-      title: 'Revenue',
-      dataIndex: 'revenue',
-      key: 'revenue',
-      render: (revenue) => `¥${revenue}`,
-      sorter: (a, b) => a.revenue - b.revenue,
-    },
   ];
 
   // User statistics table column configuration
@@ -168,162 +172,181 @@ const StatisticsPage = () => {
         View system statistics and analysis reports to understand booking status and usage trends.
       </Paragraph>
 
-      {/* Filter controls */}
-      <Card style={{ marginBottom: 16 }}>
-        <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={12} md={8}>
-            <Space>
-              <span>Time Range:</span>
-              <RangePicker
-                value={dateRange}
-                onChange={setDateRange}
-                format="YYYY-MM-DD"
-              />
-            </Space>
-          </Col>
-          <Col xs={24} sm={12} md={8}>
-            <Space>
-              <span>Statistics Dimension:</span>
-              <Select
-                value={selectedMetric}
-                onChange={setSelectedMetric}
-                style={{ width: 120 }}
+      {/* Server Status Banner */}
+      <ServerStatusBanner 
+        useGlobalApi={true}
+        showConnectionStatus={true}
+        showApiStatusCard={false}
+        showConnectingAlert={false}
+        showRefreshButton={false}
+        style={{ marginBottom: 24 }}
+      />
+
+      {/* Loading State */}
+      {connection.loading && <PageLoadingSkeleton />}
+
+      {/* No Connection State */}
+      {!connection.loading && !connection.isDataAvailable && (
+        <DataUnavailablePlaceholder 
+          title="Statistics Data Unavailable"
+          description="Cannot connect to the statistics service. Please check your connection and try again."
+          onRetry={() => connection.refreshConnections()}
+        />
+      )}
+
+      {/* Normal Data Display */}
+      {!connection.loading && connection.isDataAvailable && (
+        <>
+          {/* Filter controls */}
+          <Card style={{ marginBottom: 16 }}>
+            <Row gutter={[16, 16]} align="middle">
+              <Col xs={24} sm={12} md={8}>
+                <Space>
+                  <span>Time Range:</span>
+                  <RangePicker
+                    value={dateRange}
+                    onChange={setDateRange}
+                    format="YYYY-MM-DD"
+                  />
+                </Space>
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <Space>
+                  <span>Statistics Dimension:</span>
+                  <Select
+                    value={selectedMetric}
+                    onChange={setSelectedMetric}
+                    style={{ width: 120 }}
+                  >
+                    <Option value="bookings">Booking Count</Option>
+                    <Option value="utilization">Usage Rate</Option>
+                    <Option value="users">User Count</Option>
+                  </Select>
+                </Space>
+              </Col>
+              <Col xs={24} sm={24} md={8}>
+                <Button 
+                  type="primary" 
+                  icon={<DownloadOutlined />}
+                  onClick={exportReport}
+                >
+                  ExportReport
+                </Button>
+              </Col>
+            </Row>
+          </Card>
+
+          {/* OverviewStatisticscard */}
+          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Col xs={12} sm={8}>
+              <Card>
+                <Statistic
+                  title="Total Bookings"
+                  value={statsData.totalBookings}
+                  prefix={<BarChartOutlined />}
+                  suffix={
+                    <span style={{ fontSize: '12px', color: '#52c41a' }}>
+                      ↑{statsData.bookingGrowth}%
+                    </span>
+                  }
+                  loading={loading}
+                />
+              </Card>
+            </Col>
+            <Col xs={12} sm={8}>
+              <Card>
+                <Statistic
+                  title="ActiveUser"
+                  value={statsData.totalUsers}
+                  prefix={<UsergroupAddOutlined />}
+                  suffix={
+                    <span style={{ fontSize: '12px', color: '#52c41a' }}>
+                      ↑{statsData.userGrowth}%
+                    </span>
+                  }
+                  loading={loading}
+                />
+              </Card>
+            </Col>
+            <Col xs={12} sm={8}>
+              <Card>
+                <Statistic
+                  title="AverageusageRate"
+                  value={statsData.utilizationRate}
+                  suffix="%"
+                  prefix={<PieChartOutlined />}
+                  loading={loading}
+                />
+              </Card>
+            </Col>
+          </Row>
+
+          <Row gutter={[16, 16]}>
+            {/* RoomStatistics */}
+            <Col xs={24} lg={14}>
+              <Card 
+                title="RoomusageStatistics" 
+                extra={<RiseOutlined />}
               >
-                <Option value="bookings">Booking Count</Option>
-                <Option value="revenue">Revenue</Option>
-                <Option value="utilization">Usage Rate</Option>
-                <Option value="users">User Count</Option>
-              </Select>
-            </Space>
-          </Col>
-          <Col xs={24} sm={24} md={8}>
-            <Button 
-              type="primary" 
-              icon={<DownloadOutlined />}
-              onClick={exportReport}
-            >
-              ExportReport
-            </Button>
-          </Col>
-        </Row>
-      </Card>
+                {loading ? (
+                  <TableSkeleton rows={6} columns={3} />
+                ) : (
+                  <Table
+                    columns={roomColumns}
+                    dataSource={roomStats}
+                    loading={loading}
+                    rowKey="id"
+                    pagination={false}
+                    size="small"
+                  />
+                )}
+              </Card>
+            </Col>
 
-      {/* OverviewStatisticscard */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic
-              title="Total Bookings"
-              value={statsData.totalBookings}
-              prefix={<BarChartOutlined />}
-              suffix={
-                <span style={{ fontSize: '12px', color: '#52c41a' }}>
-                  ↑{statsData.bookingGrowth}%
-                </span>
-              }
-              loading={loading}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic
-              title="ActiveUser"
-              value={statsData.totalUsers}
-              prefix={<UsergroupAddOutlined />}
-              suffix={
-                <span style={{ fontSize: '12px', color: '#52c41a' }}>
-                  ↑{statsData.userGrowth}%
-                </span>
-              }
-              loading={loading}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic
-              title="Total Revenue"
-              value={statsData.totalRevenue}
-              prefix="¥"
-              suffix={
-                <span style={{ fontSize: '12px', color: '#52c41a' }}>
-                  ↑{statsData.revenueGrowth}%
-                </span>
-              }
-              loading={loading}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic
-              title="AverageusageRate"
-              value={statsData.utilizationRate}
-              suffix="%"
-              prefix={<PieChartOutlined />}
-              loading={loading}
-            />
-          </Card>
-        </Col>
-      </Row>
+            {/* User Activity Statistics */}
+            <Col xs={24} lg={10}>
+              <Card title="ActiveUserStatistics">
+                {loading ? (
+                  <TableSkeleton rows={5} columns={4} />
+                ) : (
+                  <Table
+                    columns={userColumns}
+                    dataSource={userStats}
+                    loading={loading}
+                    rowKey="id"
+                    pagination={{ pageSize: 5 }}
+                    size="small"
+                  />
+                )}
+              </Card>
+            </Col>
+          </Row>
 
-      <Row gutter={[16, 16]}>
-        {/* RoomStatistics */}
-        <Col xs={24} lg={14}>
-          <Card 
-            title="RoomusageStatistics" 
-            extra={<RiseOutlined />}
-          >
-            <Table
-              columns={roomColumns}
-              dataSource={roomStats}
-              loading={loading}
-              rowKey="id"
-              pagination={false}
-              size="small"
-            />
-          </Card>
-        </Col>
-
-        {/* User Activity Statistics */}
-        <Col xs={24} lg={10}>
-          <Card title="ActiveUserStatistics">
-            <Table
-              columns={userColumns}
-              dataSource={userStats}
-              loading={loading}
-              rowKey="id"
-              pagination={{ pageSize: 5 }}
-              size="small"
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Trend chart area - reserved for chart components */}
-      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col span={24}>
-          <Card title="Usage Trend Chart" extra="Last 30 Days">
-            <div style={{ 
-              height: 300, 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              background: '#fafafa',
-              border: '1px dashed #d9d9d9'
-            }}>
-              <div style={{ textAlign: 'center', color: '#999' }}>
-                <BarChartOutlined style={{ fontSize: 48, marginBottom: 16 }} />
-                <br />
-                Chart Component Position
-                <br />
-                <small>Can integrate ECharts, D3.js and other chart libraries</small>
-              </div>
-            </div>
-          </Card>
-        </Col>
-      </Row>
+          {/* Trend chart area - reserved for chart components */}
+          <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+            <Col span={24}>
+              <Card title="Usage Trend Chart" extra="Last 30 Days">
+                <div style={{ 
+                  height: 300, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  background: '#fafafa',
+                  border: '1px dashed #d9d9d9'
+                }}>
+                  <div style={{ textAlign: 'center', color: '#999' }}>
+                    <BarChartOutlined style={{ fontSize: 48, marginBottom: 16 }} />
+                    <br />
+                    Chart Component Position
+                    <br />
+                    <small>Can integrate ECharts, D3.js and other chart libraries</small>
+                  </div>
+                </div>
+              </Card>
+            </Col>
+          </Row>
+        </>
+      )}
     </div>
   );
 };

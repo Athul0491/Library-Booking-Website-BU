@@ -2,13 +2,17 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
+import { ConnectionProvider } from './contexts/ConnectionContext';
+import { DataSourceProvider } from './contexts/DataSourceContext';
+import { GlobalApiProvider } from './contexts/GlobalApiContext';
 
 // Import page components
 import DashboardPage from './pages/DashboardPage';
 import LocationsPage from './pages/LocationsPage';
 import BookingsPage from './pages/BookingsPage';
-import AvailabilityPage from './pages/AvailabilityPage';
+import RoomsManagementPage from './pages/RoomsManagementPage';
 import StatisticsPage from './pages/StatisticsPage';
+import DataMonitorPage from './pages/DataMonitorPage';
 
 /**
  * Main application component
@@ -16,8 +20,16 @@ import StatisticsPage from './pages/StatisticsPage';
  */
 const App = () => {
   return (
-    <Router>
-      <MainLayout>
+    <DataSourceProvider>
+      <ConnectionProvider>
+        <GlobalApiProvider>
+          <Router 
+            future={{
+              v7_startTransition: true,
+              v7_relativeSplatPath: true
+            }}
+          >
+          <MainLayout>
         <Routes>
           {/* Default route - redirect to dashboard */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -31,11 +43,14 @@ const App = () => {
           {/* Booking management page - view and manage all booking records */}
           <Route path="/bookings" element={<BookingsPage />} />
           
-          {/* Time availability management page - control time slot availability */}
-          <Route path="/availability" element={<AvailabilityPage />} />
+          {/* Rooms management page - comprehensive room and schedule management */}
+          <Route path="/availability" element={<RoomsManagementPage />} />
           
           {/* Statistics report page - view various data analysis and reports */}
           <Route path="/statistics" element={<StatisticsPage />} />
+          
+          {/* Data monitor page - monitor data from all systems */}
+          <Route path="/monitor" element={<DataMonitorPage />} />
           
           {/* 404 page - handle routes not found */}
           <Route 
@@ -52,9 +67,12 @@ const App = () => {
             } 
           />
         </Routes>
-      </MainLayout>
-    </Router>
+        </MainLayout>
+      </Router>
+    </GlobalApiProvider>
+    </ConnectionProvider>
+    </DataSourceProvider>
   );
-};
+}
 
 export default App;

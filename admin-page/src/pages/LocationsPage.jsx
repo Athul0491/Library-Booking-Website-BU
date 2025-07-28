@@ -1,347 +1,492 @@
-// Location Management page - Manage library rooms and venue information
+// Building and Room Management page with skeleton loading support
 import React, { useState, useEffect } from 'react';
 import {
   Card,
   Table,
   Button,
   Space,
+  Typography,
   Tag,
   Modal,
   Form,
   Input,
   Select,
-  InputNumber,
   message,
-  Popconfirm,
-  Typography
+  Row,
+  Col,
+  Alert
 } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   EnvironmentOutlined,
-  UsergroupAddOutlined
+  ReloadOutlined,
+  ClockCircleOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ApiOutlined
 } from '@ant-design/icons';
+import { useConnection } from '../contexts/ConnectionContext';
+import { useDataSource } from '../contexts/DataSourceContext';
+import { useGlobalApi } from '../contexts/GlobalApiContext';
+import { 
+  TableSkeleton, 
+  DataUnavailablePlaceholder,
+  PageLoadingSkeleton 
+} from '../components/SkeletonComponents';
+import ConnectionStatus from '../components/ConnectionStatus';
+import ServerStatusBanner from '../components/ServerStatusBanner';
 import locationService from '../services/locationService';
 
 const { Title, Paragraph } = Typography;
 const { Option } = Select;
 
 /**
- * Location Management page component
- * In useManagement library Room and venue Information
+ * Locations management page component
+ * Manages buildings and rooms with connection-aware loading
  */
 const LocationsPage = () => {
+  const connection = useConnection();
+  const { 
+    useRealData, 
+    addNotification 
+  } = useDataSource();
+  const globalApi = useGlobalApi();
+  
   const [loading, setLoading] = useState(false);
-  const [locations, setLocations] = useState([]);
+  const [buildings, setBuildings] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [selectedBuilding, setSelectedBuilding] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [editingLocation, setEditingLocation] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
+  const [modalType, setModalType] = useState('building'); // 'building' or 'room'
   const [form] = Form.useForm();
+  const [dataError, setDataError] = useState(null);
 
-  // component handle Load Data
+  // Load buildings from global cache
   useEffect(() => {
-    loadLocations();
-  }, []);
+    const cachedBuildings = globalApi.getCachedData('buildings');
+    if (cachedBuildings && Array.isArray(cachedBuildings)) {
+      console.log(`📋 LocationsPage: Loading ${cachedBuildings.length} buildings from global cache`);
+      setBuildings(cachedBuildings);
+    } else {
+      console.log('⚠️ LocationsPage: No cached buildings data available');
+      setBuildings([]);
+    }
+  }, [globalApi.globalData.lastUpdated]); // 响应全局数据更新
 
-  // Load venue List
-  const loadLocations = async () => {
+  // Load rooms for selected building with unified loading pattern
+  const loadRooms = async (buildingId) => {
+    if (!buildingId) {
+      console.log('⚠️ No building selected, skipping rooms load');
+      return;
+    }
+
     try {
       setLoading(true);
-      const response = await locationService.getLocations();
-      setLocations(response.data?.list || []);
+      setDataError(null);
+      
+      console.log(`🏠 Loading rooms for building ${buildingId}...`);
+      
+      // Use global rooms data and filter by building ID
+      const { globalData } = globalApi;
+      if (globalData?.rooms && globalData.rooms.length > 0) {
+        const buildingRooms = globalData.rooms.filter(room => 
+          room.building_id === buildingId || 
+          room.building_id === String(buildingId)
+        );
+        
+        setRooms(buildingRooms);
+        console.log(`✅ Rooms loaded from global cache - Count: ${buildingRooms.length}`);
+        message.success(`Loaded ${buildingRooms.length} rooms for building`);
+      } else {
+        console.warn('⚠️ No global rooms data available');
+        setRooms([]);
+        message.warning('No rooms data available. Try refreshing the page.');
+      }
     } catch (error) {
-      message.error('Load venue list failed');
-      console.error('Load venue list failed:', error);
+      console.error('❌ Error loading rooms:', error);
+      setDataError(error.message);
+      message.error('Failed to load rooms data');
+      setRooms([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Open Add New/Edit Popup
-  const openModal = (location = null) => {
-    setEditingLocation(location);
-    setModalVisible(true);
-    if (location) {
-      form.setFieldsValue(location);
+  // Note: No longer calling loadBuildings on mount - using global cached data instead
+  // Users can manually refresh data using the refresh button in ServerStatusBanner
+
+  // Manual refresh function for ServerStatusBanner
+  const handleRefresh = async () => {
+    console.log('🔄 LocationsPage: Manual refresh triggered via ServerStatusBanner');
+    await globalApi.refreshApi(); // This will refresh global data
+    
+    // Update local buildings from refreshed global data
+    const refreshedBuildings = globalApi.getCachedData('buildings');
+    if (refreshedBuildings && Array.isArray(refreshedBuildings)) {
+      setBuildings(refreshedBuildings);
+      console.log(`📋 LocationsPage: Updated with ${refreshedBuildings.length} buildings from refreshed global cache`);
+    }
+  };
+
+  // Load rooms when building is selected
+  useEffect(() => {
+    if (selectedBuilding) {
+      loadRooms(selectedBuilding.id);
     } else {
-      form.resetFields();
+      setRooms([]);
     }
-  };
+  }, [selectedBuilding]);
 
-  // Close popups
-  const closeModal = () => {
-    setModalVisible(false);
-    setEditingLocation(null);
-    form.resetFields();
-  };
-
-  // Save venue information
-  const handleSave = async (values) => {
-    try {
-      if (editingLocation) {
-        await locationService.updateLocation(editingLocation.id, values);
-        message.success('Update venue information success');
-      } else {
-        await locationService.createLocation(values);
-        message.success('Create venue success');
-      }
-      closeModal();
-      loadLocations();
-    } catch (error) {
-      message.error(editingLocation ? 'Update venue information failed' : 'Create venue failed');
-      console.error('Save venue information failed:', error);
-    }
-  };
-
-  // Delete venue
-  const handleDelete = async (id) => {
-    try {
-      await locationService.deleteLocation(id);
-      message.success('Delete venue success');
-      loadLocations();
-    } catch (error) {
-      message.error('Delete venue failed');
-      console.error('Delete venue failed:', error);
-    }
-  };
-
-  // Table Column Configuration
-  const columns = [
+  // Building table columns (updated to match actual backend API response)
+  const buildingColumns = [
     {
-      title: 'Venue Name',
+      title: 'Building Name',
       dataIndex: 'name',
       key: 'name',
-      render: (text) => (
+      render: (text, record) => (
         <Space>
           <EnvironmentOutlined />
-          {text}
+          <strong>{text}</strong>
         </Space>
       ),
     },
     {
-      title: 'Type',
-      dataIndex: 'type',
-      key: 'type',
-      render: (type) => {
-        const typeColors = {
-          study_room: 'blue',
-          meeting_room: 'green',
-          computer_lab: 'orange',
-          reading_area: 'purple',
-        };
-        const typeNames = {
-          study_room: 'Study Room',
-          meeting_room: 'Meeting Room',
-          computer_lab: 'Computer Lab',
-          reading_area: 'Reading Area',
-        };
-        return (
-          <Tag color={typeColors[type]}>
-            {typeNames[type] || type}
-          </Tag>
-        );
-      },
+      title: 'Short Name',
+      dataIndex: 'short_name',
+      key: 'short_name',
+      render: (text) => <Tag color="blue">{text}</Tag>,
     },
     {
-      title: 'Capacity',
-      dataIndex: 'capacity',
-      key: 'capacity',
-      render: (capacity) => (
-        <Space>
-          <UsergroupAddOutlined />
-          {capacity}
-        </Space>
-      ),
+      title: 'Address',
+      dataIndex: 'address',
+      key: 'address',
+      render: (address) => address || 'N/A',
     },
     {
-      title: 'Equipment',
-      dataIndex: 'equipment',
-      key: 'equipment',
-      render: (equipment) => (
-        <div>
-          {equipment?.map((item, index) => (
-            <Tag key={index}>{item}</Tag>
-          ))}
-        </div>
-      ),
+      title: 'Phone',
+      dataIndex: ['contacts', 'phone'],
+      key: 'phone',
+      render: (phone) => phone || 'N/A',
+    },
+    {
+      title: 'Email',
+      dataIndex: ['contacts', 'email'],
+      key: 'email',
+      render: (email) => email || 'N/A',
+    },
+    {
+      title: 'LibCal ID',
+      dataIndex: 'libcal_id',
+      key: 'libcal_id',
+      render: (id) => id ? <Tag color="cyan">{id}</Tag> : <span style={{ color: '#ccc' }}>N/A</span>,
     },
     {
       title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      render: (status) => {
-        const statusConfig = {
-          available: { color: 'green', text: 'Available' },
-          maintenance: { color: 'orange', text: 'Maintenance' },
-          disabled: { color: 'red', text: 'Disabled' },
-        };
-        const config = statusConfig[status] || { color: 'default', text: status };
-        return <Tag color={config.color}>{config.text}</Tag>;
-      },
+      dataIndex: 'available',
+      key: 'available',
+      render: (available) => (
+        <Tag color={available ? 'success' : 'default'}>
+          {available ? 'Active' : 'Inactive'}
+        </Tag>
+      ),
     },
     {
       title: 'Actions',
-      key: 'action',
+      key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button
-            type="link"
-            icon={<EditOutlined />}
-            onClick={() => openModal(record)}
+          <Button 
+            type="primary" 
+            size="small"
+            onClick={() => setSelectedBuilding(record)}
+          >
+            View Rooms
+          </Button>
+          <Button 
+            icon={<EditOutlined />} 
+            size="small"
+            onClick={() => handleEdit('building', record)}
           >
             Edit
           </Button>
-          <Popconfirm
-            title="Sure you want to delete this location?"
-            onConfirm={() => handleDelete(record.id)}
-            okText="Confirm"
-            cancelText="Cancel"
-          >
-            <Button type="link" danger icon={<DeleteOutlined />}>
-              Delete
-            </Button>
-          </Popconfirm>
         </Space>
       ),
     },
   ];
 
+  // Room table columns (updated for new database schema)
+  const roomColumns = [
+    {
+      title: 'Room Name',
+      dataIndex: 'room_name',
+      key: 'room_name',
+      render: (text) => <strong>{text}</strong>,
+    },
+    {
+      title: 'Room Number',
+      dataIndex: 'room_number',
+      key: 'room_number',
+    },
+    {
+      title: 'Capacity',
+      dataIndex: 'capacity',
+      key: 'capacity',
+      render: (capacity) => <Tag color="blue">{capacity} people</Tag>,
+    },
+    {
+      title: 'Equipment',
+      dataIndex: 'equipment',
+      key: 'equipment',
+      render: (equipment) => {
+        if (!equipment) return <span style={{ color: '#ccc' }}>None</span>;
+        // Handle equipment as array or JSON string
+        const equipmentArray = Array.isArray(equipment) ? equipment : 
+                              typeof equipment === 'string' ? JSON.parse(equipment) : [];
+        return (
+          <Space wrap>
+            {equipmentArray.map((item, index) => (
+              <Tag key={index} color="purple">{item}</Tag>
+            ))}
+          </Space>
+        );
+      },
+    },
+    {
+      title: 'Status',
+      dataIndex: 'available',
+      key: 'available',
+      render: (available) => (
+        <Tag color={available ? 'green' : 'red'}>
+          {available ? 'Active' : 'Inactive'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      render: (_, record) => (
+        <Space>
+          <Button 
+            icon={<EditOutlined />} 
+            size="small"
+            onClick={() => handleEdit('room', record)}
+          >
+            Edit
+          </Button>
+        </Space>
+      ),
+    },
+  ];
+
+  // Handle edit action
+  const handleEdit = (type, item) => {
+    setModalType(type);
+    setEditingItem(item);
+    setModalVisible(true);
+    form.setFieldsValue(item);
+  };
+
+  // Handle add new action
+  const handleAdd = (type) => {
+    setModalType(type);
+    setEditingItem(null);
+    setModalVisible(true);
+    form.resetFields();
+  };
+
+  // Handle modal submit
+  const handleModalSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      console.log('Form values:', values);
+      message.success(`${editingItem ? 'Updated' : 'Added'} ${modalType} successfully`);
+      setModalVisible(false);
+      
+      // Reload data
+      if (modalType === 'building') {
+        // Refresh global data instead of local loadBuildings
+        await handleRefresh();
+      } else {
+        loadRooms(selectedBuilding?.id);
+      }
+    } catch (error) {
+      console.error('Form validation failed:', error);
+    }
+  };
+
   return (
     <div>
-      <Title level={2}>Location Management</Title>
+      <Title level={2}>Building & Room Management</Title>
       <Paragraph>
-        Management library all venue and RoomInformation，include Capacity、Equipment and AvailableStatus。
+        Manage library buildings and room configurations with real-time data synchronization.
       </Paragraph>
 
-      <Card>
-        <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-          <div>
-            <Title level={4}>venueList</Title>
-          </div>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => openModal()}
-          >
-            Add Newvenue
-          </Button>
-        </div>
+      {/* Server Status Banner */}
+      <ServerStatusBanner 
+        useGlobalApi={true}
+        onRefresh={handleRefresh}
+        showConnectionStatus={true}
+        showApiStatusCard={false}
+        showConnectingAlert={true}
+        showRefreshButton={false}
+        style={{ marginBottom: 24 }}
+      />
 
-        <Table
-          columns={columns}
-          dataSource={locations}
-          loading={loading}
-          rowKey="id"
-          pagination={{
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total) => ` In total of ${total} venues`,
-          }}
-        />
-      </Card>
+      {/* Loading State */}
+      {connection.loading && <PageLoadingSkeleton />}
 
-      {/* Add New/Edit venue modal */}
+      {/* Main Content - Always show, let services handle data availability */}
+      {!connection.loading && (
+        <Row gutter={[16, 16]}>
+          {/* Buildings Section */}
+          <Col span={24}>
+            <Card
+              title="Buildings"
+              extra={
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => handleAdd('building')}
+                >
+                  Add Building
+                </Button>
+              }
+            >
+              {loading ? (
+                <TableSkeleton rows={5} columns={5} />
+              ) : (
+                <Table
+                  dataSource={buildings}
+                  columns={buildingColumns}
+                  rowKey="id"
+                  pagination={{ pageSize: 10 }}
+                  locale={{ emptyText: 'No buildings found' }}
+                  onRow={(record) => ({
+                    onClick: () => setSelectedBuilding(record),
+                    style: { 
+                      cursor: 'pointer',
+                      backgroundColor: selectedBuilding?.id === record.id ? '#f0f7ff' : undefined
+                    }
+                  })}
+                />
+              )}
+            </Card>
+          </Col>
+
+          {/* Rooms Section */}
+          {selectedBuilding && (
+            <Col span={24}>
+              <Card
+                title={`Rooms in ${selectedBuilding.name}`}
+                extra={
+                  <Space>
+                    <Button
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      onClick={() => handleAdd('room')}
+                    >
+                      Add Room
+                    </Button>
+                    <Button
+                      onClick={() => setSelectedBuilding(null)}
+                    >
+                      Clear Selection
+                    </Button>
+                  </Space>
+                }
+              >
+                {loading ? (
+                  <TableSkeleton rows={5} columns={6} />
+                ) : (
+                  <Table
+                    dataSource={rooms}
+                    columns={roomColumns}
+                    rowKey="id"
+                    pagination={{ pageSize: 10 }}
+                    locale={{ emptyText: 'No rooms found in this building' }}
+                  />
+                )}
+              </Card>
+            </Col>
+          )}
+        </Row>
+      )}
+
+      {/* Edit/Add Modal */}
       <Modal
-        title={editingLocation ? 'Editvenue' : 'Add Newvenue'}
+        title={`${editingItem ? 'Edit' : 'Add'} ${modalType === 'building' ? 'Building' : 'Room'}`}
         open={modalVisible}
-        onCancel={closeModal}
-        footer={null}
+        onOk={handleModalSubmit}
+        onCancel={() => setModalVisible(false)}
         width={600}
       >
         <Form
           form={form}
           layout="vertical"
-          onFinish={handleSave}
+          name={`${modalType}_form`}
         >
-          <Form.Item
-            name="name"
-            label="venueName"
-            rules={[{ required: true, message: 'Please enter venue name' }]}
-          >
-            <Input placeholder="Please enter venue name" />
-          </Form.Item>
-
-          <Form.Item
-            name="type"
-            label="venueType"
-            rules={[{ required: true, message: 'Please select venue type' }]}
-          >
-            <Select placeholder="Please select venue type">
-              <Option value="study_room">Study Room</Option>
-              <Option value="meeting_room">Meeting Room</Option>
-              <Option value="computer_lab">Computer Lab</Option>
-              <Option value="reading_area">Reading Area</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="capacity"
-            label="Capacity"
-            rules={[{ required: true, message: 'Please enter venue capacity' }]}
-          >
-            <InputNumber
-              min={1}
-              max={200}
-              placeholder="Please enter venue capacity"
-              style={{ width: '100%' }}
-              addonAfter="People"
-            />
-          </Form.Item>
-
-          <Form.Item
-            name="location"
-            label="Location Description"
-            rules={[{ required: true, message: 'Please enter location description' }]}
-          >
-            <Input placeholder="e.g., Second floor east side" />
-          </Form.Item>
-
-          <Form.Item
-            name="equipment"
-            label="EquipmentList"
-          >
-            <Select
-              mode="tags"
-              placeholder="Please enter equipment name and press enter to add"
-              style={{ width: '100%' }}
-            >
-              <Option value="projector">Projector</Option>
-              <Option value="whiteboard">Whiteboard</Option>
-              <Option value="computer">Computer</Option>
-              <Option value="air_conditioning">Air Conditioning</Option>
-              <Option value="audio_system">Audio System</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="status"
-            label="Status"
-            rules={[{ required: true, message: 'Please select venue status' }]}
-          >
-            <Select placeholder="Please select venue status">
-              <Option value="available">Available</Option>
-              <Option value="maintenance">Maintenance</Option>
-              <Option value="disabled">Disabled</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="description"
-            label="Notes"
-          >
-            <Input.TextArea rows={3} placeholder="Please enter notes information" />
-          </Form.Item>
-
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit">
-                Save
-              </Button>
-              <Button onClick={closeModal}>
-                Cancel
-              </Button>
-            </Space>
-          </Form.Item>
+          {modalType === 'building' ? (
+            <>
+              <Form.Item
+                label="Building Name"
+                name="name"
+                rules={[{ required: true, message: 'Please enter building name' }]}
+              >
+                <Input placeholder="Enter building name" />
+              </Form.Item>
+              <Form.Item
+                label="Building Code"
+                name="code"
+                rules={[{ required: true, message: 'Please enter building code' }]}
+              >
+                <Input placeholder="Enter building code (e.g., MUG, PAR)" />
+              </Form.Item>
+              <Form.Item
+                label="Address"
+                name="address"
+                rules={[{ required: true, message: 'Please enter building address' }]}
+              >
+                <Input.TextArea placeholder="Enter building address" />
+              </Form.Item>
+            </>
+          ) : (
+            <>
+              <Form.Item
+                label="Room Name"
+                name="name"
+                rules={[{ required: true, message: 'Please enter room name' }]}
+              >
+                <Input placeholder="Enter room name" />
+              </Form.Item>
+              <Form.Item
+                label="Room Number"
+                name="roomNumber"
+                rules={[{ required: true, message: 'Please enter room number' }]}
+              >
+                <Input placeholder="Enter room number" />
+              </Form.Item>
+              <Form.Item
+                label="Capacity"
+                name="capacity"
+                rules={[{ required: true, message: 'Please enter room capacity' }]}
+              >
+                <Input type="number" placeholder="Enter room capacity" />
+              </Form.Item>
+              <Form.Item
+                label="Status"
+                name="available"
+                rules={[{ required: true, message: 'Please select room status' }]}
+              >
+                <Select placeholder="Select room status">
+                  <Option value={true}>Available</Option>
+                  <Option value={false}>Unavailable</Option>
+                </Select>
+              </Form.Item>
+            </>
+          )}
         </Form>
       </Modal>
     </div>

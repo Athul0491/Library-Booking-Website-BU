@@ -1,3 +1,4 @@
+// BookingsPage - Manage booking data with connection-aware skeleton loading
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -5,547 +6,509 @@ import {
   Button,
   Space,
   Tag,
+  Typography,
   Modal,
-  Form,
+  Descriptions,
   Select,
-  DatePicker,
   Input,
-  message,
-  Popconfirm,
   Row,
   Col,
   Statistic,
-  Typography
+  message
 } from 'antd';
 import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  EyeOutlined,
-  SearchOutlined,
   CalendarOutlined,
   UserOutlined,
-  HomeOutlined,
+  EnvironmentOutlined,
   ClockCircleOutlined,
+  SearchOutlined,
   ReloadOutlined,
-  CheckOutlined,
-  CloseOutlined
+  EyeOutlined,
+  EditOutlined,
+  DeleteOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import bookingService from '../services/bookingService';
+import { useConnection } from '../contexts/ConnectionContext';
+import { useDataSource } from '../contexts/DataSourceContext';
+import { useGlobalApi } from '../contexts/GlobalApiContext';
+import { 
+  ConnectionStatus, 
+  TableSkeleton, 
+  DataUnavailablePlaceholder,
+  PageLoadingSkeleton 
+} from '../components/SkeletonComponents';
+import ServerStatusBanner from '../components/ServerStatusBanner';
 
+const { Title, Paragraph } = Typography;
 const { Option } = Select;
-const { RangePicker } = DatePicker;
-const { Title } = Typography;
+const { Search } = Input;
 
+/**
+ * BookingsPage Component - Professional booking management with connection status
+ */
 const BookingsPage = () => {
+  const connection = useConnection();
+  const globalApi = useGlobalApi();
+  const { useRealData } = useDataSource();
+  const [loading, setLoading] = useState(false);
   const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [filteredBookings, setFilteredBookings] = useState([]);
-  const [searchText, setSearchText] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState('all');
-  const [selectedDateRange, setSelectedDateRange] = useState(null);
-  const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const [editForm] = Form.useForm();
+  const [modalVisible, setModalVisible] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [stats, setStats] = useState({});
+  const [dataError, setDataError] = useState(null);
 
-  // Check In
-  const handleCheckIn = async (bookingId) => {
-    try {
-      const response = await bookingService.checkIn(bookingId);
-      if (response.success) {
-        message.success('Check-in successful');
-        fetchBookings();
-      } else {
-        message.error(response.message || 'Check-in failed');
-      }
-    } catch (error) {
-      message.error('Check-in failed');
-    }
-  };
-
-  // Check Out
-  const handleCheckOut = async (bookingId) => {
-    try {
-      const response = await bookingService.checkOut(bookingId);
-      if (response.success) {
-        message.success('Check-out successful');
-        fetchBookings();
-      } else {
-        message.error(response.message || 'Check-out failed');
-      }
-    } catch (error) {
-      message.error('Check-out failed');
-    }
-  };
-
-  // Load booking data
-  const fetchBookings = async () => {
-    try {
-      setLoading(true);
-      const response = await bookingService.getAllBookings();
-      if (response.success) {
-        setBookings(response.data);
-        setFilteredBookings(response.data);
-      } else {
-        message.error('Failed to load booking data');
-      }
-    } catch (error) {
-      message.error('Failed to load booking data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Filter bookings
-  const filterBookings = () => {
-    let filtered = [...bookings];
-
-    // Search filter
-    if (searchText) {
-      filtered = filtered.filter(booking => 
-        booking.guestName?.toLowerCase().includes(searchText.toLowerCase()) ||
-        booking.roomNumber?.toLowerCase().includes(searchText.toLowerCase()) ||
-        booking.bookingId?.toLowerCase().includes(searchText.toLowerCase())
-      );
-    }
-
-    // Status filter
-    if (selectedStatus !== 'all') {
-      filtered = filtered.filter(booking => booking.status === selectedStatus);
-    }
-
-    // Date range filter
-    if (selectedDateRange && selectedDateRange.length === 2) {
-      filtered = filtered.filter(booking => {
-        const bookingDate = new Date(booking.bookingDate);
-        return bookingDate >= selectedDateRange[0].toDate() && 
-               bookingDate <= selectedDateRange[1].toDate();
-      });
-    }
-
-    setFilteredBookings(filtered);
-  };
-
-  // Status configuration
-  const statusConfig = {
-    'confirmed': { color: 'green', text: 'Confirmed' },
-    'pending': { color: 'orange', text: 'Pending' },
-    'cancelled': { color: 'red', text: 'Cancelled' },
-    'completed': { color: 'blue', text: 'Completed' },
-    'checked-in': { color: 'purple', text: 'Checked In' },
-    'checked-out': { color: 'gray', text: 'Checked Out' }
-  };
-
-  // Status filter options
-  const statusFilterOptions = [
-    { value: 'all', label: 'All Status' },
-    { value: 'confirmed', label: 'Confirmed' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'cancelled', label: 'Cancelled' },
-    { value: 'completed', label: 'Completed' },
-    { value: 'checked-in', label: 'Checked In' },
-    { value: 'checked-out', label: 'Checked Out' }
-  ];
-
-  // Get status tag
-  const getStatusTag = (status) => {
-    const config = statusConfig[status] || { color: 'default', text: status };
-    return <Tag color={config.color}>{config.text}</Tag>;
-  };
-
-  // Table columns
+  // Table columns configuration (updated for new database schema)
   const columns = [
     {
       title: 'Booking ID',
-      dataIndex: 'bookingId',
-      key: 'bookingId',
-      sorter: (a, b) => a.bookingId.localeCompare(b.bookingId),
-      render: (text) => <span style={{ fontFamily: 'monospace' }}>{text}</span>
-    },
-    {
-      title: 'Guest Name',
-      dataIndex: 'guestName',
-      key: 'guestName',
-      sorter: (a, b) => a.guestName.localeCompare(b.guestName),
-      render: (text) => (
-        <Space>
-          <UserOutlined />
-          {text}
-        </Space>
+      dataIndex: 'booking_reference',
+      key: 'booking_reference',
+      width: 120,
+      render: (ref) => (
+        <code style={{ fontSize: '12px', color: '#666' }}>
+          {ref || 'N/A'}
+        </code>
       )
     },
     {
-      title: 'Room Number',
-      dataIndex: 'roomNumber',
-      key: 'roomNumber',
-      sorter: (a, b) => a.roomNumber.localeCompare(b.roomNumber)
-    },
-    {
-      title: 'Booking Date',
-      dataIndex: 'bookingDate',
-      key: 'bookingDate',
-      sorter: (a, b) => new Date(a.bookingDate) - new Date(b.bookingDate),
-      render: (date) => (
-        <Space>
-          <CalendarOutlined />
-          {new Date(date).toLocaleDateString()}
-        </Space>
+      title: 'User',
+      key: 'user',
+      render: (_, record) => (
+        <div>
+          <div>
+            <UserOutlined style={{ marginRight: 4 }} />
+            {record.user_name || 'Unknown User'}
+          </div>
+          <div style={{ color: '#666', fontSize: '12px' }}>
+            {record.user_email}
+          </div>
+        </div>
       )
     },
     {
-      title: 'Time Slot',
-      dataIndex: 'timeSlot',
-      key: 'timeSlot',
-      render: (timeSlot) => `${timeSlot.start} - ${timeSlot.end}`
+      title: 'Room & Building',
+      key: 'location',
+      render: (_, record) => (
+        <div>
+          <div><strong>{record.room_name || 'N/A'}</strong></div>
+          <div style={{ color: '#666', fontSize: '12px' }}>
+            <EnvironmentOutlined style={{ marginRight: 4 }} />
+            {record.building_name} ({record.building_short_name})
+          </div>
+        </div>
+      )
+    },
+    {
+      title: 'Date & Time',
+      key: 'datetime',
+      render: (_, record) => (
+        <div>
+          <div>
+            <CalendarOutlined style={{ marginRight: 4 }} />
+            {record.booking_date}
+          </div>
+          <div style={{ color: '#666', fontSize: '12px' }}>
+            <ClockCircleOutlined style={{ marginRight: 4 }} />
+            {record.start_time} - {record.end_time}
+          </div>
+        </div>
+      )
     },
     {
       title: 'Status',
       dataIndex: 'status',
       key: 'status',
-      filters: statusFilterOptions.slice(1).map(option => ({
-        text: option.label,
-        value: option.value
-      })),
-      onFilter: (value, record) => record.status === value,
-      render: getStatusTag
+      render: (status) => {
+        const statusConfig = {
+          confirmed: { color: 'success', text: 'Confirmed' },
+          cancelled: { color: 'error', text: 'Cancelled' },
+          completed: { color: 'default', text: 'Completed' },
+          pending: { color: 'warning', text: 'Pending' },
+          active: { color: 'processing', text: 'Active' }
+        };
+        const config = statusConfig[status] || { color: 'default', text: status };
+        return <Tag color={config.color}>{config.text}</Tag>;
+      }
+    },
+    {
+      title: 'Group Size',
+      dataIndex: 'group_size',
+      key: 'group_size',
+      width: 100,
+      render: (size) => (
+        <Tag color="blue">{size || 1} people</Tag>
+      )
     },
     {
       title: 'Actions',
       key: 'actions',
+      width: 120,
       render: (_, record) => (
         <Space size="small">
-          <Button 
-            type="link" 
-            icon={<EyeOutlined />} 
+          <Button
+            type="text"
+            icon={<EyeOutlined />}
             onClick={() => viewBookingDetails(record)}
-          >
-            View Details
-          </Button>
-          <Button 
-            type="link" 
-            icon={<EditOutlined />} 
+            title="View Details"
+          />
+          <Button
+            type="text"
+            icon={<EditOutlined />}
             onClick={() => editBooking(record)}
-          >
-            Edit
-          </Button>
-          {record.status === 'confirmed' && (
-            <Button 
-              type="link" 
-              icon={<CheckOutlined />} 
-              onClick={() => handleCheckIn(record.bookingId)}
-            >
-              Check In
-            </Button>
-          )}
-          {record.status === 'checked-in' && (
-            <Button 
-              type="link" 
-              icon={<CloseOutlined />} 
-              onClick={() => handleCheckOut(record.bookingId)}
-            >
-              Check Out
-            </Button>
-          )}
-          <Popconfirm
-            title="Are you sure you want to cancel this booking?"
-            onConfirm={() => cancelBooking(record.bookingId)}
-            okText="Yes"
-            cancelText="No"
-          >
-            <Button type="link" danger>
-              Cancel
-            </Button>
-          </Popconfirm>
+            title="Edit Booking"
+          />
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => cancelBooking(record)}
+            title="Cancel Booking"
+          />
         </Space>
       )
     }
   ];
 
-  // View booking details
+  // Manual refresh function for ServerStatusBanner
+  const handleRefresh = async () => {
+    console.log('🔄 BookingsPage: Manual refresh triggered via ServerStatusBanner');
+    await globalApi.refreshApi(); // This will refresh global data
+    
+    // Also refresh local bookings data
+    await loadBookings();
+  };
+
+  // Load bookings data with proper data source handling
+  const loadBookings = async () => {
+    try {
+      setLoading(true);
+      setDataError(null);
+      
+      // Prepare filters - don't filter by status in API call, do it locally
+      const filters = {};
+      
+      const response = await bookingService.getBookings({
+        page: 1,
+        limit: 100, // Get more records for local filtering
+        filters: filters
+      });
+      
+      if (response.success) {
+        setBookings(response.data?.bookings || []);
+        setFilteredBookings(response.data?.bookings || []);
+        
+        // Load statistics
+        const statsResponse = await bookingService.getBookingStats();
+        if (statsResponse.success) {
+          setStats(statsResponse.data || {});
+        }
+      } else {
+        console.warn('Failed to load bookings:', response.error);
+        throw new Error(`Failed to load bookings: ${response.error}`);
+      }
+    } catch (error) {
+      console.error('Failed to load bookings:', error);
+      setDataError(error.message);
+      setBookings([]);
+      setFilteredBookings([]);
+      setStats({});
+      
+      // Only show error message if using real data
+      if (useRealData) {
+        message.error('Failed to load booking data');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter bookings based on search and status (updated for new schema)
+  const filterBookings = () => {
+    let filtered = bookings;
+    
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(booking => booking.status === statusFilter);
+    }
+    
+    // Search filter using new schema field names
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(booking =>
+        (booking.user_name || '').toLowerCase().includes(query) ||
+        (booking.user_email || '').toLowerCase().includes(query) ||
+        (booking.room_name || '').toLowerCase().includes(query) ||
+        (booking.building_name || '').toLowerCase().includes(query) ||
+        (booking.building_short_name || '').toLowerCase().includes(query) ||
+        (booking.id || '').toString().includes(query) ||
+        (booking.booking_reference || '').toLowerCase().includes(query)
+      );
+    }
+    
+    setFilteredBookings(filtered);
+  };
+
+  // Handle booking actions
   const viewBookingDetails = (booking) => {
     setSelectedBooking(booking);
-    setIsDetailModalVisible(true);
+    setModalVisible(true);
   };
 
-  // Edit booking
   const editBooking = (booking) => {
-    setSelectedBooking(booking);
-    editForm.setFieldsValue(booking);
-    setIsEditModalVisible(true);
+    message.info(`Edit booking ${booking.booking_reference || booking.id} - Feature coming soon`);
   };
 
-  // Cancel booking
-  const cancelBooking = async (bookingId) => {
-    try {
-      const response = await bookingService.cancelBooking(bookingId);
-      if (response.success) {
-        message.success('Booking cancelled successfully');
-        fetchBookings();
-      } else {
-        message.error(response.message || 'Failed to cancel booking');
+  const cancelBooking = async (booking) => {
+    Modal.confirm({
+      title: 'Cancel Booking',
+      content: `Are you sure you want to cancel booking ${booking.booking_reference || booking.id}?`,
+      okText: 'Yes, Cancel',
+      okType: 'danger',
+      cancelText: 'No',
+      onOk: async () => {
+        try {
+          const response = await bookingService.cancelBooking(booking.id, 'Admin cancellation');
+          if (response.success) {
+            message.success('Booking cancelled successfully');
+            loadBookings(); // Reload data
+          } else {
+            message.error('Failed to cancel booking');
+          }
+        } catch (error) {
+          message.error('Error cancelling booking');
+        }
       }
-    } catch (error) {
-      message.error('Failed to cancel booking');
-    }
+    });
   };
 
-  // Save booking changes
-  const saveBookingChanges = async (values) => {
-    try {
-      const response = await bookingService.updateBooking(selectedBooking.bookingId, values);
-      if (response.success) {
-        message.success('Booking updated successfully');
-        setIsEditModalVisible(false);
-        fetchBookings();
-      } else {
-        message.error(response.message || 'Failed to update booking');
-      }
-    } catch (error) {
-      message.error('Failed to update booking');
-    }
-  };
-
-  // Calculate statistics
-  const getStatistics = () => {
-    const total = bookings.length;
-    const confirmed = bookings.filter(b => b.status === 'confirmed').length;
-    const pending = bookings.filter(b => b.status === 'pending').length;
-    const cancelled = bookings.filter(b => b.status === 'cancelled').length;
-    const completed = bookings.filter(b => b.status === 'completed').length;
-
-    return { total, confirmed, pending, cancelled, completed };
-  };
-
-  const stats = getStatistics();
-
+  // Initial load when component mounts
   useEffect(() => {
-    fetchBookings();
+    loadBookings();
   }, []);
 
+  // Note: Removed automatic reload when connection becomes available to reduce API calls
+  // Users can manually refresh data using the refresh button if needed
+
+  // Filter bookings when search or status changes
   useEffect(() => {
     filterBookings();
-  }, [searchText, selectedStatus, selectedDateRange, bookings]);
+  }, [searchQuery, statusFilter, bookings]);
 
   return (
     <div>
-      <Title level={2} style={{ marginBottom: 24 }}>Booking Management</Title>
-      
-      {/* Statistics Cards */}
-      <Row gutter={16} style={{ marginBottom: 24 }}>
-        <Col span={4}>
-          <Card>
-            <Statistic
-              title="Total Bookings"
-              value={stats.total}
-              valueStyle={{ color: '#1890ff' }}
-            />
-          </Card>
-        </Col>
-        <Col span={4}>
-          <Card>
-            <Statistic
-              title="Confirmed"
-              value={stats.confirmed}
-              valueStyle={{ color: '#52c41a' }}
-            />
-          </Card>
-        </Col>
-        <Col span={4}>
-          <Card>
-            <Statistic
-              title="Pending"
-              value={stats.pending}
-              valueStyle={{ color: '#faad14' }}
-            />
-          </Card>
-        </Col>
-        <Col span={4}>
-          <Card>
-            <Statistic
-              title="Cancelled"
-              value={stats.cancelled}
-              valueStyle={{ color: '#ff4d4f' }}
-            />
-          </Card>
-        </Col>
-        <Col span={4}>
-          <Card>
-            <Statistic
-              title="Completed"
-              value={stats.completed}
-              valueStyle={{ color: '#722ed1' }}
-            />
-          </Card>
-        </Col>
-      </Row>
+      <Title level={2}>Booking Management</Title>
+      <Paragraph>
+        Manage library room bookings, view booking details, and handle cancellations.
+        Data synchronized with bu-book and bub-backend systems.
+      </Paragraph>
 
-      {/* Filters */}
-      <Card style={{ marginBottom: 24 }}>
-        <Row gutter={16}>
-          <Col span={8}>
-            <Input
-              placeholder="Search by guest name, room number, or booking ID"
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </Col>
-          <Col span={6}>
-            <Select
-              style={{ width: '100%' }}
-              placeholder="Filter by status"
-              value={selectedStatus}
-              onChange={setSelectedStatus}
-              options={statusFilterOptions}
-            />
-          </Col>
-          <Col span={6}>
-            <RangePicker
-              style={{ width: '100%' }}
-              value={selectedDateRange}
-              onChange={setSelectedDateRange}
-              placeholder={['Start Date', 'End Date']}
-            />
-          </Col>
-          <Col span={4}>
-            <Space>
-              <Button 
-                type="primary" 
-                icon={<ReloadOutlined />} 
-                onClick={fetchBookings}
-              >
-                Refresh
-              </Button>
-            </Space>
-          </Col>
-        </Row>
-      </Card>
+      {/* Server Status Banner */}
+      <ServerStatusBanner 
+        useGlobalApi={true}
+        onRefresh={handleRefresh}
+        showConnectionStatus={true}
+        showApiStatusCard={false}
+        showConnectingAlert={false}
+        showRefreshButton={false}
+        style={{ marginBottom: 24 }}
+      />
 
-      {/* Bookings Table */}
-      <Card>
-        <Table
-          columns={columns}
-          dataSource={filteredBookings}
-          rowKey="bookingId"
-          loading={loading}
-          pagination={{
-            total: filteredBookings.length,
-            pageSize: 10,
-            showSizeChanger: true,
-            showQuickJumper: true,
-            showTotal: (total, range) => 
-              `${range[0]}-${range[1]} of ${total} bookings`
-          }}
-          scroll={{ x: 1200 }}
+      {/* Loading State */}
+      {loading && <PageLoadingSkeleton />}
+
+      {/* Error State */}
+      {dataError && !loading && (
+        <DataUnavailablePlaceholder 
+          title="Booking Data Unavailable"
+          description={`Error loading booking data: ${dataError}. Please try refreshing the page.`}
+          onRetry={loadBookings}
         />
-      </Card>
+      )}
 
-      {/* Booking Details Modal */}
-      <Modal
-        title="Booking Details"
-        open={isDetailModalVisible}
-        onCancel={() => setIsDetailModalVisible(false)}
-        footer={[
-          <Button key="close" onClick={() => setIsDetailModalVisible(false)}>
-            Close
-          </Button>
-        ]}
-        width={600}
-      >
-        {selectedBooking && (
-          <div>
-            <Row gutter={16}>
-              <Col span={12}>
-                <p><strong>Booking ID:</strong> {selectedBooking.bookingId}</p>
-                <p><strong>Guest Name:</strong> {selectedBooking.guestName}</p>
-                <p><strong>Room Number:</strong> {selectedBooking.roomNumber}</p>
-                <p><strong>Status:</strong> {getStatusTag(selectedBooking.status)}</p>
+      {/* Normal Data Display */}
+      {!loading && !dataError && (
+        <>
+          {/* Statistics */}
+          <Row gutter={16} style={{ marginBottom: 24 }}>
+            <Col span={6}>
+              <Card size="small">
+                <Statistic
+                  title="Total Bookings"
+                  value={stats.total || 0}
+                  prefix={<CalendarOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small">
+                <Statistic
+                  title="Confirmed"
+                  value={stats.confirmed || 0}
+                  valueStyle={{ color: '#3f8600' }}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small">
+                <Statistic
+                  title="Today's Bookings"
+                  value={stats.todayBookings || 0}
+                  prefix={<ClockCircleOutlined />}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card size="small">
+                <Statistic
+                  title="Cancelled"
+                  value={stats.cancelled || 0}
+                  valueStyle={{ color: '#cf1322' }}
+                />
+              </Card>
+            </Col>
+          </Row>
+
+          {/* Filters and Search */}
+          <Card style={{ marginBottom: 24 }}>
+            <Row gutter={16} align="middle">
+              <Col xs={24} sm={8}>
+                <Space>
+                  <span>Status:</span>
+                  <Select
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                    style={{ width: 120 }}
+                  >
+                    <Option value="all">All Status</Option>
+                    <Option value="confirmed">Confirmed</Option>
+                    <Option value="cancelled">Cancelled</Option>
+                    <Option value="completed">Completed</Option>
+                    <Option value="no-show">No Show</Option>
+                  </Select>
+                </Space>
               </Col>
-              <Col span={12}>
-                <p><strong>Booking Date:</strong> {new Date(selectedBooking.bookingDate).toLocaleDateString()}</p>
-                <p><strong>Time Slot:</strong> {selectedBooking.timeSlot?.start} - {selectedBooking.timeSlot?.end}</p>
-                <p><strong>Guest Count:</strong> {selectedBooking.guestCount || 1}</p>
-                <p><strong>Contact:</strong> {selectedBooking.contactInfo}</p>
+              <Col xs={24} sm={10}>
+                <Search
+                  placeholder="Search by user, email, room, or ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  prefix={<SearchOutlined />}
+                  allowClear
+                />
+              </Col>
+              <Col xs={24} sm={6}>
+                <Button 
+                  type="primary" 
+                  icon={<ReloadOutlined />}
+                  onClick={loadBookings}
+                  loading={loading}
+                  block
+                >
+                  Refresh Data
+                </Button>
               </Col>
             </Row>
-            {selectedBooking.notes && (
-              <div>
-                <p><strong>Notes:</strong></p>
-                <p>{selectedBooking.notes}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
+          </Card>
 
-      {/* Edit Booking Modal */}
-      <Modal
-        title="Edit Booking"
-        open={isEditModalVisible}
-        onCancel={() => setIsEditModalVisible(false)}
-        onOk={() => editForm.submit()}
-        width={800}
-      >
-        <Form
-          form={editForm}
-          layout="vertical"
-          onFinish={saveBookingChanges}
-        >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="guestName"
-                label="Guest Name"
-                rules={[{ required: true, message: 'Please enter guest name' }]}
-              >
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="roomNumber"
-                label="Room Number"
-                rules={[{ required: true, message: 'Please enter room number' }]}
-              >
-                <Input />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="status"
-                label="Status"
-                rules={[{ required: true, message: 'Please select status' }]}
-              >
-                <Select options={statusFilterOptions.slice(1)} />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="guestCount"
-                label="Guest Count"
-              >
-                <Input type="number" min={1} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Form.Item
-            name="contactInfo"
-            label="Contact Information"
+          {/* Bookings Table */}
+          <Card 
+            title={`Bookings (${filteredBookings.length} found)`}
+            extra={
+              <Tag color="blue">
+                {filteredBookings.length} of {bookings.length} bookings
+              </Tag>
+            }
           >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="notes"
-            label="Notes"
+            {loading ? (
+              <TableSkeleton rows={10} columns={7} />
+            ) : (
+              <Table
+                columns={columns}
+                dataSource={filteredBookings}
+                rowKey="id"
+                pagination={{
+                  pageSize: 15,
+                  showSizeChanger: true,
+                  showQuickJumper: true,
+                  showTotal: (total, range) => 
+                    `${range[0]}-${range[1]} of ${total} bookings`
+                }}
+                scroll={{ x: 1000 }}
+                size="small"
+              />
+            )}
+          </Card>
+
+          {/* Booking Details Modal */}
+          <Modal
+            title={`Booking Details - ${selectedBooking?.booking_reference || selectedBooking?.id}`}
+            open={modalVisible}
+            onCancel={() => setModalVisible(false)}
+            footer={[
+              <Button key="close" onClick={() => setModalVisible(false)}>
+                Close
+              </Button>
+            ]}
+            width={600}
           >
-            <Input.TextArea rows={3} />
-          </Form.Item>
-        </Form>
-      </Modal>
+            {selectedBooking && (
+              <Descriptions column={2} bordered size="small">
+                <Descriptions.Item label="Booking Reference" span={2}>
+                  <code>{selectedBooking.booking_reference}</code>
+                </Descriptions.Item>
+                <Descriptions.Item label="User">
+                  {selectedBooking.user_name}
+                </Descriptions.Item>
+                <Descriptions.Item label="Email">
+                  {selectedBooking.user_email}
+                </Descriptions.Item>
+                <Descriptions.Item label="Room">
+                  {selectedBooking.room_name}
+                </Descriptions.Item>
+                <Descriptions.Item label="Building">
+                  {selectedBooking.building_name} ({selectedBooking.building_short_name})
+                </Descriptions.Item>
+                <Descriptions.Item label="Date">
+                  {dayjs(selectedBooking.booking_date).format('YYYY-MM-DD dddd')}
+                </Descriptions.Item>
+                <Descriptions.Item label="Time">
+                  {selectedBooking.start_time} - {selectedBooking.end_time}
+                </Descriptions.Item>
+                <Descriptions.Item label="Status">
+                  <Tag color={
+                    selectedBooking.status === 'confirmed' ? 'success' :
+                    selectedBooking.status === 'cancelled' ? 'error' :
+                    selectedBooking.status === 'completed' ? 'default' : 'warning'
+                  }>
+                    {selectedBooking.status}
+                  </Tag>
+                </Descriptions.Item>
+                <Descriptions.Item label="Group Size">
+                  {selectedBooking.group_size} people
+                </Descriptions.Item>
+                <Descriptions.Item label="Duration">
+                  {selectedBooking.duration_minutes} minutes
+                </Descriptions.Item>
+                <Descriptions.Item label="Purpose" span={2}>
+                  {selectedBooking.purpose || 'Not specified'}
+                </Descriptions.Item>
+                <Descriptions.Item label="Created At" span={2}>
+                  {dayjs(selectedBooking.created_at).format('YYYY-MM-DD HH:mm:ss')}
+                </Descriptions.Item>
+                {selectedBooking.notes && (
+                  <Descriptions.Item label="Notes" span={2}>
+                    {selectedBooking.notes}
+                  </Descriptions.Item>
+                )}
+              </Descriptions>
+            )}
+          </Modal>
+        </>
+      )}
     </div>
   );
 };
