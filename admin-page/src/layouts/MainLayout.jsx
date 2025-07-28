@@ -8,6 +8,7 @@ import {
   CalendarOutlined,
   ClockCircleOutlined,
   BarChartOutlined,
+  MonitorOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   UserOutlined,
@@ -54,6 +55,11 @@ const MainLayout = ({ children }) => {
       key: '/statistics',
       icon: <BarChartOutlined />,
       label: 'Statistics',
+    },
+    {
+      key: '/monitor',
+      icon: <MonitorOutlined />,
+      label: 'Data Monitor',
     },
   ];
 

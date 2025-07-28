@@ -9,6 +9,7 @@ import LocationsPage from './pages/LocationsPage';
 import BookingsPage from './pages/BookingsPage';
 import AvailabilityPage from './pages/AvailabilityPage';
 import StatisticsPage from './pages/StatisticsPage';
+import DataMonitorPage from './pages/DataMonitorPage';
 
 /**
  * Main application component
@@ -36,6 +37,9 @@ const App = () => {
           
           {/* Statistics report page - view various data analysis and reports */}
           <Route path="/statistics" element={<StatisticsPage />} />
+          
+          {/* Data monitor page - monitor data from all systems */}
+          <Route path="/monitor" element={<DataMonitorPage />} />
           
           {/* 404 page - handle routes not found */}
           <Route 

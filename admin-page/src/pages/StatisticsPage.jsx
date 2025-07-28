@@ -11,7 +11,8 @@ import {
   Table,
   Progress,
   Typography,
-  Space
+  Space,
+  message
 } from 'antd';
 import {
   DownloadOutlined,
@@ -21,6 +22,7 @@ import {
   UsergroupAddOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import statsService from '../services/statsService';
 
 const { Title, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
@@ -51,39 +53,39 @@ const StatisticsPage = () => {
     try {
       setLoading(true);
       
-      // Mock API call
-      const mockStatsData = {
-        totalBookings: 1248,
-        totalUsers: 456,
-        totalRevenue: 12450,
-        avgBookingDuration: 2.5,
-        bookingGrowth: 15.6,
-        userGrowth: 8.3,
-        revenueGrowth: 22.1,
-        utilizationRate: 68.5
-      };
+      // Use integrated statistics service that connects to real data sources
+      const result = await statsService.getStatistics({
+        dateRange,
+        selectedMetric
+      });
 
-      const mockRoomStats = [
-        { id: 1, name: 'Study Room A', bookings: 156, utilization: 85, revenue: 3120 },
-        { id: 2, name: 'Meeting Room B', bookings: 89, utilization: 72, revenue: 2670 },
-        { id: 3, name: 'Discussion Room C', bookings: 124, utilization: 68, revenue: 2480 },
-        { id: 4, name: 'Computer Lab D', bookings: 67, utilization: 45, revenue: 1340 },
-        { id: 5, name: 'Reading Area E', bookings: 203, utilization: 92, revenue: 4060 },
-      ];
+      if (result.success) {
+        setStatsData(result.data.statsData);
+        setRoomStats(result.data.roomStats);
+        setUserStats(result.data.userStats);
 
-      const mockUserStats = [
-        { id: 1, name: 'John Smith', email: 'john.smith@example.com', bookings: 15, lastActive: '2024-01-20' },
-        { id: 2, name: 'Sarah Johnson', email: 'sarah.johnson@example.com', bookings: 12, lastActive: '2024-01-19' },
-        { id: 3, name: 'Michael Brown', email: 'michael.brown@example.com', bookings: 18, lastActive: '2024-01-21' },
-        { id: 4, name: 'Emily Davis', email: 'emily.davis@example.com', bookings: 9, lastActive: '2024-01-18' },
-        { id: 5, name: 'David Wilson', email: 'david.wilson@example.com', bookings: 21, lastActive: '2024-01-22' },
-      ];
-
-      setStatsData(mockStatsData);
-      setRoomStats(mockRoomStats);
-      setUserStats(mockUserStats);
+        if (result.isMockData) {
+          message.warning('Using mock data - connect Supabase for real data');
+        } else {
+          message.success('Statistics loaded from real data sources');
+        }
+      } else {
+        message.error(`Failed to load statistics: ${result.error}`);
+        // Use mock data as fallback
+        const mockResult = statsService.getMockStatistics();
+        setStatsData(mockResult.data.statsData);
+        setRoomStats(mockResult.data.roomStats);
+        setUserStats(mockResult.data.userStats);
+      }
     } catch (error) {
       console.error('Load Statistics Data Failed:', error);
+      message.error('Failed to load statistics data');
+      
+      // Use mock data as fallback
+      const mockResult = statsService.getMockStatistics();
+      setStatsData(mockResult.data.statsData);
+      setRoomStats(mockResult.data.roomStats);
+      setUserStats(mockResult.data.userStats);
     } finally {
       setLoading(false);
     }
@@ -125,13 +127,6 @@ const StatisticsPage = () => {
         />
       ),
       sorter: (a, b) => a.utilization - b.utilization,
-    },
-    {
-      title: 'Revenue',
-      dataIndex: 'revenue',
-      key: 'revenue',
-      render: (revenue) => `¥${revenue}`,
-      sorter: (a, b) => a.revenue - b.revenue,
     },
   ];
 
@@ -190,7 +185,6 @@ const StatisticsPage = () => {
                 style={{ width: 120 }}
               >
                 <Option value="bookings">Booking Count</Option>
-                <Option value="revenue">Revenue</Option>
                 <Option value="utilization">Usage Rate</Option>
                 <Option value="users">User Count</Option>
               </Select>
@@ -210,7 +204,7 @@ const StatisticsPage = () => {
 
       {/* OverviewStatisticscard */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={12} sm={6}>
+        <Col xs={12} sm={8}>
           <Card>
             <Statistic
               title="Total Bookings"
@@ -225,7 +219,7 @@ const StatisticsPage = () => {
             />
           </Card>
         </Col>
-        <Col xs={12} sm={6}>
+        <Col xs={12} sm={8}>
           <Card>
             <Statistic
               title="ActiveUser"
@@ -240,22 +234,7 @@ const StatisticsPage = () => {
             />
           </Card>
         </Col>
-        <Col xs={12} sm={6}>
-          <Card>
-            <Statistic
-              title="Total Revenue"
-              value={statsData.totalRevenue}
-              prefix="¥"
-              suffix={
-                <span style={{ fontSize: '12px', color: '#52c41a' }}>
-                  ↑{statsData.revenueGrowth}%
-                </span>
-              }
-              loading={loading}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={6}>
+        <Col xs={12} sm={8}>
           <Card>
             <Statistic
               title="AverageusageRate"

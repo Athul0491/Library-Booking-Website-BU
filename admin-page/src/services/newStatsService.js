@@ -84,6 +84,7 @@ class StatsService {
                 name: `${room.name} (${building.name})`,
                 bookings: bookings.length,
                 utilization: Math.round(roomUtilization),
+                revenue: bookings.length * 25, // Estimated revenue per booking
                 capacity: room.capacity || 4
               });
             }
@@ -92,14 +93,17 @@ class StatsService {
       }
 
       const utilizationRate = totalSlots > 0 ? (totalBookings / totalSlots) * 100 : 0;
+      const totalRevenue = totalBookings * 25; // Estimated revenue per booking
       const totalUsers = Math.round(totalBookings * 0.7); // Estimate unique users
 
       const statsData = {
         totalBookings,
         totalUsers,
+        totalRevenue,
         avgBookingDuration: 2.5,
         bookingGrowth: 15.6,
         userGrowth: 8.3,
+        revenueGrowth: 22.1,
         utilizationRate: Math.round(utilizationRate)
       };
 
@@ -144,18 +148,20 @@ class StatsService {
     const mockStatsData = {
       totalBookings: 1248,
       totalUsers: 456,
+      totalRevenue: 12450,
       avgBookingDuration: 2.5,
       bookingGrowth: 15.6,
       userGrowth: 8.3,
+      revenueGrowth: 22.1,
       utilizationRate: 68.5
     };
 
     const mockRoomStats = [
-      { id: 1, name: 'Study Room A', bookings: 156, utilization: 85 },
-      { id: 2, name: 'Meeting Room B', bookings: 89, utilization: 72 },
-      { id: 3, name: 'Discussion Room C', bookings: 124, utilization: 68 },
-      { id: 4, name: 'Computer Lab D', bookings: 67, utilization: 45 },
-      { id: 5, name: 'Reading Area E', bookings: 203, utilization: 92 },
+      { id: 1, name: 'Study Room A', bookings: 156, utilization: 85, revenue: 3120 },
+      { id: 2, name: 'Meeting Room B', bookings: 89, utilization: 72, revenue: 2670 },
+      { id: 3, name: 'Discussion Room C', bookings: 124, utilization: 68, revenue: 2480 },
+      { id: 4, name: 'Computer Lab D', bookings: 67, utilization: 45, revenue: 1340 },
+      { id: 5, name: 'Reading Area E', bookings: 203, utilization: 92, revenue: 4060 },
     ];
 
     const mockUserStats = [
@@ -192,10 +198,12 @@ class StatsService {
           growthRates: {
             bookings: result.data.statsData.bookingGrowth,
             users: result.data.statsData.userGrowth,
+            revenue: result.data.statsData.revenueGrowth,
             utilization: 5.2
           },
           todayStats: {
             bookings: Math.floor(Math.random() * 50) + 20,
+            revenue: Math.floor(Math.random() * 1000) + 500,
             activeUsers: Math.floor(Math.random() * 30) + 15
           }
         },

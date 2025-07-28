@@ -1,12 +1,8 @@
-// Availability Management page - Control time slot open status
+// Availability Management page - Control time slot open status with real API integration
 import React, { useState, useEffect } from 'react';
 import {
   Card,
   Calendar,
-  Modal,
-  Form,
-  TimePicker,
-  Switch,
   Button,
   Space,
   Select,
@@ -16,118 +12,126 @@ import {
   List,
   Row,
   Col,
-  Tag
+  Tag,
+  Alert,
+  Spin
 } from 'antd';
 import {
   ClockCircleOutlined,
   EnvironmentOutlined,
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined
+  ReloadOutlined,
+  ApiOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import locationService from '../services/locationService';
-import bookingService from '../services/bookingService';
+import apiService, { LIBRARY_CODES } from '../services/apiService';
 
 const { Title, Paragraph } = Typography;
 const { Option } = Select;
 
 /**
  * Availability Management page component
- * Used for managing room time slot availability
+ * Used for managing room time slot availability with real API integration
  */
 const AvailabilityPage = () => {
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(dayjs());
-  const [rooms, setRooms] = useState([]);
-  const [selectedRoom, setSelectedRoom] = useState(null);
-  const [timeSlots, setTimeSlots] = useState([]);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingSlot, setEditingSlot] = useState(null);
-  const [form] = Form.useForm();
+  const [selectedLibrary, setSelectedLibrary] = useState('par'); // Default to Pardee Library
+  const [realTimeSlots, setRealTimeSlots] = useState([]);
+  const [serverStatus, setServerStatus] = useState(null);
 
   // Load data when component mounts
   useEffect(() => {
-    loadRooms();
+    checkServerStatus();
   }, []);
 
-  // When selected Date or Room changes, load Time slot Data
+  // When selected Date or Library changes, load real time slot data
   useEffect(() => {
-    if (selectedRoom) {
-      loadTimeSlots();
+    if (selectedLibrary && selectedDate) {
+      loadRealTimeSlots();
     }
-  }, [selectedDate, selectedRoom]);
+  }, [selectedDate, selectedLibrary]);
 
-  // Load Room List
-  const loadRooms = async () => {
-    try {
-      // Mock API call
-      const mockRooms = [
-        { id: 1, name: 'Study Room A', type: 'study_room' },
-        { id: 2, name: 'Meeting Room B', type: 'meeting_room' },
-        { id: 3, name: 'Discussion Room C', type: 'discussion_room' },
-        { id: 4, name: 'Computer Lab D', type: 'computer_lab' },
-      ];
-      setRooms(mockRooms);
-      setSelectedRoom(mockRooms[0]);
-    } catch (error) {
-      message.error('Failed to load room list');
-      console.error('Failed to load room list:', error);
+  // Check backend server status
+  const checkServerStatus = async () => {
+    const status = await apiService.checkServerStatus();
+    setServerStatus(status);
+    if (!status.online) {
+      message.warning('Backend server not connected, showing mock data');
     }
   };
 
-  // Load specific date and room time slot data
-  const loadTimeSlots = async () => {
+  // Load real time slots from backend API
+  const loadRealTimeSlots = async () => {
     try {
       setLoading(true);
-      // Mock API call
-      const mockTimeSlots = [
-        {
-          id: 1,
-          startTime: '08:00',
-          endTime: '10:00',
-          isAvailable: true,
-          maxCapacity: 20,
-          currentBookings: 5,
-        },
-        {
-          id: 2,
-          startTime: '10:00',
-          endTime: '12:00',
-          isAvailable: true,
-          maxCapacity: 20,
-          currentBookings: 15,
-        },
-        {
-          id: 3,
-          startTime: '14:00',
-          endTime: '16:00',
-          isAvailable: false,
-          maxCapacity: 20,
-          currentBookings: 0,
-          reason: 'Equipment Maintenance',
-        },
-        {
-          id: 4,
-          startTime: '16:00',
-          endTime: '18:00',
-          isAvailable: true,
-          maxCapacity: 20,
-          currentBookings: 8,
-        },
-      ];
-      setTimeSlots(mockTimeSlots);
+      
+      const params = {
+        library: selectedLibrary,
+        start: selectedDate.format('YYYY-MM-DD'),
+        end: selectedDate.format('YYYY-MM-DD'),
+        start_time: '08:00',
+        end_time: '22:00'
+      };
+
+      const result = await apiService.getAvailability(params);
+      
+      if (result.success) {
+        const formattedSlots = apiService.formatSlots(result.data.slots || []);
+        setRealTimeSlots(formattedSlots);
+        
+        if (result.isMockData) {
+          message.info(`Loaded ${formattedSlots.length} mock time slots (backend server not connected)`);
+        } else {
+          message.success(`Successfully loaded ${formattedSlots.length} time slots`);
+        }
+      } else {
+        message.error(`Loading failed: ${result.error}`);
+        // If API fails, show mock data
+        loadMockTimeSlots();
+      }
     } catch (error) {
-      message.error('Load Time slot Data Failed');
-      console.error('Load Time slot Data Failed:', error);
+      message.error('Failed to load time slot data');
+      console.error('Failed to load time slot data:', error);
+      // If API fails, show mock data
+      loadMockTimeSlots();
     } finally {
       setLoading(false);
     }
   };
 
+  // Fallback mock data
+  const loadMockTimeSlots = () => {
+    const mockTimeSlots = [
+      {
+        id: 1,
+        startTime: '2025-07-27 08:00:00',
+        endTime: '2025-07-27 09:00:00',
+        duration: 60,
+        available: true,
+        itemId: 168796,
+      },
+      {
+        id: 2,
+        startTime: '2025-07-27 09:00:00',
+        endTime: '2025-07-27 10:00:00',
+        duration: 60,
+        available: true,
+        itemId: 168797,
+      },
+      {
+        id: 3,
+        startTime: '2025-07-27 10:00:00',
+        endTime: '2025-07-27 11:00:00',
+        duration: 60,
+        available: false,
+        itemId: 168798,
+      },
+    ];
+    setRealTimeSlots(mockTimeSlots);
+  };
+
   // Get date display content (for calendar)
   const getCellRender = (current, info) => {
-    // Here you can add logic to display daily availability status
     const date = current.format('YYYY-MM-DD');
     const today = dayjs().format('YYYY-MM-DD');
     
@@ -138,87 +142,36 @@ const AvailabilityPage = () => {
     return null;
   };
 
-  // Open add new/edit time slot modal
-  const openModal = (slot = null) => {
-    setEditingSlot(slot);
-    setModalVisible(true);
-    if (slot) {
-      form.setFieldsValue({
-        ...slot,
-        timeRange: [dayjs(slot.startTime, 'HH:mm'), dayjs(slot.endTime, 'HH:mm')],
-      });
-    } else {
-      form.resetFields();
-    }
-  };
-
-  // Close modal
-  const closeModal = () => {
-    setModalVisible(false);
-    setEditingSlot(null);
-    form.resetFields();
-  };
-
-  // SaveTime slotSettings
-  const handleSave = async (values) => {
-    try {
-      const [startTime, endTime] = values.timeRange;
-      const slotData = {
-        ...values,
-        startTime: startTime.format('HH:mm'),
-        endTime: endTime.format('HH:mm'),
-        roomId: selectedRoom.id,
-        date: selectedDate.format('YYYY-MM-DD'),
-      };
-
-      if (editingSlot) {
-        // Update Current Time slot
-        console.log('Update Time slot:', slotData);
-        message.success('Update Time slot Success');
-      } else {
-        // Create New Time slot
-        console.log('Create Time slot:', slotData);
-        message.success('Create Time slot Success');
-      }
-
-      closeModal();
-      loadTimeSlots();
-    } catch (error) {
-      message.error('SaveTime slotFailed');
-      console.error('SaveTime slotFailed:', error);
-    }
-  };
-
-  // DeleteTime slot
-  const handleDelete = async (slotId) => {
-    try {
-      console.log('DeleteTime slot:', slotId);
-      message.success('DeleteTime slotSuccess');
-      loadTimeSlots();
-    } catch (error) {
-      message.error('DeleteTime slotFailed');
-      console.error('DeleteTime slotFailed:', error);
-    }
-  };
-
-  // 快速切换Available性Status
-  const toggleAvailability = async (slotId, newStatus) => {
-    try {
-      console.log('Toggle Availability:', slotId, newStatus);
-      message.success('Update Availability Status Success');
-      loadTimeSlots();
-    } catch (error) {
-      message.error('Update Availability Status Failed');
-      console.error('Update Availability Status Failed:', error);
-    }
-  };
-
   return (
     <div>
       <Title level={2}>Availability Management</Title>
       <Paragraph>
-        Management Room Time slot Availability, can Settings specific Date and Time Open Status.
+        Manage library room time slot availability with real-time BU LibCal system data integration.
       </Paragraph>
+
+      {/* Server Status Alert */}
+      {serverStatus && (
+        <Alert
+          message={
+            <Space>
+              <ApiOutlined />
+              {serverStatus.online ? 'Backend Server Connected' : 'Backend Server Disconnected'}
+            </Space>
+          }
+          description={serverStatus.message}
+          type={serverStatus.online ? 'success' : 'warning'}
+          style={{ marginBottom: 16 }}
+          action={
+            <Button
+              size="small"
+              icon={<ReloadOutlined />}
+              onClick={checkServerStatus}
+            >
+              Recheck
+            </Button>
+          }
+        />
+      )}
 
       <Row gutter={[16, 16]}>
         {/* Left Side: Calendar */}
@@ -239,7 +192,7 @@ const AvailabilityPage = () => {
                     <Col>
                       <Space>
                         <Button onClick={() => onChange(value.subtract(1, 'month'))}>
-                          Last Month
+                          Previous Month
                         </Button>
                         <Button onClick={() => onChange(dayjs())}>
                           Today
@@ -256,183 +209,85 @@ const AvailabilityPage = () => {
           </Card>
         </Col>
 
-        {/* Right：Room Selection and Time slot Management */}
+        {/* Right：Library Selection and Time slot Management */}
         <Col xs={24} lg={10}>
           <Card
-            title="Room and Time slot Settings"
+            title="Library and Time Slot Settings"
             extra={
               <Button
                 type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => openModal()}
-                disabled={!selectedRoom}
+                icon={<ReloadOutlined />}
+                onClick={loadRealTimeSlots}
+                loading={loading}
               >
-                Add NewTime slot
+                Refresh Data
               </Button>
             }
           >
-            {/* Room Selection */}
+            {/* Library Selection */}
             <div style={{ marginBottom: 16 }}>
               <Select
-                placeholder="Select Room"
+                placeholder="Select Library"
                 style={{ width: '100%' }}
-                value={selectedRoom?.id}
-                onChange={(roomId) => {
-                  const room = rooms.find(r => r.id === roomId);
-                  setSelectedRoom(room);
-                }}
+                value={selectedLibrary}
+                onChange={setSelectedLibrary}
               >
-                {rooms.map(room => (
-                  <Option key={room.id} value={room.id}>
+                {Object.entries(LIBRARY_CODES).map(([code, library]) => (
+                  <Option key={code} value={code}>
                     <Space>
                       <EnvironmentOutlined />
-                      {room.name}
+                      {library.name}
                     </Space>
                   </Option>
                 ))}
               </Select>
             </div>
 
-            {/* 选中DateInformation */}
+            {/* Date and Library Info */}
             <div style={{ marginBottom: 16, padding: 12, background: '#f5f5f5', borderRadius: 6 }}>
-              <Space>
-                <ClockCircleOutlined />
-                <span>
-                  {selectedDate.format('MM/DD/YYYY')} 
-                  ({selectedDate.format('dddd')})
-                </span>
-              </Space>
+              <div><strong>Selected Date:</strong> {selectedDate.format('YYYY-MM-DD')}</div>
+              <div><strong>Selected Library:</strong> {LIBRARY_CODES[selectedLibrary]?.name}</div>
+              <div><strong>Time Slots Count:</strong> {realTimeSlots.length}</div>
             </div>
 
-            {/* Time slotList */}
-            <List
-              loading={loading}
-              dataSource={timeSlots}
-              renderItem={(slot) => (
-                <List.Item
-                  actions={[
-                    <Switch
-                      key="switch"
-                      checked={slot.isAvailable}
-                      onChange={(checked) => toggleAvailability(slot.id, checked)}
-                      checkedChildren="Open"
-                      unCheckedChildren="Close"
-                    />,
-                    <Button
-                      key="edit"
-                      type="link"
-                      icon={<EditOutlined />}
-                      onClick={() => openModal(slot)}
-                    />,
-                    <Button
-                      key="delete"
-                      type="link"
-                      danger
-                      icon={<DeleteOutlined />}
-                      onClick={() => handleDelete(slot.id)}
-                    />,
-                  ]}
-                >
-                  <List.Item.Meta
-                    title={
-                      <Space>
-                        <span>{slot.startTime} - {slot.endTime}</span>
-                        <Tag color={slot.isAvailable ? 'green' : 'red'}>
-                          {slot.isAvailable ? 'Open' : 'Close'}
-                        </Tag>
-                      </Space>
-                    }
-                    description={
-                      <div>
-                        <div>Capacity: {slot.currentBookings}/{slot.maxCapacity}</div>
-                        {!slot.isAvailable && slot.reason && (
-                          <div style={{ color: '#ff4d4f' }}>Reason: {slot.reason}</div>
-                        )}
-                      </div>
-                    }
-                  />
-                </List.Item>
-              )}
-            />
+            {/* Time Slots List */}
+            <Spin spinning={loading}>
+              <List
+                dataSource={realTimeSlots}
+                locale={{ emptyText: 'No available time slots' }}
+                renderItem={(slot) => (
+                  <List.Item>
+                    <List.Item.Meta
+                      title={
+                        <Space>
+                          <ClockCircleOutlined />
+                          <span>
+                            {dayjs(slot.startTime).format('HH:mm')} - {dayjs(slot.endTime).format('HH:mm')}
+                          </span>
+                          <Tag color={slot.available ? 'green' : 'red'}>
+                            {slot.available ? 'Available' : 'Unavailable'}
+                          </Tag>
+                        </Space>
+                      }
+                      description={
+                        <div>
+                          <div>Duration: {slot.duration} minutes</div>
+                          <div>Item ID: {slot.itemId}</div>
+                          {slot.checksum && (
+                            <div style={{ fontSize: '12px', color: '#999' }}>
+                              Checksum: {slot.checksum}
+                            </div>
+                          )}
+                        </div>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            </Spin>
           </Card>
         </Col>
       </Row>
-
-      {/* Add New/Edit Time slot Popup */}
-      <Modal
-        title={editingSlot ? 'Edit Time slot' : 'Add New Time slot'}
-        open={modalVisible}
-        onCancel={closeModal}
-        footer={null}
-        width={500}
-      >
-        <Form
-          form={form}
-          layout="vertical"
-          onFinish={handleSave}
-          initialValues={{
-            isAvailable: true,
-            maxCapacity: 20,
-          }}
-        >
-          <Form.Item
-            name="timeRange"
-            label="Time Range"
-            rules={[{ required: true, message: 'Please select Time Range' }]}
-          >
-            <TimePicker.RangePicker
-              format="HH:mm"
-              minuteStep={30}
-              style={{ width: '100%' }}
-            />
-          </Form.Item>
-
-          <Form.Item
-            name="maxCapacity"
-            label="Max Capacity"
-            rules={[{ required: true, message: 'Please enter Max Capacity' }]}
-          >
-            <Select placeholder="Select Max Capacity">
-              <Option value={10}>10</Option>
-              <Option value={20}>20</Option>
-              <Option value={30}>30</Option>
-              <Option value={50}>50</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item
-            name="isAvailable"
-            label="Is Open"
-            valuePropName="checked"
-          >
-            <Switch checkedChildren="Open" unCheckedChildren="Close" />
-          </Form.Item>
-
-          <Form.Item
-            name="reason"
-            label="Close Reason"
-            help="Only required when Closed"
-          >
-            <Select placeholder="Select Close Reason" allowClear>
-              <Option value="Equipment Maintenance">Equipment Maintenance</Option>
-              <Option value="Cleaning and Disinfection">Cleaning and Disinfection</Option>
-              <Option value="Special Activity">Special Activity</Option>
-              <Option value="Other">Other</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item>
-            <Space>
-              <Button type="primary" htmlType="submit">
-                Save
-              </Button>
-              <Button onClick={closeModal}>
-                Cancel
-              </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
     </div>
   );
 };

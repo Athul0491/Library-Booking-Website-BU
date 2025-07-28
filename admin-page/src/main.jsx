@@ -1,24 +1,31 @@
-// 应用程序入口文件
+/**
+ * main.jsx - React Application Entry Point
+ * 
+ * This file serves as the entry point for the React application.
+ * It configures internationalization (i18n) support and renders the main App component.
+ * 
+ * Features:
+ * - Ant Design ConfigProvider for English UI localization
+ * - Day.js configuration for English date formatting
+ * - React StrictMode for development best practices
+ */
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { ConfigProvider } from 'antd';
-import zhCN from 'antd/locale/zh_CN';
+import enUS from 'antd/locale/en_US';
 import dayjs from 'dayjs';
-import 'dayjs/locale/zh-cn';
+import 'dayjs/locale/en';
 
 import App from './App.jsx';
 import './assets/styles/index.css';
 
-// Settings dayjs 中文locale
-dayjs.locale('zh-cn');
+// Configure dayjs to use English locale
+dayjs.locale('en');
 
-/**
- * 应用程序根component渲染
- * usage Ant Design  ConfigProvider 提供中文国际化Support
- */
+// Render the React application with English localization
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <ConfigProvider locale={zhCN}>
+    <ConfigProvider locale={enUS}>
       <App />
     </ConfigProvider>
   </React.StrictMode>,
