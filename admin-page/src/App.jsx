@@ -8,7 +8,7 @@ import { GlobalApiProvider } from './contexts/GlobalApiContext';
 
 // Import page components
 import DashboardPage from './pages/DashboardPage';
-import LocationsPage from './pages/LocationsPage';
+import LibraryManagementPage from './pages/LibraryManagementPage';
 import BookingsPage from './pages/BookingsPage';
 import RoomsManagementPage from './pages/RoomsManagementPage';
 import StatisticsPage from './pages/StatisticsPage';
@@ -41,10 +41,10 @@ const App = () => {
           {/* Dashboard page - display system overview and key metrics */}
           <Route path="/dashboard" element={<DashboardPage />} />
           
-          {/* Location management page - manage library rooms and venue information */}
-          <Route path="/locations" element={<LocationsPage />} />
+          {/* Library management page - manage library buildings and venue information */}
+          <Route path="/locations" element={<LibraryManagementPage />} />
           
-          {/* Booking management page - view and manage all booking records */}
+          {/* Booking history management page - view and manage all booking records */}
           <Route path="/bookings" element={<BookingsPage />} />
           
           {/* Rooms management page - comprehensive room and schedule management */}
@@ -60,7 +60,7 @@ const App = () => {
             } 
           />
           
-          {/* Data monitor page - monitor data from all systems */}
+          {/* Database monitor page - monitor database connections and data from all systems */}
           <Route path="/monitor" element={<DataMonitorPage />} />
           
           {/* 404 page - handle routes not found */}

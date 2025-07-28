@@ -300,9 +300,9 @@ const BookingsPage = () => {
 
   return (
     <div>
-      <Title level={2}>Booking Management</Title>
+      <Title level={2}>Booking History Management</Title>
       <Paragraph>
-        Manage library room bookings, view booking details, and handle cancellations.
+        Manage library room booking history, view booking details, and handle cancellations.
         Data synchronized with bu-book and bub-backend systems.
       </Paragraph>
 

@@ -56,30 +56,30 @@ const MainLayout = ({ children }) => {
       label: 'Dashboard',
     },
     {
+      key: '/availability',
+      icon: <ClockCircleOutlined />,
+      label: 'Rooms Management',
+    },
+    {
       key: '/locations',
       icon: <EnvironmentOutlined />,
-      label: 'Locations',
+      label: 'Libraries',
     },
     {
       key: '/bookings',
       icon: <CalendarOutlined />,
-      label: 'Bookings',
+      label: 'Booking History',
     },
     {
-      key: '/availability',
-      icon: <ClockCircleOutlined />,
-      label: 'Rooms Management',
+      key: '/monitor',
+      icon: <MonitorOutlined />,
+      label: 'Database Monitor',
     },
     {
       key: '/statistics',
       icon: canUseFeature('STATISTICS_PAGE') ? <BarChartOutlined /> : <ExclamationCircleOutlined />,
       label: canUseFeature('STATISTICS_PAGE') ? 'Statistics' : 'Statistics (Coming Soon)',
       disabled: !canUseFeature('STATISTICS_PAGE'),
-    },
-    {
-      key: '/monitor',
-      icon: <MonitorOutlined />,
-      label: 'Data Monitor',
     },
   ];
 
@@ -248,9 +248,10 @@ const MainLayout = ({ children }) => {
               {(() => {
                 const pageMap = {
                   '/dashboard': 'Dashboard',
-                  '/locations': 'Location Management',
-                  '/bookings': 'Booking Management', 
-                  '/availability': 'Availability Management',
+                  '/availability': 'Rooms Management',
+                  '/locations': 'Library Management',
+                  '/bookings': 'Booking History Management', 
+                  '/monitor': 'Database Monitor',
                   '/statistics': 'Statistics & Reports'
                 };
                 return pageMap[location.pathname] || 'Library Management System';

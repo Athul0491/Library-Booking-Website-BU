@@ -328,9 +328,9 @@ const DataMonitorPage = () => {
 
   return (
     <div>
-      <Title level={2}>Data Monitor Dashboard</Title>
+      <Title level={2}>Database Monitor Dashboard</Title>
       <Paragraph>
-        Monitor data from bub-backend API, bu-book frontend, and real-time availability systems.
+        Monitor database connections, data from bub-backend API, bu-book frontend, and real-time availability systems.
       </Paragraph>
 
       {/* Server Status Banner */}

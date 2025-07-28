@@ -43,10 +43,10 @@ const { Title, Paragraph } = Typography;
 const { Option } = Select;
 
 /**
- * Locations management page component
- * Manages buildings and rooms with connection-aware loading
+ * Library management page component
+ * Manages library buildings and rooms with connection-aware loading
  */
-const LocationsPage = () => {
+const LibraryManagementPage = () => {
   const connection = useConnection();
   const { 
     useRealData, 
@@ -319,7 +319,7 @@ const LocationsPage = () => {
 
   return (
     <div>
-      <Title level={2}>Building & Room Management</Title>
+      <Title level={2}>Library Management</Title>
       <Paragraph>
         Manage library buildings and room configurations with real-time data synchronization.
       </Paragraph>
@@ -493,4 +493,4 @@ const LocationsPage = () => {
   );
 };
 
-export default LocationsPage;
+export default LibraryManagementPage;
