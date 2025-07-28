@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Environment Variables Test</title>
+</head>
+<body>
+    <h2>Environment Variables Test</h2>
+    <div id="env-test"></div>
+    
+    <script type="module">
+        // Direct test of environment variables
+        const envVars = {
+            VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+            VITE_SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            VITE_BACKEND_API_URL: import.meta.env.VITE_BACKEND_API_URL
+        };
+        
+        console.log('Environment Variables:', envVars);
+        
+        const container = document.getElementById('env-test');
+        container.innerHTML = `
+            <h3>Environment Variables:</h3>
+            <ul>
+                <li><strong>VITE_SUPABASE_URL:</strong> ${envVars.VITE_SUPABASE_URL || 'NOT SET'}</li>
+                <li><strong>VITE_SUPABASE_ANON_KEY:</strong> ${envVars.VITE_SUPABASE_ANON_KEY ? envVars.VITE_SUPABASE_ANON_KEY.substring(0, 20) + '...' : 'NOT SET'}</li>
+                <li><strong>VITE_BACKEND_API_URL:</strong> ${envVars.VITE_BACKEND_API_URL || 'NOT SET'}</li>
+            </ul>
+        `;
+        
+        // Test API call directly
+        if (envVars.VITE_SUPABASE_URL && envVars.VITE_SUPABASE_ANON_KEY) {
+            fetch(`${envVars.VITE_SUPABASE_URL}/rest/v1/buildings?select=count`, {
+                headers: {
+                    'apikey': envVars.VITE_SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${envVars.VITE_SUPABASE_ANON_KEY}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'count=exact'
+                }
+            })
+            .then(response => {
+                console.log('Direct API test response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Direct API test data:', data);
+                container.innerHTML += `<h3>API Test Result:</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+            })
+            .catch(error => {
+                console.error('Direct API test error:', error);
+                container.innerHTML += `<h3>API Test Error:</h3><pre>${error.message}</pre>`;
+            });
+        }
+    </script>
+</body>
+</html>

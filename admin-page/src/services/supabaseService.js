@@ -218,7 +218,7 @@ class SupabaseService {
     try {
       const { data: buildingsData, error: buildingsError } = await this.client
         .from('buildings')
-        .select('id, building_name, building_short_name, location, is_active, libcal_id, lid');
+        .select('id, name, short_name, address, available, libcal_id, lid');
       
       if (buildingsError) {
         return { success: false, error: buildingsError.message };
@@ -266,16 +266,187 @@ class SupabaseService {
         rooms: undefined // Remove Set object for JSON serialization
       }));
       
+      // Map database fields to frontend expected field names
+      const mappedBuildingsData = buildingsData.map(building => ({
+        ...building,
+        // Add legacy field names for backward compatibility
+        building_name: building.name,
+        building_short_name: building.short_name,
+        location: building.address,
+        is_active: building.available
+      }));
+      
       return {
         success: true,
         data: {
-          buildings: buildingsData,
+          buildings: mappedBuildingsData,
           buildingUsage: usageArray,
           totalBookings: bookingsData.length
         }
       };
     } catch (error) {
       console.error('Error fetching building stats:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get buildings data with field mapping for frontend compatibility
+   */
+  async getBuildings(options = {}) {
+    try {
+      let query = this.client
+        .from('buildings')
+        .select('id, name, short_name, address, available, libcal_id, lid, created_at, updated_at');
+      
+      // Apply filters if provided
+      if (options.available !== undefined) {
+        query = query.eq('available', options.available);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      
+      // Map database fields to frontend expected field names
+      const mappedData = data.map(building => ({
+        ...building,
+        // Add legacy field names for backward compatibility
+        building_name: building.name,
+        building_short_name: building.short_name,
+        location: building.address,
+        is_active: building.available
+      }));
+      
+      return {
+        success: true,
+        data: mappedData
+      };
+    } catch (error) {
+      console.error('Error fetching buildings:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get building by ID with field mapping
+   */
+  async getBuildingById(buildingId) {
+    try {
+      const { data, error } = await this.client
+        .from('buildings')
+        .select('id, name, short_name, address, available, libcal_id, lid, created_at, updated_at')
+        .eq('id', buildingId)
+        .single();
+      
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      
+      // Map database fields to frontend expected field names
+      const mappedData = {
+        ...data,
+        building_name: data.name,
+        building_short_name: data.short_name,
+        location: data.address,
+        is_active: data.available
+      };
+      
+      return {
+        success: true,
+        data: mappedData
+      };
+    } catch (error) {
+      console.error('Error fetching building by ID:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Update building with field mapping
+   */
+  async updateBuilding(buildingId, updates) {
+    try {
+      // Map frontend field names back to database field names
+      const dbUpdates = { ...updates };
+      
+      if (updates.building_name !== undefined) {
+        dbUpdates.name = updates.building_name;
+        delete dbUpdates.building_name;
+      }
+      
+      if (updates.building_short_name !== undefined) {
+        dbUpdates.short_name = updates.building_short_name;
+        delete dbUpdates.building_short_name;
+      }
+      
+      if (updates.location !== undefined) {
+        dbUpdates.address = updates.location;
+        delete dbUpdates.location;
+      }
+      
+      if (updates.is_active !== undefined) {
+        dbUpdates.available = updates.is_active;
+        delete dbUpdates.is_active;
+      }
+      
+      const { data, error } = await this.client
+        .from('buildings')
+        .update(dbUpdates)
+        .eq('id', buildingId)
+        .select();
+      
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      
+      return {
+        success: true,
+        data: data[0]
+      };
+    } catch (error) {
+      console.error('Error updating building:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get rooms by building ID with field mapping
+   */
+  async getRoomsByBuilding(buildingId, options = {}) {
+    try {
+      let query = this.client
+        .from('rooms')
+        .select('id, name, eid, url, room_type, capacity, gtype, available, building_id, created_at, updated_at')
+        .eq('building_id', buildingId);
+      
+      // Apply filters if provided
+      if (options.available !== undefined) {
+        query = query.eq('available', options.available);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      
+      // Map database fields to frontend expected field names
+      const mappedData = data.map(room => ({
+        ...room,
+        // Add legacy field names for backward compatibility
+        room_name: room.name,
+        is_active: room.available
+      }));
+      
+      return {
+        success: true,
+        data: { rooms: mappedData }
+      };
+    } catch (error) {
+      console.error('Error fetching rooms:', error);
       return { success: false, error: error.message };
     }
   }

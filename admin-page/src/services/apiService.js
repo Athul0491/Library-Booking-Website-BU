@@ -1,324 +1,348 @@
 /**
- * API Service
- * Unified API service for multiple data sources with error handling
+ * API Service for Supabase REST API
+ * This service directly calls Supabase REST API endpoints
+ * Replaces the old backend-dependent implementation
  */
-import { supabase } from './supabaseClient';
 
-// Library codes mapping to Location IDs (LID)
+// Library codes mapping to Location IDs (LID) - for compatibility
 export const LIBRARY_CODES = {
   'mug': { name: 'Mugar Memorial Library', code: 'mug', lid: 19336 },
-  'par': { name: 'Pardee Library', code: 'par', lid: 19818 },
+  'par': { name: 'Pardee Management Library', code: 'par', lid: 19818 },
   'pic': { name: 'Pickering Educational Resources Library', code: 'pic', lid: 18359 },
-  'sci': { name: 'Science & Engineering Library', code: 'sci', lid: 20177 }
+  'sci': { name: 'Science & Engineering Library', code: 'sci', lid: 20177 },
+  'med': { name: 'Alumni Medical Library', code: 'med', lid: 13934 }
 };
 
 class ApiService {
   constructor() {
-    this.bubBackendUrl = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
-    this.retryAttempts = 3;
-    this.timeout = 10000;
+    // Debug: Log all import.meta.env to see what's available
+    console.log('All environment variables:', import.meta.env);
+    
+    this.supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    this.apiKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    this.baseUrl = `${this.supabaseUrl}/rest/v1`;
+    
+    // Debug: Check if environment variables are loaded
+    console.log('ApiService Debug:', {
+      supabaseUrl: this.supabaseUrl,
+      hasApiKey: !!this.apiKey,
+      apiKeyLength: this.apiKey ? this.apiKey.length : 0,
+      apiKeyPreview: this.apiKey ? this.apiKey.substring(0, 20) + '...' : 'NULL'
+    });
+    
+    // Throw error if essential config is missing
+    if (!this.supabaseUrl || !this.apiKey) {
+      throw new Error('Missing Supabase configuration. Please check VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.local');
+    }
+    
+    // Default headers for Supabase REST API
+    this.defaultHeaders = {
+      'apikey': this.apiKey,
+      'Authorization': `Bearer ${this.apiKey}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    };
+    
+    // Debug: Log default headers
+    console.log('Default headers:', this.defaultHeaders);
   }
 
   /**
-   * Generic API request method with retry and timeout support
+   * Make a request to Supabase REST API
    */
-  async makeRequest(url, options = {}) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-    const requestOptions = {
-      ...options,
-      signal: controller.signal
-    };
-
+  async makeRequest(endpoint, options = {}) {
     try {
+      const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
+      
+      const requestOptions = {
+        headers: {
+          ...this.defaultHeaders,
+          ...options.headers
+        },
+        ...options
+      };
+      
+      // Debug: Log request details
+      console.log('Making request to:', url);
+      console.log('Request headers:', requestOptions.headers);
+      
       const response = await fetch(url, requestOptions);
-      clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
-      
-      return await response.json();
+
+      // Handle empty responses
+      if (response.status === 204) {
+        return null;
+      }
+
+      const data = await response.json();
+      return data;
     } catch (error) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        throw new Error('Request timeout');
-      }
+      console.error('API request failed:', error);
       throw error;
     }
   }
 
   /**
-   * Test connection to bub-backend API
+   * Health check - test if Supabase is accessible
+   */
+  async healthCheck() {
+    try {
+      // Simple query to test connection
+      const data = await this.makeRequest('/buildings?select=count', {
+        method: 'GET',
+        headers: {
+          'Prefer': 'count=exact'
+        }
+      });
+      
+      return {
+        status: 'healthy',
+        message: 'Supabase REST API is accessible',
+        timestamp: new Date().toISOString()
+      };
+    } catch (error) {
+      return {
+        status: 'unhealthy',
+        message: `Supabase REST API error: ${error.message}`,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * Test backend connection (alias for healthCheck for compatibility)
    */
   async testBackendConnection() {
-    try {
-      // Try health check endpoint first (simpler and faster)
-      const response = await this.makeRequest(`${this.bubBackendUrl}/health`, {
-        method: 'GET'
-      });
-      return { success: true, connected: true, error: null };
-    } catch (healthError) {
-      // Fallback to buildings endpoint test
-      try {
-        await this.makeRequest(`${this.bubBackendUrl}/api/buildings`, {
-          method: 'GET'
-        });
-        return { success: true, connected: true, error: null };
-      } catch (error) {
-        console.warn('Backend API connection failed:', error.message);
-        return { success: false, connected: false, error: error.message };
-      }
-    }
+    const result = await this.healthCheck();
+    return {
+      success: result.status === 'healthy',
+      connected: result.status === 'healthy',
+      error: result.status === 'healthy' ? null : result.message
+    };
   }
 
   /**
-   * Test connection to Supabase with new table names
+   * Test Supabase connection (alias for healthCheck for compatibility)
    */
   async testSupabaseConnection() {
-    try {
-      const { data, error } = await supabase
-        .from('buildings')
-        .select('id')
-        .limit(1);
-      
-      if (error) throw error;
-      return { success: true, connected: true, error: null };
-    } catch (error) {
-      console.warn('Supabase connection failed:', error.message);
-      return { success: false, connected: false, error: error.message };
-    }
+    const result = await this.healthCheck();
+    return {
+      success: result.status === 'healthy',
+      connected: result.status === 'healthy',
+      error: result.status === 'healthy' ? null : result.message
+    };
   }
 
   /**
-   * Get room availability from bub-backend
-   */
-  async getAvailability(params) {
-    try {
-      const response = await this.makeRequest(`${this.bubBackendUrl}/api/availability`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params)
-      });
-      
-      return {
-        success: true,
-        data: response,
-        error: null
-      };
-    } catch (error) {
-      console.log('API call failed, using mock data:', error.message);
-      
-      // Return mock data for demonstration
-      const mockData = {
-        slots: [
-          {
-            checksum: "mock765760965e8740b8700df9932933cb88",
-            end: `${params.start}T09:00:00-05:00`,
-            itemId: 168796,
-            start: `${params.start}T08:00:00-05:00`,
-            className: "s-lc-eq-period-available"
-          },
-          {
-            checksum: "mockaf932e69f44341b0a109c979087b82f6",
-            end: `${params.start}T10:00:00-05:00`,
-            itemId: 168797,
-            start: `${params.start}T09:00:00-05:00`,
-            className: "s-lc-eq-period-booked"
-          }
-        ]
-      };
-
-      return {
-        success: true,
-        data: mockData,
-        error: null,
-        isMockData: true
-      };
-    }
-  }
-
-  /**
-   * Get buildings from new backend API or Supabase
+   * Get all buildings
    */
   async getBuildings() {
     try {
-      // Try backend API first
-      const response = await this.makeRequest(`${this.bubBackendUrl}/api/buildings`, {
+      const data = await this.makeRequest('/buildings?select=*&available=eq.true&order=name', {
         method: 'GET'
       });
       
-      return {
+      return { 
         success: true,
-        data: response.buildings || [],
+        data: data,
+        buildings: data, // For compatibility
         error: null,
-        source: 'backend'
-      };
-    } catch (backendError) {
-      console.warn('Backend buildings API failed, trying Supabase:', backendError.message);
-      
-      try {
-        const { data, error } = await supabase
-          .from('buildings')
-          .select('*, rooms(*)');
-
-        if (error) throw error;
-
-        return {
-          success: true,
-          data: data || [],
-          error: null,
-          source: 'supabase'
-        };
-      } catch (supabaseError) {
-        console.warn('Failed to fetch buildings from Supabase:', supabaseError.message);
-        return {
-          success: false,
-          data: [],
-          error: supabaseError.message
-        };
-      }
-    }
-  }
-
-  /**
-   * Get bookings from new backend API
-   */
-  async getBookings(page = 1, limit = 10, filters = {}) {
-    try {
-      const queryParams = new URLSearchParams({
-        page: page.toString(),
-        limit: limit.toString(),
-        ...filters
-      });
-      
-      const response = await this.makeRequest(
-        `${this.bubBackendUrl}/api/bookings?${queryParams}`,
-        { method: 'GET' }
-      );
-      
-      return {
-        success: true,
-        data: response,
-        error: null
+        source: 'supabase-rest'
       };
     } catch (error) {
-      console.warn('Failed to fetch bookings from backend:', error.message);
+      console.error('Failed to fetch buildings:', error);
       return {
         success: false,
-        data: null,
-        error: error.message
+        data: [],
+        buildings: [],
+        error: error.message,
+        source: 'supabase-rest'
       };
     }
   }
 
   /**
-   * Create a new booking via backend API
+   * Get building by ID
+   */
+  async getBuildingById(id) {
+    try {
+      const data = await this.makeRequest(`/buildings?id=eq.${id}&select=*`, {
+        method: 'GET'
+      });
+      
+      return data[0] || null;
+    } catch (error) {
+      console.error('Failed to fetch building:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update building
+   */
+  async updateBuilding(id, updates) {
+    try {
+      const data = await this.makeRequest(`/buildings?id=eq.${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates)
+      });
+      
+      return data[0] || null;
+    } catch (error) {
+      console.error('Failed to update building:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get rooms by building short name
+   */
+  async getRoomsByBuilding(shortName) {
+    try {
+      const data = await this.makeRequest(`/rooms?building_short_name=eq.${shortName}&select=*&order=room_name`, {
+        method: 'GET'
+      });
+      
+      return { rooms: data };
+    } catch (error) {
+      console.error('Failed to fetch rooms:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get bookings with optional filters
+   */
+  async getBookings(filters = {}) {
+    try {
+      let query = '/bookings?select=*';
+      
+      // Add filters
+      if (filters.building) {
+        query += `&building_short_name=eq.${filters.building}`;
+      }
+      if (filters.status) {
+        query += `&status=eq.${filters.status}`;
+      }
+      if (filters.startDate) {
+        query += `&booking_date=gte.${filters.startDate}`;
+      }
+      if (filters.endDate) {
+        query += `&booking_date=lte.${filters.endDate}`;
+      }
+      
+      query += '&order=created_at.desc';
+      
+      const data = await this.makeRequest(query, {
+        method: 'GET'
+      });
+      
+      return { bookings: data };
+    } catch (error) {
+      console.error('Failed to fetch bookings:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a new booking
    */
   async createBooking(bookingData) {
     try {
-      const response = await this.makeRequest(`${this.bubBackendUrl}/api/bookings`, {
+      const data = await this.makeRequest('/bookings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bookingData)
       });
       
-      return {
-        success: true,
-        data: response,
-        error: null
-      };
+      return data[0] || null;
     } catch (error) {
-      console.warn('Failed to create booking:', error.message);
-      return {
-        success: false,
-        data: null,
-        error: error.message
-      };
+      console.error('Failed to create booking:', error);
+      throw error;
     }
   }
 
   /**
-   * Update booking status via backend API
+   * Update booking status
    */
-  async updateBookingStatus(bookingId, status, reason = null) {
+  async updateBookingStatus(bookingId, status, cancellationReason = null) {
     try {
-      const response = await this.makeRequest(
-        `${this.bubBackendUrl}/api/bookings/${bookingId}/status`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status, reason })
-        }
-      );
+      const updates = { 
+        status,
+        updated_at: new Date().toISOString()
+      };
       
-      return {
-        success: true,
-        data: response,
-        error: null
-      };
+      if (cancellationReason) {
+        updates.cancellation_reason = cancellationReason;
+      }
+      
+      const data = await this.makeRequest(`/bookings?id=eq.${bookingId}`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates)
+      });
+      
+      return data[0] || null;
     } catch (error) {
-      console.warn('Failed to update booking status:', error.message);
-      return {
-        success: false,
-        data: null,
-        error: error.message
-      };
+      console.error('Failed to update booking status:', error);
+      throw error;
     }
   }
 
   /**
-   * Get system configuration from backend API
+   * Get system configuration
    */
   async getSystemConfig() {
     try {
-      const response = await this.makeRequest(`${this.bubBackendUrl}/api/system-config`, {
+      const data = await this.makeRequest('/system_status?select=*&order=created_at.desc&limit=1', {
         method: 'GET'
       });
       
-      return {
-        success: true,
-        data: response,
-        error: null
-      };
+      return data[0] || null;
     } catch (error) {
-      console.warn('Failed to fetch system config:', error.message);
-      return {
-        success: false,
-        data: null,
-        error: error.message
-      };
+      console.error('Failed to fetch system config:', error);
+      throw error;
     }
   }
 
   /**
-   * Format time slot data for display
+   * Update system configuration
    */
-  formatSlots(slots) {
-    return slots.map(slot => ({
-      id: slot.itemId,
-      checksum: slot.checksum,
-      startTime: slot.start,
-      endTime: slot.end,
-      duration: this.calculateDuration(slot.start, slot.end),
-      available: slot.className === 's-lc-eq-period-available',
-      itemId: slot.itemId,
-      status: slot.className === 's-lc-eq-period-available' ? 'available' : 'booked'
-    }));
+  async updateSystemConfig(config) {
+    try {
+      const data = await this.makeRequest('/system_status', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...config,
+          created_at: new Date().toISOString()
+        })
+      });
+      
+      return data[0] || null;
+    } catch (error) {
+      console.error('Failed to update system config:', error);
+      throw error;
+    }
   }
 
   /**
-   * Calculate duration in minutes
+   * Placeholder method for availability checking
+   * This would need to be implemented based on your LibCal integration
    */
-  calculateDuration(start, end) {
-    const startTime = new Date(start);
-    const endTime = new Date(end);
-    return Math.round((endTime - startTime) / (1000 * 60));
+  async checkAvailability(params) {
+    // TODO: Implement LibCal availability checking
+    console.warn('checkAvailability method not yet implemented');
+    return {
+      success: false,
+      error: 'Availability checking not yet implemented',
+      data: null
+    };
   }
 
   /**
-   * Get all libraries
+   * Get list of all libraries
    */
   getLibraries() {
     return Object.values(LIBRARY_CODES);
@@ -337,46 +361,8 @@ class ApiService {
   getLibraryInfo(code) {
     return LIBRARY_CODES[code] || null;
   }
-
-  /**
-   * Check backend server health
-   */
-  async checkServerStatus() {
-    try {
-      const connection = await this.testBackendConnection();
-      return {
-        success: connection.connected,
-        online: connection.connected,
-        message: connection.connected ? 'Backend server is running' : 'Backend server unavailable'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        online: false,
-        message: 'Backend server connection failed'
-      };
-    }
-  }
 }
 
-// Create singleton instance
-const apiService = new ApiService();
-
+// Create and export a singleton instance
+export const apiService = new ApiService();
 export default apiService;
-
-// Export utility functions
-export const {
-  getAvailability,
-  getBuildings,
-  getBookings,
-  createBooking,
-  updateBookingStatus,
-  getSystemConfig,
-  formatSlots,
-  getLibraries,
-  isValidLibraryCode,
-  getLibraryInfo,
-  checkServerStatus,
-  testBackendConnection,
-  testSupabaseConnection
-} = apiService;

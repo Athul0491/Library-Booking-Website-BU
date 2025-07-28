@@ -56,7 +56,7 @@ export const ConnectionProvider = ({ children }) => {
     }
   };
 
-  // Test backend connection using apiService
+  // Test backend connection using apiService (optional - backend is not required)
   const checkBackendConnection = async () => {
     try {
       const result = await apiService.testBackendConnection();
@@ -64,14 +64,14 @@ export const ConnectionProvider = ({ children }) => {
       
       return {
         connected: result.success,
-        error: result.error,
+        error: result.success ? null : 'Backend server not available (using Supabase instead)',
         url: connectionStatus.backend.url,
         lastChecked: timestamp
       };
     } catch (error) {
       return {
         connected: false,
-        error: 'Failed to test backend connection',
+        error: 'Backend server not available (using Supabase instead)',
         url: connectionStatus.backend.url,
         lastChecked: new Date().toISOString()
       };

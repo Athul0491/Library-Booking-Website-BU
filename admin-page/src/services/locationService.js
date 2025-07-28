@@ -1,6 +1,6 @@
 /**
  * Location Service
- * Provides location and building data management using unified API service with new database schema
+ * Provides location and building data management using updated API service
  */
 import apiService from './apiService';
 import supabaseService from './supabaseService';
@@ -24,7 +24,7 @@ const mockBuildings = [
     hours: 'Mon-Thu: 8:00 AM - 2:00 AM, Fri: 8:00 AM - 10:00 PM, Sat: 10:00 AM - 10:00 PM, Sun: 10:00 AM - 2:00 AM',
     accessibility_features: ['Wheelchair Access', 'Elevators', 'Accessible Restrooms'],
     amenities: ['24/7 Access', 'WiFi', 'Printing', 'Group Study Rooms', 'Cafe'],
-    is_active: true,
+    available: true,
     total_rooms: 15,
     available_rooms: 8,
     status: 'operational',
@@ -45,7 +45,7 @@ const mockBuildings = [
     hours: 'Mon-Fri: 8:00 AM - 12:00 AM, Sat-Sun: 10:00 AM - 12:00 AM',
     accessibility_features: ['Wheelchair Access', 'Elevators'],
     amenities: ['WiFi', 'Quiet Study', 'Computer Lab', 'Printing'],
-    is_active: true,
+    available: true,
     total_rooms: 8,
     available_rooms: 3,
     status: 'operational',
@@ -66,7 +66,7 @@ const mockBuildings = [
     hours: 'Mon-Fri: 8:00 AM - 9:00 PM, Sat-Sun: 12:00 PM - 6:00 PM',
     accessibility_features: ['Wheelchair Access'],
     amenities: ['Education Resources', 'WiFi', 'Multimedia Equipment'],
-    is_active: true,
+    available: true,
     total_rooms: 5,
     available_rooms: 2,
     status: 'maintenance',
@@ -87,7 +87,7 @@ const mockBuildings = [
     hours: 'Mon-Thu: 8:00 AM - 12:00 AM, Fri: 8:00 AM - 8:00 PM, Sat-Sun: 12:00 PM - 8:00 PM',
     accessibility_features: ['Wheelchair Access', 'Elevators', 'Accessible Workstations'],
     amenities: ['STEM Resources', 'Computer Lab', 'WiFi', 'Collaboration Spaces', '3D Printing'],
-    is_active: true,
+    available: true,
     total_rooms: 12,
     available_rooms: 7,
     status: 'operational',
@@ -103,16 +103,31 @@ const mockBuildings = [
  */
 export const getBuildings = async (options = {}) => {
   try {
-    // Try to get data from Supabase first
-    const result = await supabaseService.getBuildings(options);
+    // Use the updated API service (now with direct Supabase REST API)
+    const result = await apiService.getBuildings();
     
-    if (result.success) {
-      return result;
-    } else {
-      console.warn('Supabase query failed, using mock data:', result.error);
+    if (result && result.success) {
+      return {
+        success: true,
+        data: result.data || result.buildings,
+        error: null
+      };
     }
   } catch (error) {
-    console.warn('Supabase service unavailable, using mock data:', error.message);
+    console.warn('API service failed, trying Supabase service:', error.message);
+    
+    // Fallback to Supabase service
+    try {
+      const result = await supabaseService.getBuildings(options);
+      
+      if (result.success) {
+        return result;
+      } else {
+        console.warn('Supabase query failed, using mock data:', result.error);
+      }
+    } catch (supabaseError) {
+      console.warn('Supabase service unavailable, using mock data:', supabaseError.message);
+    }
   }
 
   // Fallback to mock data
@@ -127,8 +142,8 @@ export const getBuildings = async (options = {}) => {
       filteredBuildings = filteredBuildings.filter(b => b.status === options.status);
     }
     
-    if (options.is_active !== undefined) {
-      filteredBuildings = filteredBuildings.filter(b => b.is_active === options.is_active);
+    if (options.available !== undefined) {
+      filteredBuildings = filteredBuildings.filter(b => b.available === options.available);
     }
     
     console.warn('Using mock building data - Database connection in progress');
@@ -272,7 +287,7 @@ export const getBuildingStats = async () => {
       const buildings = buildingsResult.data;
       const stats = {
         totalBuildings: buildings.length,
-        activeBuildings: buildings.filter(b => b.is_active).length,
+        activeBuildings: buildings.filter(b => b.available).length,
         operationalBuildings: buildings.filter(b => b.status === 'operational').length,
         maintenanceBuildings: buildings.filter(b => b.status === 'maintenance').length,
         totalRooms: buildings.reduce((sum, b) => sum + (b.total_rooms || 0), 0),
@@ -303,9 +318,87 @@ export const getBuildingStats = async () => {
   }
 };
 
+/**
+ * Get rooms for a specific building
+ * @param {string} buildingId - The building ID
+ * @param {Object} options - Options for fetching rooms
+ * @returns {Promise<{success: boolean, data: Object|null, error: string|null}>}
+ */
+export const getRoomsByBuilding = async (buildingId, options = {}) => {
+  try {
+    // Try to get data from Supabase first
+    const result = await supabaseService.getRoomsByBuilding(buildingId, options);
+    
+    if (result.success) {
+      return result;
+    } else {
+      console.warn('Supabase query failed, using mock data:', result.error);
+    }
+  } catch (error) {
+    console.warn('Supabase service unavailable, using mock data:', error.message);
+  }
+
+  // Fallback to mock data
+  try {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    // Mock room data for the building
+    const mockRooms = [
+      {
+        id: '1',
+        name: 'Study Room A',
+        room_name: 'Study Room A',
+        eid: 1001,
+        capacity: 4,
+        room_type: 'Group Study',
+        available: true,
+        is_active: true,
+        building_id: buildingId
+      },
+      {
+        id: '2',
+        name: 'Study Room B',
+        room_name: 'Study Room B',
+        eid: 1002,
+        capacity: 6,
+        room_type: 'Group Study',
+        available: true,
+        building_id: buildingId
+      },
+      {
+        id: '3',
+        name: 'Conference Room',
+        room_name: 'Conference Room',
+        eid: 1003,
+        capacity: 12,
+        room_type: 'Conference',
+        available: false,
+        building_id: buildingId
+      }
+    ];
+    
+    console.warn('Using mock room data - Database connection in progress');
+    return {
+      success: true,
+      data: { rooms: mockRooms },
+      error: null
+    };
+  } catch (error) {
+    console.error('Failed to fetch rooms:', error);
+    return {
+      success: false,
+      data: null,
+      error: error.message
+    };
+  }
+};
+
 export default {
   getBuildings,
+  getAllBuildings: getBuildings, // Alias for getBuildings
   getBuildingById, 
   updateBuilding,
-  getBuildingStats
+  getBuildingStats,
+  getRoomsByBuilding
 };

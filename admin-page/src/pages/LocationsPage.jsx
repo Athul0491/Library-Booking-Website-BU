@@ -131,8 +131,8 @@ const LocationsPage = () => {
   const buildingColumns = [
     {
       title: 'Building Name',
-      dataIndex: 'building_name',
-      key: 'building_name',
+      dataIndex: 'name',
+      key: 'name',
       render: (text, record) => (
         <Space>
           <EnvironmentOutlined />
@@ -142,15 +142,15 @@ const LocationsPage = () => {
     },
     {
       title: 'Short Name',
-      dataIndex: 'building_short_name',
-      key: 'building_short_name',
+      dataIndex: 'short_name',
+      key: 'short_name',
       render: (text) => <Tag color="blue">{text}</Tag>,
     },
     {
       title: 'Location/Address',
-      dataIndex: 'location',
-      key: 'location',
-      render: (location) => location || 'N/A',
+      dataIndex: 'address',
+      key: 'address',
+      render: (address) => address || 'N/A',
     },
     {
       title: 'Total Rooms',
@@ -160,11 +160,11 @@ const LocationsPage = () => {
     },
     {
       title: 'Status',
-      dataIndex: 'is_active',
-      key: 'is_active',
-      render: (isActive) => (
-        <Tag color={isActive ? 'success' : 'default'}>
-          {isActive ? 'Active' : 'Inactive'}
+      dataIndex: 'available',
+      key: 'available',
+      render: (available) => (
+        <Tag color={available ? 'success' : 'default'}>
+          {available ? 'Active' : 'Inactive'}
         </Tag>
       ),
     },
@@ -231,11 +231,11 @@ const LocationsPage = () => {
     },
     {
       title: 'Status',
-      dataIndex: 'is_active',
-      key: 'is_active',
-      render: (isActive) => (
-        <Tag color={isActive ? 'green' : 'red'}>
-          {isActive ? 'Active' : 'Inactive'}
+      dataIndex: 'available',
+      key: 'available',
+      render: (available) => (
+        <Tag color={available ? 'green' : 'red'}>
+          {available ? 'Active' : 'Inactive'}
         </Tag>
       ),
     },
