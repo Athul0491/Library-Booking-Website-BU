@@ -1,94 +1,124 @@
-// API Service - Connect to real backend API
-import axios from 'axios';
-
 /**
- * API basic configuration
+ * API Service
+ * Unified API service for multiple data sources with error handling
  */
-const API_BASE_URL = 'http://localhost:5000'; // Backend server address
+import { supabase } from './supabaseClient';
 
-// Create axios instance
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-// Response interceptors
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    console.error('API Error:', error);
-    return Promise.reject(error);
-  }
-);
-
-/**
- * Library code mapping
- */
+// Library codes mapping to Location IDs (LID)
 export const LIBRARY_CODES = {
-  'mug': { name: 'Mugar Memorial Library', code: 'mug' },
-  'par': { name: 'Pardee Library', code: 'par' },
-  'pic': { name: 'Pickering Educational Resources Library', code: 'pic' },
-  'sci': { name: 'Science & Engineering Library', code: 'sci' }
+  'mug': { name: 'Mugar Memorial Library', code: 'mug', lid: 19336 },
+  'par': { name: 'Pardee Library', code: 'par', lid: 19818 },
+  'pic': { name: 'Pickering Educational Resources Library', code: 'pic', lid: 18359 },
+  'sci': { name: 'Science & Engineering Library', code: 'sci', lid: 20177 }
 };
 
-/**
- * API Service Class
- */
 class ApiService {
+  constructor() {
+    this.bubBackendUrl = import.meta.env.VITE_BACKEND_API_URL || 'http://localhost:5000';
+    this.retryAttempts = 3;
+    this.timeout = 10000;
+  }
+
   /**
-   * Get room availability
-   * @param {Object} params - Query parameters
-   * @param {string} params.library - Library code (mug, par, pic, sci)
-   * @param {string} params.start - Start date (YYYY-MM-DD)
-   * @param {string} params.end - End date (YYYY-MM-DD)
-   * @param {string} [params.start_time] - Start time (HH:MM)
-   * @param {string} [params.end_time] - End time (HH:MM)
-   * @returns {Promise} API response
+   * Generic API request method with retry and timeout support
+   */
+  async makeRequest(url, options = {}) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+    const requestOptions = {
+      ...options,
+      signal: controller.signal
+    };
+
+    try {
+      const response = await fetch(url, requestOptions);
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout');
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Test connection to bub-backend API
+   */
+  async testBackendConnection() {
+    try {
+      await this.makeRequest(`${this.bubBackendUrl}/api/availability`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ library: 'mug', start: '2025-01-01', end: '2025-01-01' })
+      });
+      return { connected: true, error: null };
+    } catch (error) {
+      console.warn('Backend API connection failed:', error.message);
+      return { connected: false, error: error.message };
+    }
+  }
+
+  /**
+   * Test connection to Supabase
+   */
+  async testSupabaseConnection() {
+    try {
+      const { data, error } = await supabase
+        .from('Buildings')
+        .select('id')
+        .limit(1);
+      
+      if (error) throw error;
+      return { connected: true, error: null };
+    } catch (error) {
+      console.warn('Supabase connection failed:', error.message);
+      return { connected: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get room availability from bub-backend
    */
   async getAvailability(params) {
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/availability`, params, {
-        timeout: 5000
+      const response = await this.makeRequest(`${this.bubBackendUrl}/api/availability`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
       });
+      
       return {
         success: true,
-        data: response.data,
+        data: response,
         error: null
       };
     } catch (error) {
       console.log('API call failed, using mock data:', error.message);
       
-      // Return mock data
+      // Return mock data for demonstration
       const mockData = {
-        bookings: [],
-        isPreCreatedBooking: false,
         slots: [
           {
             checksum: "mock765760965e8740b8700df9932933cb88",
-            end: `${params.start} 09:00:00`,
+            end: `${params.start}T09:00:00-05:00`,
             itemId: 168796,
-            start: `${params.start} 08:00:00`
+            start: `${params.start}T08:00:00-05:00`,
+            className: "s-lc-eq-period-available"
           },
           {
             checksum: "mockaf932e69f44341b0a109c979087b82f6",
-            end: `${params.start} 10:00:00`,
+            end: `${params.start}T10:00:00-05:00`,
             itemId: 168797,
-            start: `${params.start} 09:00:00`
-          },
-          {
-            checksum: "mock123456789abcdef",
-            end: `${params.start} 11:00:00`,
-            itemId: 168798,
-            start: `${params.start} 10:00:00`
-          },
-          {
-            checksum: "mockabcdef123456789",
-            end: `${params.start} 14:00:00`,
-            itemId: 168799,
-            start: `${params.start} 13:00:00`
+            start: `${params.start}T09:00:00-05:00`,
+            className: "s-lc-eq-period-booked"
           }
         ]
       };
@@ -103,9 +133,33 @@ class ApiService {
   }
 
   /**
-   * Format time slot data
-   * @param {Array} slots - Raw time slot data
-   * @returns {Array} Formatted time slot data
+   * Get buildings from Supabase
+   */
+  async getBuildings() {
+    try {
+      const { data, error } = await supabase
+        .from('Buildings')
+        .select('*, Rooms(*)');
+
+      if (error) throw error;
+
+      return {
+        success: true,
+        data: data || [],
+        error: null
+      };
+    } catch (error) {
+      console.warn('Failed to fetch buildings from Supabase:', error.message);
+      return {
+        success: false,
+        data: [],
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Format time slot data for display
    */
   formatSlots(slots) {
     return slots.map(slot => ({
@@ -114,16 +168,14 @@ class ApiService {
       startTime: slot.start,
       endTime: slot.end,
       duration: this.calculateDuration(slot.start, slot.end),
-      available: true,
-      itemId: slot.itemId
+      available: slot.className === 's-lc-eq-period-available',
+      itemId: slot.itemId,
+      status: slot.className === 's-lc-eq-period-available' ? 'available' : 'booked'
     }));
   }
 
   /**
-   * Calculate duration (minutes)
-   * @param {string} start - Start time
-   * @param {string} end - End time
-   * @returns {number} Duration (minutes)
+   * Calculate duration in minutes
    */
   calculateDuration(start, end) {
     const startTime = new Date(start);
@@ -132,8 +184,7 @@ class ApiService {
   }
 
   /**
-   * Get all library list
-   * @returns {Array} Library list
+   * Get all libraries
    */
   getLibraries() {
     return Object.values(LIBRARY_CODES);
@@ -141,43 +192,34 @@ class ApiService {
 
   /**
    * Validate library code
-   * @param {string} code - Library code
-   * @returns {boolean} Is valid
    */
   isValidLibraryCode(code) {
     return Object.keys(LIBRARY_CODES).includes(code);
   }
 
   /**
-   * Get library information
-   * @param {string} code - Library code
-   * @returns {Object|null} Library information
+   * Get library information by code
    */
   getLibraryInfo(code) {
     return LIBRARY_CODES[code] || null;
   }
 
   /**
-   * Check backend server status
-   * @returns {Promise} Server status
+   * Check backend server health
    */
   async checkServerStatus() {
     try {
-      // Try a simple health check
-      const response = await axios.get(`${API_BASE_URL}/api/availability`, {
-        timeout: 2000
-      });
+      const connection = await this.testBackendConnection();
       return {
-        success: true,
-        online: true,
-        message: 'Server running normally'
+        success: connection.connected,
+        online: connection.connected,
+        message: connection.connected ? 'Backend server is running' : 'Backend server unavailable'
       };
     } catch (error) {
-      console.log('Backend server not available:', error.message);
       return {
         success: false,
         online: false,
-        message: 'Backend server not started, using mock data mode'
+        message: 'Backend server connection failed'
       };
     }
   }
@@ -188,12 +230,15 @@ const apiService = new ApiService();
 
 export default apiService;
 
-// Export common methods
+// Export utility functions
 export const {
   getAvailability,
+  getBuildings,
   formatSlots,
   getLibraries,
   isValidLibraryCode,
   getLibraryInfo,
-  checkServerStatus
+  checkServerStatus,
+  testBackendConnection,
+  testSupabaseConnection
 } = apiService;

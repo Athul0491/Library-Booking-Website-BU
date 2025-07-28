@@ -23,7 +23,14 @@ import {
   ApiOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import apiService, { LIBRARY_CODES } from '../services/apiService';
+import { useConnection } from '../contexts/ConnectionContext';
+import bookingService from '../services/bookingService';
+import { 
+  ConnectionStatus, 
+  TableSkeleton, 
+  DataUnavailablePlaceholder,
+  PageLoadingSkeleton 
+} from '../components/SkeletonComponents';
 
 const { Title, Paragraph } = Typography;
 const { Option } = Select;
@@ -33,102 +40,73 @@ const { Option } = Select;
  * Used for managing room time slot availability with real API integration
  */
 const AvailabilityPage = () => {
+  const connection = useConnection();
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [selectedLibrary, setSelectedLibrary] = useState('par'); // Default to Pardee Library
   const [realTimeSlots, setRealTimeSlots] = useState([]);
-  const [serverStatus, setServerStatus] = useState(null);
 
-  // Load data when component mounts
-  useEffect(() => {
-    checkServerStatus();
-  }, []);
-
-  // When selected Date or Library changes, load real time slot data
-  useEffect(() => {
-    if (selectedLibrary && selectedDate) {
-      loadRealTimeSlots();
-    }
-  }, [selectedDate, selectedLibrary]);
-
-  // Check backend server status
-  const checkServerStatus = async () => {
-    const status = await apiService.checkServerStatus();
-    setServerStatus(status);
-    if (!status.online) {
-      message.warning('Backend server not connected, showing mock data');
-    }
+  // Library codes
+  const LIBRARY_CODES = {
+    'mug': { name: 'Mugar Memorial Library', code: 'mug' },
+    'par': { name: 'Pardee Library', code: 'par' },
+    'pic': { name: 'Pickering Educational Resources Library', code: 'pic' },
+    'sci': { name: 'Science & Engineering Library', code: 'sci' }
   };
 
-  // Load real time slots from backend API
+  // Load real time slots data
   const loadRealTimeSlots = async () => {
+    if (!connection.isDataAvailable) {
+      console.log('⚠️ Data not available, skipping availability load');
+      return;
+    }
+
     try {
       setLoading(true);
       
-      const params = {
-        library: selectedLibrary,
-        start: selectedDate.format('YYYY-MM-DD'),
-        end: selectedDate.format('YYYY-MM-DD'),
-        start_time: '08:00',
-        end_time: '22:00'
-      };
-
-      const result = await apiService.getAvailability(params);
+      // Use the new booking service to get room availability
+      const dateString = selectedDate.format('YYYY-MM-DD');
+      const result = await bookingService.getRoomAvailability(selectedLibrary, dateString);
       
       if (result.success) {
-        const formattedSlots = apiService.formatSlots(result.data.slots || []);
-        setRealTimeSlots(formattedSlots);
+        // Transform the data for display
+        const slots = result.data.slots || [];
+        const transformedSlots = slots.map((slot, index) => ({
+          id: slot.itemId || `slot_${index}`,
+          time: `${slot.start || '09:00'} - ${slot.end || '10:00'}`,
+          room: `Room ${slot.itemId || index}`,
+          status: slot.available ? 'available' : 'booked',
+          capacity: 4 + Math.floor(Math.random() * 5), // Mock capacity
+          itemId: slot.itemId,
+          checksum: slot.checksum
+        }));
+        
+        setRealTimeSlots(transformedSlots);
         
         if (result.isMockData) {
-          message.info(`Loaded ${formattedSlots.length} mock time slots (backend server not connected)`);
+          message.info('Using demo data - backend connection unavailable');
         } else {
-          message.success(`Successfully loaded ${formattedSlots.length} time slots`);
+          message.success(`Loaded ${transformedSlots.length} time slots for ${LIBRARY_CODES[selectedLibrary].name}`);
         }
       } else {
-        message.error(`Loading failed: ${result.error}`);
-        // If API fails, show mock data
-        loadMockTimeSlots();
+        message.error(result.error || 'Failed to load availability data');
+        setRealTimeSlots([]);
       }
     } catch (error) {
-      message.error('Failed to load time slot data');
       console.error('Failed to load time slot data:', error);
-      // If API fails, show mock data
-      loadMockTimeSlots();
+      message.error('Failed to load time slot data');
+      setRealTimeSlots([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Fallback mock data
-  const loadMockTimeSlots = () => {
-    const mockTimeSlots = [
-      {
-        id: 1,
-        startTime: '2025-07-27 08:00:00',
-        endTime: '2025-07-27 09:00:00',
-        duration: 60,
-        available: true,
-        itemId: 168796,
-      },
-      {
-        id: 2,
-        startTime: '2025-07-27 09:00:00',
-        endTime: '2025-07-27 10:00:00',
-        duration: 60,
-        available: true,
-        itemId: 168797,
-      },
-      {
-        id: 3,
-        startTime: '2025-07-27 10:00:00',
-        endTime: '2025-07-27 11:00:00',
-        duration: 60,
-        available: false,
-        itemId: 168798,
-      },
-    ];
-    setRealTimeSlots(mockTimeSlots);
-  };
+  // Load data when connection is available and params change
+  useEffect(() => {
+    if (connection.isDataAvailable && selectedLibrary && selectedDate) {
+      loadRealTimeSlots();
+    }
+  }, [selectedDate, selectedLibrary, connection.isDataAvailable]);
 
   // Get date display content (for calendar)
   const getCellRender = (current, info) => {
@@ -149,33 +127,26 @@ const AvailabilityPage = () => {
         Manage library room time slot availability with real-time BU LibCal system data integration.
       </Paragraph>
 
-      {/* Server Status Alert */}
-      {serverStatus && (
-        <Alert
-          message={
-            <Space>
-              <ApiOutlined />
-              {serverStatus.online ? 'Backend Server Connected' : 'Backend Server Disconnected'}
-            </Space>
-          }
-          description={serverStatus.message}
-          type={serverStatus.online ? 'success' : 'warning'}
-          style={{ marginBottom: 16 }}
-          action={
-            <Button
-              size="small"
-              icon={<ReloadOutlined />}
-              onClick={checkServerStatus}
-            >
-              Recheck
-            </Button>
-          }
+      {/* Connection Status */}
+      <ConnectionStatus connection={connection} style={{ marginBottom: 24 }} />
+
+      {/* Loading State */}
+      {connection.loading && <PageLoadingSkeleton />}
+
+      {/* No Connection State */}
+      {!connection.loading && !connection.isDataAvailable && (
+        <DataUnavailablePlaceholder 
+          title="Availability Data Unavailable"
+          description="Cannot connect to the availability service. Please check your connection and try again."
+          onRetry={() => connection.refreshConnections()}
         />
       )}
 
-      <Row gutter={[16, 16]}>
-        {/* Left Side: Calendar */}
-        <Col xs={24} lg={14}>
+      {/* Normal Data Display */}
+      {!connection.loading && connection.isDataAvailable && (
+        <Row gutter={[16, 16]}>
+          {/* Left Side: Calendar */}
+          <Col xs={24} lg={14}>
           <Card title="Select Date">
             <Calendar
               value={selectedDate}
@@ -288,6 +259,7 @@ const AvailabilityPage = () => {
           </Card>
         </Col>
       </Row>
+      )}
     </div>
   );
 };

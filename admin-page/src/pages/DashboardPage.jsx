@@ -36,6 +36,13 @@ import {
 } from '@ant-design/icons';
 import statsService from '../services/statsService';
 import locationService from '../services/locationService';
+import { useConnection } from '../contexts/ConnectionContext';
+import { 
+  ConnectionStatus, 
+  TableSkeleton, 
+  DataUnavailablePlaceholder,
+  PageLoadingSkeleton 
+} from '../components/SkeletonComponents';
 
 const { Title, Paragraph } = Typography;
 
@@ -47,6 +54,7 @@ const { Title, Paragraph } = Typography;
  * - System health and statistics monitoring
  */
 const DashboardPage = () => {
+  const connection = useConnection();
   const [loading, setLoading] = useState(true);
   const [systemStats, setSystemStats] = useState({});
   const [buildingStats, setBuildingStats] = useState({});
@@ -54,13 +62,15 @@ const DashboardPage = () => {
   const [recentActivity, setRecentActivity] = useState([]);
   const [libcalStatus, setLibcalStatus] = useState('unknown');
 
-  // Load data when component mounts
+  // Load data when component mounts and connection is available
   useEffect(() => {
-    loadDashboardData();
-    // Refresh data every 30 seconds
-    const interval = setInterval(loadDashboardData, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    if (connection.isDataAvailable) {
+      loadDashboardData();
+      // Refresh data every 30 seconds
+      const interval = setInterval(loadDashboardData, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [connection.isDataAvailable]);
 
   // Load comprehensive dashboard data
   const loadDashboardData = async () => {
@@ -229,25 +239,38 @@ const DashboardPage = () => {
         Real-time monitoring of Library Booking System - bu-book frontend, bub-backend API, and Supabase database integration.
       </Paragraph>
 
-      {/* System Status Alert */}
-      <Alert
-        message={`LibCal API Status: ${libcalStatus}`}
-        description={
-          libcalStatus === 'connected' 
-            ? 'bub-backend is connected to LibCal API and functioning normally.'
-            : libcalStatus === 'disconnected'
-            ? 'bub-backend API is not responding. Please check if the server is running on localhost:5000.'
-            : 'Error connecting to LibCal API through bub-backend.'
-        }
-        type={libcalStatus === 'connected' ? 'success' : 'warning'}
-        style={{ marginBottom: 24 }}
-        showIcon
-      />
+      {/* Connection Status */}
+      <ConnectionStatus />
 
-      {/* Key Metrics Row */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card>
+      {/* Show appropriate content based on connection status */}
+      {!connection.isDataAvailable ? (
+        <DataUnavailablePlaceholder 
+          title="Dashboard Data Unavailable"
+          description="Dashboard requires active connections to display real-time system statistics and monitoring data."
+        />
+      ) : loading ? (
+        <PageLoadingSkeleton />
+      ) : (
+        <>
+          {/* System Status Alert */}
+          <Alert
+            message={`LibCal API Status: ${libcalStatus}`}
+            description={
+              libcalStatus === 'connected' 
+                ? 'bub-backend is connected to LibCal API and functioning normally.'
+                : libcalStatus === 'disconnected'
+                ? 'bub-backend API is not responding. Please check if the server is running on localhost:5000.'
+                : 'Error connecting to LibCal API through bub-backend.'
+            }
+            type={libcalStatus === 'connected' ? 'success' : 'warning'}
+            style={{ marginBottom: 24 }}
+            showIcon
+          />
+
+          {/* Key Metrics Row */}
+          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Col xs={24} sm={12} lg={6}>
+              <Card>
             <Statistic
               title="Total Buildings"
               value={buildingStats.totalBuildings || 0}
@@ -459,6 +482,8 @@ const DashboardPage = () => {
           ]}
         />
       </Card>
+        </>
+      )}
     </div>
   );
 };

@@ -16,8 +16,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // Helper function to check if Supabase is properly configured
 export const isSupabaseConfigured = () => {
   return supabaseUrl !== 'https://your-project.supabase.co' && 
+         supabaseUrl !== 'https://placeholder.supabase.co' &&
          supabaseAnonKey !== 'your-anon-key' &&
-         supabaseUrl.includes('supabase.co');
+         supabaseAnonKey !== 'placeholder_key' &&
+         supabaseUrl.includes('supabase.co') &&
+         supabaseAnonKey.length > 20; // Anon keys are quite long
 };
 
 export default supabase;

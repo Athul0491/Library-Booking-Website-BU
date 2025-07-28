@@ -23,6 +23,13 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import statsService from '../services/statsService';
+import { useConnection } from '../contexts/ConnectionContext';
+import { 
+  ConnectionStatus, 
+  TableSkeleton, 
+  DataUnavailablePlaceholder,
+  PageLoadingSkeleton 
+} from '../components/SkeletonComponents';
 
 const { Title, Paragraph } = Typography;
 const { RangePicker } = DatePicker;
@@ -33,6 +40,7 @@ const { Option } = Select;
  * Display various data analysis and statistical reports
  */
 const StatisticsPage = () => {
+  const connection = useConnection();
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState([
     dayjs().subtract(30, 'day'),
@@ -43,13 +51,13 @@ const StatisticsPage = () => {
   const [roomStats, setRoomStats] = useState([]);
   const [userStats, setUserStats] = useState([]);
 
-  // Load data when component mounts
-  useEffect(() => {
-    loadStatistics();
-  }, [dateRange, selectedMetric]);
-
   // Load Statistics Data
   const loadStatistics = async () => {
+    if (!connection.isDataAvailable) {
+      console.log('⚠️ Data not available, skipping statistics load');
+      return;
+    }
+
     try {
       setLoading(true);
       
@@ -71,25 +79,21 @@ const StatisticsPage = () => {
         }
       } else {
         message.error(`Failed to load statistics: ${result.error}`);
-        // Use mock data as fallback
-        const mockResult = statsService.getMockStatistics();
-        setStatsData(mockResult.data.statsData);
-        setRoomStats(mockResult.data.roomStats);
-        setUserStats(mockResult.data.userStats);
       }
     } catch (error) {
       console.error('Load Statistics Data Failed:', error);
       message.error('Failed to load statistics data');
-      
-      // Use mock data as fallback
-      const mockResult = statsService.getMockStatistics();
-      setStatsData(mockResult.data.statsData);
-      setRoomStats(mockResult.data.roomStats);
-      setUserStats(mockResult.data.userStats);
     } finally {
       setLoading(false);
     }
   };
+
+  // Load data when component mounts and connection is available
+  useEffect(() => {
+    if (connection.isDataAvailable) {
+      loadStatistics();
+    }
+  }, [dateRange, selectedMetric, connection.isDataAvailable]);
 
   // ExportReport
   const exportReport = () => {
@@ -163,146 +167,174 @@ const StatisticsPage = () => {
         View system statistics and analysis reports to understand booking status and usage trends.
       </Paragraph>
 
-      {/* Filter controls */}
-      <Card style={{ marginBottom: 16 }}>
-        <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={12} md={8}>
-            <Space>
-              <span>Time Range:</span>
-              <RangePicker
-                value={dateRange}
-                onChange={setDateRange}
-                format="YYYY-MM-DD"
-              />
-            </Space>
-          </Col>
-          <Col xs={24} sm={12} md={8}>
-            <Space>
-              <span>Statistics Dimension:</span>
-              <Select
-                value={selectedMetric}
-                onChange={setSelectedMetric}
-                style={{ width: 120 }}
+      {/* Connection Status */}
+      <ConnectionStatus connection={connection} style={{ marginBottom: 24 }} />
+
+      {/* Loading State */}
+      {connection.loading && <PageLoadingSkeleton />}
+
+      {/* No Connection State */}
+      {!connection.loading && !connection.isDataAvailable && (
+        <DataUnavailablePlaceholder 
+          title="Statistics Data Unavailable"
+          description="Cannot connect to the statistics service. Please check your connection and try again."
+          onRetry={() => connection.refreshConnections()}
+        />
+      )}
+
+      {/* Normal Data Display */}
+      {!connection.loading && connection.isDataAvailable && (
+        <>
+          {/* Filter controls */}
+          <Card style={{ marginBottom: 16 }}>
+            <Row gutter={[16, 16]} align="middle">
+              <Col xs={24} sm={12} md={8}>
+                <Space>
+                  <span>Time Range:</span>
+                  <RangePicker
+                    value={dateRange}
+                    onChange={setDateRange}
+                    format="YYYY-MM-DD"
+                  />
+                </Space>
+              </Col>
+              <Col xs={24} sm={12} md={8}>
+                <Space>
+                  <span>Statistics Dimension:</span>
+                  <Select
+                    value={selectedMetric}
+                    onChange={setSelectedMetric}
+                    style={{ width: 120 }}
+                  >
+                    <Option value="bookings">Booking Count</Option>
+                    <Option value="utilization">Usage Rate</Option>
+                    <Option value="users">User Count</Option>
+                  </Select>
+                </Space>
+              </Col>
+              <Col xs={24} sm={24} md={8}>
+                <Button 
+                  type="primary" 
+                  icon={<DownloadOutlined />}
+                  onClick={exportReport}
+                >
+                  ExportReport
+                </Button>
+              </Col>
+            </Row>
+          </Card>
+
+          {/* OverviewStatisticscard */}
+          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Col xs={12} sm={8}>
+              <Card>
+                <Statistic
+                  title="Total Bookings"
+                  value={statsData.totalBookings}
+                  prefix={<BarChartOutlined />}
+                  suffix={
+                    <span style={{ fontSize: '12px', color: '#52c41a' }}>
+                      ↑{statsData.bookingGrowth}%
+                    </span>
+                  }
+                  loading={loading}
+                />
+              </Card>
+            </Col>
+            <Col xs={12} sm={8}>
+              <Card>
+                <Statistic
+                  title="ActiveUser"
+                  value={statsData.totalUsers}
+                  prefix={<UsergroupAddOutlined />}
+                  suffix={
+                    <span style={{ fontSize: '12px', color: '#52c41a' }}>
+                      ↑{statsData.userGrowth}%
+                    </span>
+                  }
+                  loading={loading}
+                />
+              </Card>
+            </Col>
+            <Col xs={12} sm={8}>
+              <Card>
+                <Statistic
+                  title="AverageusageRate"
+                  value={statsData.utilizationRate}
+                  suffix="%"
+                  prefix={<PieChartOutlined />}
+                  loading={loading}
+                />
+              </Card>
+            </Col>
+          </Row>
+
+          <Row gutter={[16, 16]}>
+            {/* RoomStatistics */}
+            <Col xs={24} lg={14}>
+              <Card 
+                title="RoomusageStatistics" 
+                extra={<RiseOutlined />}
               >
-                <Option value="bookings">Booking Count</Option>
-                <Option value="utilization">Usage Rate</Option>
-                <Option value="users">User Count</Option>
-              </Select>
-            </Space>
-          </Col>
-          <Col xs={24} sm={24} md={8}>
-            <Button 
-              type="primary" 
-              icon={<DownloadOutlined />}
-              onClick={exportReport}
-            >
-              ExportReport
-            </Button>
-          </Col>
-        </Row>
-      </Card>
+                {loading ? (
+                  <TableSkeleton rows={6} columns={3} />
+                ) : (
+                  <Table
+                    columns={roomColumns}
+                    dataSource={roomStats}
+                    loading={loading}
+                    rowKey="id"
+                    pagination={false}
+                    size="small"
+                  />
+                )}
+              </Card>
+            </Col>
 
-      {/* OverviewStatisticscard */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={12} sm={8}>
-          <Card>
-            <Statistic
-              title="Total Bookings"
-              value={statsData.totalBookings}
-              prefix={<BarChartOutlined />}
-              suffix={
-                <span style={{ fontSize: '12px', color: '#52c41a' }}>
-                  ↑{statsData.bookingGrowth}%
-                </span>
-              }
-              loading={loading}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={8}>
-          <Card>
-            <Statistic
-              title="ActiveUser"
-              value={statsData.totalUsers}
-              prefix={<UsergroupAddOutlined />}
-              suffix={
-                <span style={{ fontSize: '12px', color: '#52c41a' }}>
-                  ↑{statsData.userGrowth}%
-                </span>
-              }
-              loading={loading}
-            />
-          </Card>
-        </Col>
-        <Col xs={12} sm={8}>
-          <Card>
-            <Statistic
-              title="AverageusageRate"
-              value={statsData.utilizationRate}
-              suffix="%"
-              prefix={<PieChartOutlined />}
-              loading={loading}
-            />
-          </Card>
-        </Col>
-      </Row>
+            {/* User Activity Statistics */}
+            <Col xs={24} lg={10}>
+              <Card title="ActiveUserStatistics">
+                {loading ? (
+                  <TableSkeleton rows={5} columns={4} />
+                ) : (
+                  <Table
+                    columns={userColumns}
+                    dataSource={userStats}
+                    loading={loading}
+                    rowKey="id"
+                    pagination={{ pageSize: 5 }}
+                    size="small"
+                  />
+                )}
+              </Card>
+            </Col>
+          </Row>
 
-      <Row gutter={[16, 16]}>
-        {/* RoomStatistics */}
-        <Col xs={24} lg={14}>
-          <Card 
-            title="RoomusageStatistics" 
-            extra={<RiseOutlined />}
-          >
-            <Table
-              columns={roomColumns}
-              dataSource={roomStats}
-              loading={loading}
-              rowKey="id"
-              pagination={false}
-              size="small"
-            />
-          </Card>
-        </Col>
-
-        {/* User Activity Statistics */}
-        <Col xs={24} lg={10}>
-          <Card title="ActiveUserStatistics">
-            <Table
-              columns={userColumns}
-              dataSource={userStats}
-              loading={loading}
-              rowKey="id"
-              pagination={{ pageSize: 5 }}
-              size="small"
-            />
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Trend chart area - reserved for chart components */}
-      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-        <Col span={24}>
-          <Card title="Usage Trend Chart" extra="Last 30 Days">
-            <div style={{ 
-              height: 300, 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              background: '#fafafa',
-              border: '1px dashed #d9d9d9'
-            }}>
-              <div style={{ textAlign: 'center', color: '#999' }}>
-                <BarChartOutlined style={{ fontSize: 48, marginBottom: 16 }} />
-                <br />
-                Chart Component Position
-                <br />
-                <small>Can integrate ECharts, D3.js and other chart libraries</small>
-              </div>
-            </div>
-          </Card>
-        </Col>
-      </Row>
+          {/* Trend chart area - reserved for chart components */}
+          <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+            <Col span={24}>
+              <Card title="Usage Trend Chart" extra="Last 30 Days">
+                <div style={{ 
+                  height: 300, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  background: '#fafafa',
+                  border: '1px dashed #d9d9d9'
+                }}>
+                  <div style={{ textAlign: 'center', color: '#999' }}>
+                    <BarChartOutlined style={{ fontSize: 48, marginBottom: 16 }} />
+                    <br />
+                    Chart Component Position
+                    <br />
+                    <small>Can integrate ECharts, D3.js and other chart libraries</small>
+                  </div>
+                </div>
+              </Card>
+            </Col>
+          </Row>
+        </>
+      )}
     </div>
   );
 };

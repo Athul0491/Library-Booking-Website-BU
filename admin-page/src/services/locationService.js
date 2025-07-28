@@ -1,596 +1,229 @@
 /**
- * locationService.js - Location/Room Management Service
- * 
- * This service handles all operations related to room and location management
- * Now integrated with Supabase to ensure data consistency with bu-book project.
- * 
- * Features:
- * - Room CRUD operations using Supabase (same as bu-book)
- * - Real-time data synchronization
- * - Fallback to mock data when Supabase is not configured
+ * Location Service
+ * Provides location and building data management using unified API service
  */
+import apiService from './apiService';
 
-import dayjs from 'dayjs';
-import { supabase, isSupabaseConfigured } from './supabaseClient';
-
-class LocationService {
-  constructor() {
-    this.delay = 500;
+/**
+ * Mock building data for fallback when API is unavailable
+ */
+const mockBuildings = [
+  {
+    id: '1',
+    name: 'Mugar Memorial Library',
+    code: 'MUG',
+    address: '771 Commonwealth Avenue, Boston, MA 02215',
+    phone: '(617) 353-3732',
+    hours: 'Mon-Thu: 8:00 AM - 2:00 AM, Fri: 8:00 AM - 10:00 PM, Sat: 10:00 AM - 10:00 PM, Sun: 10:00 AM - 2:00 AM',
+    totalRooms: 15,
+    availableRooms: 8,
+    status: 'operational',
+    features: ['24/7 Access', 'WiFi', 'Printing', 'Group Study Rooms'],
+    lastUpdated: new Date().toISOString()
+  },
+  {
+    id: '2', 
+    name: 'Pardee Library',
+    code: 'PAR',
+    address: '154 Bay State Road, Boston, MA 02215',
+    phone: '(617) 353-3738',
+    hours: 'Mon-Fri: 8:00 AM - 12:00 AM, Sat-Sun: 10:00 AM - 12:00 AM',
+    totalRooms: 8,
+    availableRooms: 3,
+    status: 'operational',
+    features: ['WiFi', 'Quiet Study', 'Computer Lab'],
+    lastUpdated: new Date().toISOString()
+  },
+  {
+    id: '3',
+    name: 'Pickering Educational Resources Library', 
+    code: 'PIC',
+    address: '2 Silber Way, Boston, MA 02215',
+    phone: '(617) 353-3734',
+    hours: 'Mon-Fri: 8:00 AM - 9:00 PM, Sat-Sun: 12:00 PM - 6:00 PM',
+    totalRooms: 5,
+    availableRooms: 2,
+    status: 'maintenance',
+    features: ['Education Resources', 'WiFi', 'Multimedia Equipment'],
+    lastUpdated: new Date().toISOString()
+  },
+  {
+    id: '4',
+    name: 'Science & Engineering Library',
+    code: 'SCI',
+    address: '38 Cummington Mall, Boston, MA 02215', 
+    phone: '(617) 353-3733',
+    hours: 'Mon-Thu: 8:00 AM - 12:00 AM, Fri: 8:00 AM - 8:00 PM, Sat-Sun: 12:00 PM - 8:00 PM',
+    totalRooms: 12,
+    availableRooms: 7,
+    status: 'operational',
+    features: ['STEM Resources', 'Computer Lab', 'WiFi', 'Collaboration Spaces'],
+    lastUpdated: new Date().toISOString()
   }
+];
 
-  // Simulate network delay
-  sleep(ms = this.delay) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  // Get all locations from Supabase (same data as bu-book)
-  async getLocations(filters = {}) {
-    try {
-      if (isSupabaseConfigured()) {
-        return await this.getRealLocations(filters);
-      } else {
-        return await this.getMockLocations(filters);
-      }
-    } catch (error) {
-      console.error('Failed to get locations:', error);
-      return await this.getMockLocations(filters);
-    }
-  }
-
-  // Get real locations from Supabase (return buildings and rooms separately)
-  async getRealLocations(filters = {}) {
-    try {
-      await this.sleep();
-      
-      const { data: buildings, error } = await supabase
-        .from('Buildings')
-        .select('*, Rooms(*)');
-
-      if (error) throw error;
-
+/**
+ * Get all library buildings with current status
+ * @returns {Promise<{success: boolean, data: Array, error: string|null}>}
+ */
+export const getBuildings = async () => {
+  try {
+    // Try to get real data from Supabase via apiService
+    const result = await apiService.getBuildings();
+    
+    if (result.success && result.data && result.data.length > 0) {
       return {
         success: true,
-        data: {
-          buildings: buildings || [],
-          rooms: buildings?.flatMap(building => 
-            building.Rooms?.map(room => ({
-              ...room,
-              building_name: building.Name
-            })) || []
-          ) || [],
-          total: buildings?.length || 0
-        },
-        isMockData: false
+        data: result.data,
+        error: null
       };
-    } catch (error) {
-      console.error('Failed to get real locations:', error);
-      throw error;
-    }
-  }
-
-  // Determine room type based on name
-  getRoomType(roomName) {
-    const name = roomName.toLowerCase();
-    if (name.includes('study')) return 'study_room';
-    if (name.includes('meeting') || name.includes('conference')) return 'conference_room';
-    if (name.includes('computer') || name.includes('lab')) return 'computer_lab';
-    if (name.includes('discussion')) return 'discussion_room';
-    if (name.includes('reading')) return 'reading_room';
-    if (name.includes('group')) return 'group_room';
-    return 'study_room'; // default
-  }
-
-  // Get equipment based on room type
-  getEquipmentByType(type) {
-    const equipmentMap = {
-      'study_room': ['Whiteboard', 'Power Outlets', 'WiFi'],
-      'conference_room': ['Projector', 'Conference Table', 'Video Conferencing', 'Whiteboard'],
-      'computer_lab': ['Computers', 'Printer', 'WiFi', 'Power Outlets'],
-      'discussion_room': ['Whiteboard', 'Chairs', 'WiFi'],
-      'reading_room': ['Quiet Environment', 'Reading Lamps', 'WiFi'],
-      'group_room': ['Whiteboard', 'Round Table', 'WiFi']
-    };
-    return equipmentMap[type] || ['WiFi', 'Power Outlets'];
-  }
-
-  // Get mock locations (fallback)
-  async getMockLocations(filters = {}) {
-    await this.sleep();
-    
-    const mockLocations = [
-      {
-        id: 1,
-        name: 'Study Room A101',
-        type: 'study_room',
-        capacity: 4,
-        building: 'Mugar Memorial Library',
-        floor: 1,
-        equipment: ['Whiteboard', 'Power Outlets', 'WiFi'],
-        description: 'Quiet study room perfect for small group work',
-        isActive: true,
-        createdAt: dayjs().subtract(30, 'days').toISOString(),
-        updatedAt: dayjs().subtract(1, 'days').toISOString()
-      },
-      {
-        id: 2,
-        name: 'Conference Room B205',
-        type: 'conference_room',
-        capacity: 12,
-        building: 'Howard Gotlieb Archival Research Center',
-        floor: 2,
-        equipment: ['Projector', 'Conference Table', 'Video Conferencing', 'Whiteboard'],
-        description: 'Large conference room with presentation capabilities',
-        isActive: true,
-        createdAt: dayjs().subtract(25, 'days').toISOString(),
-        updatedAt: dayjs().subtract(2, 'days').toISOString()
-      },
-      {
-        id: 3,
-        name: 'Computer Lab C301',
-        type: 'computer_lab',
-        capacity: 20,
-        building: 'Science & Engineering Library',
-        floor: 3,
-        equipment: ['Computers', 'Printers', 'Scanners', 'Large Display'],
-        description: 'Computer lab with latest software and high-speed internet',
-        isActive: true,
-        createdAt: dayjs().subtract(20, 'days').toISOString(),
-        updatedAt: dayjs().subtract(3, 'days').toISOString()
-      },
-      {
-        id: 4,
-        name: 'Discussion Room D102',
-        type: 'discussion_room',
-        capacity: 6,
-        building: 'Mugar Memorial Library',
-        floor: 1,
-        equipment: ['Whiteboard', 'Round Table', 'WiFi'],
-        description: 'Interactive space for group discussions and brainstorming',
-        isActive: true,
-        createdAt: dayjs().subtract(18, 'days').toISOString(),
-        updatedAt: dayjs().subtract(1, 'day').toISOString()
-      },
-      {
-        id: 5,
-        name: 'Reading Room E404',
-        type: 'reading_room',
-        capacity: 1,
-        building: 'Howard Gotlieb Archival Research Center',
-        floor: 4,
-        equipment: ['Reading Lamp', 'Comfortable Chair', 'WiFi'],
-        description: 'Quiet individual reading space with excellent lighting',
-        isActive: false,
-        createdAt: dayjs().subtract(15, 'days').toISOString(),
-        updatedAt: dayjs().subtract(5, 'days').toISOString()
-      }
-    ];
-
-    // Apply filters
-    let filteredLocations = mockLocations;
-    if (filters.type) {
-      filteredLocations = filteredLocations.filter(loc => loc.type === filters.type);
-    }
-    if (filters.building) {
-      filteredLocations = filteredLocations.filter(loc => 
-        loc.building.toLowerCase().includes(filters.building.toLowerCase())
-      );
-    }
-    if (filters.active !== undefined) {
-      filteredLocations = filteredLocations.filter(loc => loc.isActive === filters.active);
     }
 
+    // Fallback to mock data with warning
+    console.warn('Using mock building data - API unavailable');
     return {
       success: true,
-      data: {
-        list: filteredLocations,
-        total: filteredLocations.length
-      },
-      isMockData: true
+      data: mockBuildings,
+      error: 'Using mock data - database connection unavailable'
+    };
+  } catch (error) {
+    console.error('Failed to fetch buildings:', error);
+    return {
+      success: false,
+      data: mockBuildings,
+      error: 'Failed to fetch building data'
     };
   }
+};
 
-  // Get location by ID
-  async getLocationById(locationId) {
-    try {
-      const locationsResult = await this.getLocations();
-      const location = locationsResult.data.list.find(loc => loc.id === parseInt(locationId));
+/**
+ * Get detailed information for a specific building
+ * @param {string} buildingId - The building ID to fetch
+ * @returns {Promise<{success: boolean, data: Object|null, error: string|null}>}
+ */
+export const getBuildingById = async (buildingId) => {
+  try {
+    const buildingsResult = await getBuildings();
+    
+    if (buildingsResult.success) {
+      const building = buildingsResult.data.find(b => b.id === buildingId);
       
-      if (!location) {
+      if (building) {
         return {
-          success: false,
-          error: 'Location not found',
-          message: `Location with ID ${locationId} was not found`
+          success: true,
+          data: building,
+          error: null
         };
       }
-
-      return {
-        success: true,
-        data: location,
-        isMockData: locationsResult.isMockData
-      };
-    } catch (error) {
+      
       return {
         success: false,
-        error: 'Failed to fetch location',
-        message: 'An error occurred while retrieving the location'
+        data: null,
+        error: `Building with ID ${buildingId} not found`
       };
     }
+    
+    return {
+      success: false,
+      data: null,
+      error: buildingsResult.error
+    };
+  } catch (error) {
+    console.error('Failed to fetch building by ID:', error);
+    return {
+      success: false,
+      data: null,
+      error: 'Failed to fetch building details'
+    };
   }
+};
 
-  // Create new location (mock implementation for now)
-  async createLocation(locationData) {
-    try {
-      await this.sleep();
-      
-      // Generate new ID
-      const newId = Date.now();
-      
-      const newLocation = {
-        id: newId,
-        name: locationData.name,
-        type: locationData.type,
-        capacity: parseInt(locationData.capacity),
-        building: locationData.building,
-        floor: parseInt(locationData.floor),
-        equipment: locationData.equipment || [],
-        description: locationData.description || '',
-        isActive: locationData.isActive !== false,
-        createdAt: dayjs().toISOString(),
-        updatedAt: dayjs().toISOString()
+/**
+ * Update building information
+ * @param {string} buildingId - The building ID to update
+ * @param {Object} updates - The fields to update
+ * @returns {Promise<{success: boolean, data: Object|null, error: string|null}>}
+ */
+export const updateBuilding = async (buildingId, updates) => {
+  try {
+    // This would typically make an API call to update the building
+    // For now, return mock success
+    console.log('Update building:', buildingId, updates);
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    const buildingResult = await getBuildingById(buildingId);
+    
+    if (buildingResult.success) {
+      const updatedBuilding = {
+        ...buildingResult.data,
+        ...updates,
+        lastUpdated: new Date().toISOString()
       };
-
-      return {
-        success: true,
-        data: newLocation,
-        message: 'Location created successfully'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to create location',
-        message: 'An error occurred while creating the location'
-      };
-    }
-  }
-
-  // Update location (mock implementation for now)
-  async updateLocation(locationId, updateData) {
-    try {
-      await this.sleep();
-      
-      const locationResult = await this.getLocationById(locationId);
-      if (!locationResult.success) {
-        return locationResult;
-      }
-
-      const updatedLocation = {
-        ...locationResult.data,
-        ...updateData,
-        id: locationResult.data.id, // Ensure ID doesn't change
-        updatedAt: dayjs().toISOString()
-      };
-
-      return {
-        success: true,
-        data: updatedLocation,
-        message: 'Location updated successfully'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to update location',
-        message: 'An error occurred while updating the location'
-      };
-    }
-  }
-
-  // Delete location (mock implementation for now)
-  async deleteLocation(locationId) {
-    try {
-      await this.sleep();
-      
-      const locationResult = await this.getLocationById(locationId);
-      if (!locationResult.success) {
-        return locationResult;
-      }
-
-      return {
-        success: true,
-        data: { id: locationId },
-        message: 'Location deleted successfully'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to delete location',
-        message: 'An error occurred while deleting the location'
-      };
-    }
-  }
-
-  // Get room types
-  async getRoomTypes() {
-    try {
-      await this.sleep(100);
-      
-      const roomTypes = [
-        { value: 'study_room', label: 'Study Room' },
-        { value: 'conference_room', label: 'Conference Room' },
-        { value: 'computer_lab', label: 'Computer Lab' },
-        { value: 'discussion_room', label: 'Discussion Room' },
-        { value: 'reading_room', label: 'Reading Room' },
-        { value: 'group_room', label: 'Group Room' }
-      ];
-
-      return {
-        success: true,
-        data: roomTypes,
-        message: 'Room types retrieved successfully'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to fetch room types',
-        message: 'An error occurred while retrieving room types'
-      };
-    }
-  }
-
-  // Get equipment options
-  async getEquipmentOptions() {
-    try {
-      await this.sleep(100);
-      
-      const equipmentOptions = [
-        'Whiteboard', 'Projector', 'Computer', 'WiFi', 'Power Outlets',
-        'Conference Table', 'Video Conferencing', 'Printer', 'Scanner',
-        'Reading Lamp', 'Round Table', 'Comfortable Chair', 'Large Display'
-      ];
-
-      return {
-        success: true,
-        data: equipmentOptions,
-        message: 'Equipment options retrieved successfully'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Failed to fetch equipment options',
-        message: 'An error occurred while retrieving equipment options'
-      };
-    }
-  }
-
-  // Get location statistics
-  async getLocationStats() {
-    try {
-      await this.sleep();
-      
-      const locationsResult = await this.getLocations();
-      const locations = locationsResult.data.list;
-      const roomTypesResult = await this.getRoomTypes();
-      const roomTypes = roomTypesResult.data;
-      
-      const totalLocations = locations.length;
-      const activeLocations = locations.filter(loc => loc.isActive).length;
-      const locationsByType = roomTypes.map(type => ({
-        type: type.value,
-        label: type.label,
-        count: locations.filter(loc => loc.type === type.value).length
-      }));
-      
-      const totalCapacity = locations.reduce((sum, loc) => sum + loc.capacity, 0);
-      const avgCapacity = totalLocations > 0 ? Math.round(totalCapacity / totalLocations) : 0;
       
       return {
         success: true,
-        data: {
-          totalLocations,
-          activeLocations,
-          inactiveLocations: totalLocations - activeLocations,
-          locationsByType,
-          totalCapacity,
-          avgCapacity
-        },
-        message: 'Location statistics retrieved successfully',
-        isMockData: locationsResult.isMockData
+        data: updatedBuilding,
+        error: null
       };
-    } catch (error) {
+    }
+    
+    return buildingResult;
+  } catch (error) {
+    console.error('Failed to update building:', error);
+    return {
+      success: false,
+      data: null,
+      error: 'Failed to update building'
+    };
+  }
+};
+
+/**
+ * Get building statistics summary
+ * @returns {Promise<{success: boolean, data: Object|null, error: string|null}>}
+ */
+export const getBuildingStats = async () => {
+  try {
+    const buildingsResult = await getBuildings();
+    
+    if (buildingsResult.success) {
+      const buildings = buildingsResult.data;
+      const stats = {
+        totalBuildings: buildings.length,
+        operationalBuildings: buildings.filter(b => b.status === 'operational').length,
+        maintenanceBuildings: buildings.filter(b => b.status === 'maintenance').length,
+        totalRooms: buildings.reduce((sum, b) => sum + (b.totalRooms || 0), 0),
+        availableRooms: buildings.reduce((sum, b) => sum + (b.availableRooms || 0), 0),
+        occupancyRate: 0
+      };
+      
+      stats.occupancyRate = stats.totalRooms > 0 
+        ? ((stats.totalRooms - stats.availableRooms) / stats.totalRooms * 100).toFixed(1)
+        : 0;
+      
       return {
-        success: false,
-        error: 'Failed to fetch location statistics',
-        message: 'An error occurred while retrieving location statistics'
+        success: true,
+        data: stats,
+        error: null
       };
     }
+    
+    return buildingsResult;
+  } catch (error) {
+    console.error('Failed to fetch building stats:', error);
+    return {
+      success: false,
+      data: null,
+      error: 'Failed to fetch building statistics'
+    };
   }
+};
 
-  // ================== Building CRUD Operations ==================
-
-  // Create a new building
-  async createBuilding(buildingData) {
-    try {
-      if (isSupabaseConfigured()) {
-        const { data, error } = await supabase
-          .from('Buildings')
-          .insert([buildingData])
-          .select();
-
-        if (error) throw error;
-        return { success: true, data: data[0] };
-      } else {
-        // Mock implementation
-        await this.sleep();
-        return { 
-          success: true, 
-          data: { id: Date.now(), ...buildingData }
-        };
-      }
-    } catch (error) {
-      console.error('Failed to create building:', error);
-      throw error;
-    }
-  }
-
-  // Update a building
-  async updateBuilding(buildingId, updateData) {
-    try {
-      if (isSupabaseConfigured()) {
-        const { data, error } = await supabase
-          .from('Buildings')
-          .update(updateData)
-          .eq('id', buildingId)
-          .select();
-
-        if (error) throw error;
-        return { success: true, data: data[0] };
-      } else {
-        // Mock implementation
-        await this.sleep();
-        return { 
-          success: true, 
-          data: { id: buildingId, ...updateData }
-        };
-      }
-    } catch (error) {
-      console.error('Failed to update building:', error);
-      throw error;
-    }
-  }
-
-  // Delete a building
-  async deleteBuilding(buildingId) {
-    try {
-      if (isSupabaseConfigured()) {
-        const { error } = await supabase
-          .from('Buildings')
-          .delete()
-          .eq('id', buildingId);
-
-        if (error) throw error;
-        return { success: true };
-      } else {
-        // Mock implementation
-        await this.sleep();
-        return { success: true };
-      }
-    } catch (error) {
-      console.error('Failed to delete building:', error);
-      throw error;
-    }
-  }
-
-  // ================== Room CRUD Operations ==================
-
-  // Create a new room
-  async createRoom(roomData) {
-    try {
-      if (isSupabaseConfigured()) {
-        const { data, error } = await supabase
-          .from('Rooms')
-          .insert([roomData])
-          .select();
-
-        if (error) throw error;
-        return { success: true, data: data[0] };
-      } else {
-        // Mock implementation
-        await this.sleep();
-        return { 
-          success: true, 
-          data: { id: Date.now(), ...roomData }
-        };
-      }
-    } catch (error) {
-      console.error('Failed to create room:', error);
-      throw error;
-    }
-  }
-
-  // Update a room
-  async updateRoom(roomId, updateData) {
-    try {
-      if (isSupabaseConfigured()) {
-        const { data, error } = await supabase
-          .from('Rooms')
-          .update(updateData)
-          .eq('id', roomId)
-          .select();
-
-        if (error) throw error;
-        return { success: true, data: data[0] };
-      } else {
-        // Mock implementation
-        await this.sleep();
-        return { 
-          success: true, 
-          data: { id: roomId, ...updateData }
-        };
-      }
-    } catch (error) {
-      console.error('Failed to update room:', error);
-      throw error;
-    }
-  }
-
-  // Delete a room
-  async deleteRoom(roomId) {
-    try {
-      if (isSupabaseConfigured()) {
-        const { error } = await supabase
-          .from('Rooms')
-          .delete()
-          .eq('id', roomId);
-
-        if (error) throw error;
-        return { success: true };
-      } else {
-        // Mock implementation
-        await this.sleep();
-        return { success: true };
-      }
-    } catch (error) {
-      console.error('Failed to delete room:', error);
-      throw error;
-    }
-  }
-}
-
-// Create and export service instance
-const locationService = new LocationService();
-
-export const getLocations = (filters) => locationService.getLocations(filters);
-export const getLocationById = (locationId) => locationService.getLocationById(locationId);
-export const createLocation = (locationData) => locationService.createLocation(locationData);
-export const updateLocation = (locationId, updateData) => locationService.updateLocation(locationId, updateData);
-export const deleteLocation = (locationId) => locationService.deleteLocation(locationId);
-export const getRoomTypes = () => locationService.getRoomTypes();
-export const getEquipmentOptions = () => locationService.getEquipmentOptions();
-export const getLocationStats = () => locationService.getLocationStats();
-
-// Building operations
-export const createBuilding = (buildingData) => locationService.createBuilding(buildingData);
-export const updateBuilding = (buildingId, updateData) => locationService.updateBuilding(buildingId, updateData);
-export const deleteBuilding = (buildingId) => locationService.deleteBuilding(buildingId);
-
-// Room operations  
-export const createRoom = (roomData) => locationService.createRoom(roomData);
-export const updateRoom = (roomId, updateData) => locationService.updateRoom(roomId, updateData);
-export const deleteRoom = (roomId) => locationService.deleteRoom(roomId);
-
-// Default export
 export default {
-  getLocations,
-  getLocationById,
-  createLocation,
-  updateLocation,
-  deleteLocation,
-  getRoomTypes,
-  getEquipmentOptions,
-  getLocationStats,
-  createBuilding,
+  getBuildings,
+  getBuildingById, 
   updateBuilding,
-  deleteBuilding,
-  createRoom,
-  updateRoom,
-  deleteRoom
+  getBuildingStats
 };

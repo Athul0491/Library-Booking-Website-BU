@@ -43,6 +43,13 @@ import {
 import dayjs from 'dayjs';
 import dataMonitorService from '../services/dataMonitorService';
 import apiService, { LIBRARY_CODES } from '../services/apiService';
+import { useConnection } from '../contexts/ConnectionContext';
+import { 
+  ConnectionStatus, 
+  TableSkeleton, 
+  DataUnavailablePlaceholder,
+  PageLoadingSkeleton 
+} from '../components/SkeletonComponents';
 
 const { Title, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -52,6 +59,7 @@ const { Option } = Select;
  * Data Monitor Dashboard Component
  */
 const DataMonitorPage = () => {
+  const connection = useConnection();
   const [loading, setLoading] = useState(false);
   const [systemHealth, setSystemHealth] = useState({});
   const [availabilityData, setAvailabilityData] = useState([]);
@@ -63,20 +71,24 @@ const DataMonitorPage = () => {
 
   // Load all data when component mounts
   useEffect(() => {
-    loadAllData();
-    // Set up auto-refresh every 30 seconds
-    const interval = setInterval(loadAllData, 30000);
-    setRefreshInterval(interval);
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, []);
+    if (connection.isDataAvailable) {
+      loadAllData();
+      // Set up auto-refresh every 30 seconds
+      const interval = setInterval(loadAllData, 30000);
+      setRefreshInterval(interval);
+      
+      return () => {
+        if (interval) clearInterval(interval);
+      };
+    }
+  }, [connection.isDataAvailable]);
 
   // Reload data when library or date changes
   useEffect(() => {
-    loadAvailabilityData();
-  }, [selectedLibrary, selectedDate]);
+    if (connection.isDataAvailable) {
+      loadAvailabilityData();
+    }
+  }, [selectedLibrary, selectedDate, connection.isDataAvailable]);
 
   /**
    * Load all monitoring data
@@ -278,24 +290,37 @@ const DataMonitorPage = () => {
         Monitor data from bub-backend API, bu-book frontend, and real-time availability systems.
       </Paragraph>
 
-      {/* System Health Overview */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-        <Col xs={24} sm={8}>
-          <Card>
-            <Statistic
-              title="bub-backend Status"
-              value={systemHealth.bubBackend?.status || 'Unknown'}
-              prefix={
-                <Badge 
-                  status={getStatusColor(systemHealth.bubBackend?.status)} 
-                  icon={systemHealth.bubBackend?.status === 'running' ? <CheckCircleOutlined /> : <WarningOutlined />}
+      {/* Connection Status */}
+      <ConnectionStatus />
+
+      {/* Show loading skeleton when data is not available */}
+      {!connection.isDataAvailable ? (
+        <DataUnavailablePlaceholder 
+          title="Data Monitor Unavailable"
+          description="Data monitoring requires active connections to display system health and statistics."
+        />
+      ) : loading ? (
+        <PageLoadingSkeleton />
+      ) : (
+        <>
+          {/* System Health Overview */}
+          <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+            <Col xs={24} sm={8}>
+              <Card>
+                <Statistic
+                  title="bub-backend Status"
+                  value={systemHealth.bubBackend?.status || 'Unknown'}
+                  prefix={
+                    <Badge 
+                      status={getStatusColor(systemHealth.bubBackend?.status)} 
+                      icon={systemHealth.bubBackend?.status === 'running' ? <CheckCircleOutlined /> : <WarningOutlined />}
+                    />
+                  }
+                  valueStyle={{ 
+                    color: systemHealth.bubBackend?.status === 'running' ? '#3f8600' : '#cf1322' 
+                  }}
                 />
-              }
-              valueStyle={{ 
-                color: systemHealth.bubBackend?.status === 'running' ? '#3f8600' : '#cf1322' 
-              }}
-            />
-          </Card>
+              </Card>
         </Col>
         <Col xs={24} sm={8}>
           <Card>
@@ -484,6 +509,8 @@ const DataMonitorPage = () => {
           </TabPane>
         </Tabs>
       </Card>
+        </>
+      )}
     </div>
   );
 };

@@ -1,9 +1,11 @@
 import requests
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from urllib.parse import urlencode
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
+CORS(app)
 
 # Mapping from 3-letter prefix to Location ID (LID)
 LIBRARY_LIDS = {
@@ -25,9 +27,11 @@ def parse_slot_time(time_str: str):
 def proxy_availability():
     try:
         # ✅ Get library + dates from request
-        lid = request.json.get("library", "")
-        if not lid:
+        library_code = request.json.get("library", "")
+        if not library_code or library_code not in LIBRARY_LIDS:
             return jsonify({"error": "Invalid library prefix"}), 400
+        
+        lid = LIBRARY_LIDS[library_code]
 
         start_date = request.json.get("start", datetime.today().strftime("%Y-%m-%d"))
         end_date = request.json.get("end", start_date)
