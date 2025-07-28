@@ -258,18 +258,21 @@ const AvailabilityPage = () => {
                       title={
                         <Space>
                           <ClockCircleOutlined />
-                          <span>
-                            {dayjs(slot.startTime).format('HH:mm')} - {dayjs(slot.endTime).format('HH:mm')}
-                          </span>
-                          <Tag color={slot.available ? 'green' : 'red'}>
-                            {slot.available ? 'Available' : 'Unavailable'}
+                          <span>{slot.time}</span>
+                          <Tag color={slot.status === 'available' ? 'green' : 'red'}>
+                            {slot.status === 'available' ? 'Available' : 'Booked'}
                           </Tag>
                         </Space>
                       }
                       description={
                         <div>
-                          <div>Duration: {slot.duration} minutes</div>
-                          <div>Item ID: {slot.itemId}</div>
+                          <div><strong>Room:</strong> {slot.room}</div>
+                          <div><strong>Capacity:</strong> {slot.capacity} people</div>
+                          {slot.itemId && (
+                            <div style={{ fontSize: '12px', color: '#666' }}>
+                              Item ID: {slot.itemId}
+                            </div>
+                          )}
                           {slot.checksum && (
                             <div style={{ fontSize: '12px', color: '#999' }}>
                               Checksum: {slot.checksum}

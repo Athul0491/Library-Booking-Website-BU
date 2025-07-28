@@ -4,6 +4,7 @@
  */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import apiService from '../services/apiService';
+import supabaseService from '../services/supabaseService';
 
 const ConnectionContext = createContext();
 
@@ -33,10 +34,10 @@ export const ConnectionProvider = ({ children }) => {
     lastFullCheck: null
   });
 
-  // Test Supabase connection using apiService
+  // Test Supabase connection using supabaseService
   const checkSupabaseConnection = async () => {
     try {
-      const result = await apiService.testSupabaseConnection();
+      const result = await supabaseService.testConnection();
       const timestamp = new Date().toISOString();
       
       return {

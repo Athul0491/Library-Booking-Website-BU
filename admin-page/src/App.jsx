@@ -70,6 +70,6 @@ const App = () => {
     </ConnectionProvider>
     </DataSourceProvider>
   );
-};
+}
 
 export default App;
