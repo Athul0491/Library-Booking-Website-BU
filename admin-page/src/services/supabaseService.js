@@ -17,7 +17,7 @@ class SupabaseService {
   async testConnection() {
     try {
       const { data, error } = await this.client
-        .from('Bookings')
+        .from('bookings')
         .select('count', { count: 'exact', head: true });
       
       if (error) {
@@ -42,7 +42,7 @@ class SupabaseService {
   async getBookingStats() {
     try {
       const { data, error } = await this.client
-        .from('Bookings')
+        .from('bookings')
         .select(`
           id, user_email, user_name, booking_reference,
           building_name, building_short_name, room_name,
@@ -109,7 +109,7 @@ class SupabaseService {
       const end = start + limit - 1;
       
       let query = this.client
-        .from('Bookings')
+        .from('bookings')
         .select(`
           id, user_email, user_name, booking_reference,
           building_name, building_short_name, room_name,
@@ -163,7 +163,7 @@ class SupabaseService {
   async getUserStats() {
     try {
       const { data: bookingsData, error: bookingsError } = await this.client
-        .from('Bookings')
+        .from('bookings')
         .select('user_email, created_at');
       
       if (bookingsError) {
@@ -171,7 +171,7 @@ class SupabaseService {
       }
       
       const { data: profilesData, error: profilesError } = await this.client
-        .from('UserProfiles')
+        .from('user_profiles')
         .select('email, total_bookings, active_bookings, cancelled_bookings, last_activity_at, created_at');
       
       if (profilesError) {
@@ -217,15 +217,15 @@ class SupabaseService {
   async getBuildingStats() {
     try {
       const { data: buildingsData, error: buildingsError } = await this.client
-        .from('Buildings')
-        .select('id, name, short_name, address, available, libcal_id, lid');
+        .from('buildings')
+        .select('id, building_name, building_short_name, location, is_active, libcal_id, lid');
       
       if (buildingsError) {
         return { success: false, error: buildingsError.message };
       }
       
       const { data: bookingsData, error: bookingsError } = await this.client
-        .from('Bookings')
+        .from('bookings')
         .select('building_short_name, building_name, room_name, created_at');
       
       if (bookingsError) {
@@ -287,7 +287,7 @@ class SupabaseService {
     try {
       // Get recent access logs
       const { data: accessLogs, error: accessError } = await this.client
-        .from('AccessLogs')
+        .from('access_logs')
         .select('method, url, status_code, response_time_ms, timestamp')
         .order('timestamp', { ascending: false })
         .limit(100);
@@ -298,7 +298,7 @@ class SupabaseService {
       
       // Get error logs
       const { data: errorLogs, error: errorLogError } = await this.client
-        .from('ErrorLogs')
+        .from('error_logs')
         .select('error_level, error_type, error_message, service_name, created_at, is_resolved')
         .order('created_at', { ascending: false })
         .limit(50);
@@ -309,7 +309,7 @@ class SupabaseService {
       
       // Get system status
       const { data: systemStatus, error: statusError } = await this.client
-        .from('SystemStatus')
+        .from('system_status')
         .select('service_name, service_type, status, response_time_ms, check_timestamp')
         .order('check_timestamp', { ascending: false })
         .limit(20);
@@ -349,7 +349,7 @@ class SupabaseService {
       }
       
       const { data, error } = await this.client
-        .from('Bookings')
+        .from('bookings')
         .update(updateData)
         .eq('id', bookingId)
         .select();
@@ -374,7 +374,7 @@ class SupabaseService {
   async getSystemConfig() {
     try {
       const { data, error } = await this.client
-        .from('SystemConfig')
+        .from('system_config')
         .select('config_key, config_value, description, is_active')
         .eq('is_active', true);
       
