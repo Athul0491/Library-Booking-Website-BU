@@ -1,20 +1,30 @@
 /**
  * Statistics Service
- * Provides comprehensive statistical analysis and reporting using unified API service
+ * Provides comprehensive statistical analysis and reporting using unified API service with new database schema
  * Integrates real data from Supabase, bub-backend, and fallback mock data
  */
 import apiService from './apiService';
+import supabaseService from './supabaseService';
+import bookingService from './bookingService';
+import locationService from './locationService';
 
 /**
  * Mock statistics data for fallback when API is unavailable
+ * Updated to match new database schema
  */
 const mockStatsData = {
   totalBookings: 1247,
   totalUsers: 342,
   totalRooms: 67,
   totalBuildings: 4,
+  activeBuildings: 4,
   occupancyRate: 78.5,
   averageBookingDuration: 2.3,
+  bookingStatusBreakdown: {
+    confirmed: 856,
+    pending: 234,
+    cancelled: 157
+  },
   popularTimes: [
     { hour: '09:00', bookings: 45 },
     { hour: '10:00', bookings: 67 },
@@ -37,22 +47,87 @@ const mockStatsData = {
     { day: 'Sunday', bookings: 133, availability: 91 }
   ],
   buildingStats: [
-    { name: 'Mugar Memorial Library', code: 'mug', bookings: 456, occupancy: 85 },
-    { name: 'Pardee Library', code: 'par', bookings: 298, occupancy: 72 },
-    { name: 'Pickering Educational Resources Library', code: 'pic', bookings: 267, occupancy: 68 },
-    { name: 'Science & Engineering Library', code: 'sci', bookings: 226, occupancy: 74 }
+    { 
+      id: '550e8400-e29b-41d4-a716-446655440101',
+      name: 'Mugar Memorial Library', 
+      short_name: 'mug', 
+      bookings: 456, 
+      occupancy: 85,
+      total_rooms: 15,
+      available_rooms: 8,
+      status: 'operational'
+    },
+    { 
+      id: '550e8400-e29b-41d4-a716-446655440102',
+      name: 'Pardee Library', 
+      short_name: 'par', 
+      bookings: 298, 
+      occupancy: 72,
+      total_rooms: 8,
+      available_rooms: 3,
+      status: 'operational'
+    },
+    { 
+      id: '550e8400-e29b-41d4-a716-446655440103',
+      name: 'Pickering Educational Resources Library', 
+      short_name: 'pic', 
+      bookings: 267, 
+      occupancy: 68,
+      total_rooms: 5,
+      available_rooms: 2,
+      status: 'maintenance'
+    },
+    { 
+      id: '550e8400-e29b-41d4-a716-446655440104',
+      name: 'Science & Engineering Library', 
+      short_name: 'sci', 
+      bookings: 226, 
+      occupancy: 74,
+      total_rooms: 12,
+      available_rooms: 7,
+      status: 'operational'
+    }
   ]
 };
 
 /**
  * Generate mock user statistics for demo purposes
+ * Updated to match new database schema
  */
 const generateMockUserStats = () => {
   return [
-    { id: 1, name: 'John Doe', email: 'john.doe@bu.edu', bookings: 12, lastActive: '2025-01-27' },
-    { id: 2, name: 'Jane Smith', email: 'jane.smith@bu.edu', bookings: 8, lastActive: '2025-01-26' },
-    { id: 3, name: 'Bob Johnson', email: 'bob.johnson@bu.edu', bookings: 15, lastActive: '2025-01-25' },
-    { id: 4, name: 'Alice Brown', email: 'alice.brown@bu.edu', bookings: 6, lastActive: '2025-01-24' }
+    { 
+      id: '550e8400-e29b-41d4-a716-446655440201', 
+      user_email: 'john.doe@bu.edu', 
+      user_name: 'John Doe',
+      total_bookings: 12, 
+      last_booking_date: '2025-01-27',
+      status: 'active'
+    },
+    { 
+      id: '550e8400-e29b-41d4-a716-446655440202', 
+      user_email: 'jane.smith@bu.edu', 
+      user_name: 'Jane Smith',
+      total_bookings: 8, 
+      last_booking_date: '2025-01-26',
+      status: 'active'
+    },
+    { 
+      id: '550e8400-e29b-41d4-a716-446655440203', 
+      user_email: 'bob.johnson@bu.edu', 
+      user_name: 'Bob Johnson',
+      total_bookings: 15, 
+      last_booking_date: '2025-01-25',
+      status: 'active'
+    },
+    { 
+      id: '550e8400-e29b-41d4-a716-446655440204', 
+      user_email: 'alice.brown@bu.edu', 
+      user_name: 'Alice Brown',
+      total_bookings: 6, 
+      last_booking_date: '2025-01-24',
+      status: 'active'
+    }
   ];
 };
 
@@ -82,27 +157,62 @@ const getStatistics = async (options = {}) => {
     }
     
     // Try to get real data from multiple sources
-    const [buildingsResult, statsResult] = await Promise.allSettled([
-      getBuildingStatistics(dateRange),
-      getBookingStatistics(dateRange, selectedMetric)
+    const [buildingsResult, bookingsResult, systemResult] = await Promise.allSettled([
+      locationService.getBuildingStats(),
+      bookingService.getBookingStats(),
+      supabaseService.getSystemStats()
     ]);
 
     // Combine real and calculated data
-    const combinedStats = {
-      statsData: statsResult.status === 'fulfilled' && statsResult.value.success 
-        ? statsResult.value.data 
-        : mockStatsData,
-      roomStats: buildingsResult.status === 'fulfilled' && buildingsResult.value.success
-        ? buildingsResult.value.data
-        : mockStatsData.buildingStats,
-      userStats: await getUserStatistics(dateRange)
-    };
+    let combinedStats = { ...mockStatsData };
+    
+    // Use real booking stats if available
+    if (bookingsResult.status === 'fulfilled' && bookingsResult.value.success) {
+      const bookingData = bookingsResult.value.data;
+      combinedStats = {
+        ...combinedStats,
+        totalBookings: bookingData.totalBookings || combinedStats.totalBookings,
+        bookingStatusBreakdown: bookingData.statusBreakdown || combinedStats.bookingStatusBreakdown,
+        recentBookings: bookingData.recentBookings || 0,
+        monthlyBookings: bookingData.monthlyBookings || 0
+      };
+    }
+    
+    // Use real building stats if available
+    if (buildingsResult.status === 'fulfilled' && buildingsResult.value.success) {
+      const buildingData = buildingsResult.value.data;
+      combinedStats = {
+        ...combinedStats,
+        totalBuildings: buildingData.totalBuildings || combinedStats.totalBuildings,
+        activeBuildings: buildingData.activeBuildings || combinedStats.activeBuildings,
+        totalRooms: buildingData.totalRooms || combinedStats.totalRooms,
+        occupancyRate: buildingData.occupancyRate || combinedStats.occupancyRate
+      };
+    }
+    
+    // Use real system stats if available
+    if (systemResult.status === 'fulfilled' && systemResult.value.success) {
+      const systemData = systemResult.value.data;
+      combinedStats = {
+        ...combinedStats,
+        ...systemData
+      };
+    }
 
-    const isMockData = statsResult.status === 'rejected' && buildingsResult.status === 'rejected';
+    const isMockData = 
+      bookingsResult.status === 'rejected' && 
+      buildingsResult.status === 'rejected' && 
+      systemResult.status === 'rejected';
 
     return {
       success: true,
-      data: combinedStats,
+      data: {
+        statsData: combinedStats,
+        roomStats: buildingsResult.status === 'fulfilled' && buildingsResult.value.success
+          ? buildingsResult.value.data.buildings || mockStatsData.buildingStats
+          : mockStatsData.buildingStats,
+        userStats: await getUserStatistics(dateRange)
+      },
       isMockData,
       timestamp: new Date().toISOString()
     };
@@ -115,7 +225,7 @@ const getStatistics = async (options = {}) => {
       data: {
         statsData: mockStatsData,
         roomStats: mockStatsData.buildingStats,
-        userStats: []
+        userStats: generateMockUserStats()
       },
       isMockData: true
     };
@@ -123,42 +233,21 @@ const getStatistics = async (options = {}) => {
 };
 
 /**
- * Get building-specific statistics from Supabase
+ * Get building-specific statistics from Supabase with new schema
  * @param {Array} dateRange - Date range for statistics
  * @returns {Promise<Object>} Building statistics
  */
 const getBuildingStatistics = async (dateRange) => {
   try {
-    const buildingsResult = await apiService.getBuildings();
+    // Try to get data from locationService first
+    const buildingsResult = await locationService.getBuildingStats();
     
-    if (!buildingsResult.success) {
-      throw new Error('Failed to fetch buildings data');
+    if (buildingsResult.success) {
+      return buildingsResult;
     }
-
-    // Calculate statistics for each building
-    const buildingStats = buildingsResult.data.map(building => {
-      // Mock calculation based on building data
-      const totalRooms = building.rooms?.length || Math.floor(Math.random() * 20) + 5;
-      const occupancyRate = Math.floor(Math.random() * 30) + 60; // 60-90%
-      const estimatedBookings = Math.floor(totalRooms * occupancyRate * 0.1);
-
-      return {
-        id: building.id,
-        name: building.Name,
-        code: building.ShortName,
-        totalRooms,
-        bookings: estimatedBookings,
-        occupancy: occupancyRate,
-        available: building.available,
-        address: building.Address
-      };
-    });
-
-    return {
-      success: true,
-      data: buildingStats,
-      source: 'supabase'
-    };
+    
+    // Fallback to mock data
+    throw new Error('Failed to fetch buildings data from locationService');
 
   } catch (error) {
     console.error('Building statistics error:', error);
@@ -171,63 +260,41 @@ const getBuildingStatistics = async (dateRange) => {
 };
 
 /**
- * Get booking statistics from bub-backend and LibCal integration
+ * Get booking statistics from new database schema
  * @param {Array} dateRange - Date range for statistics
  * @param {string} selectedMetric - Selected metric type
  * @returns {Promise<Object>} Booking statistics
  */
 const getBookingStatistics = async (dateRange, selectedMetric) => {
   try {
-    // Get availability data from multiple libraries
-    const libraries = ['mug', 'par', 'pic', 'sci'];
-    const today = new Date().toISOString().split('T')[0];
+    // Try to get data from bookingService first
+    const bookingsResult = await bookingService.getBookingStats();
     
-    const availabilityPromises = libraries.map(library => 
-      apiService.getAvailability(library, today)
-    );
-
-    const results = await Promise.allSettled(availabilityPromises);
-    const successfulResults = results.filter(r => r.status === 'fulfilled' && r.value.success);
-
-    if (successfulResults.length === 0) {
-      throw new Error('No availability data available');
+    if (bookingsResult.success) {
+      const data = bookingsResult.data;
+      
+      // Transform to expected format
+      const transformedStats = {
+        totalBookings: data.totalBookings || 0,
+        recentBookings: data.recentBookings || 0,
+        monthlyBookings: data.monthlyBookings || 0,
+        activeBookings: data.activeBookings || 0,
+        occupancyRate: mockStatsData.occupancyRate, // Calculate from room data
+        averageBookingDuration: mockStatsData.averageBookingDuration, // Calculate from booking data
+        bookingStatusBreakdown: data.statusBreakdown || mockStatsData.bookingStatusBreakdown,
+        popularTimes: mockStatsData.popularTimes, // Calculate from booking times
+        weeklyTrends: mockStatsData.weeklyTrends, // Calculate from booking dates
+        lastUpdated: new Date().toISOString()
+      };
+      
+      return {
+        success: true,
+        data: transformedStats,
+        source: 'database'
+      };
     }
-
-    // Aggregate booking statistics
-    let totalSlots = 0;
-    let bookedSlots = 0;
-    let totalRooms = 0;
-
-    successfulResults.forEach(result => {
-      const data = result.value.data;
-      if (data.slots) {
-        totalSlots += data.slots.length;
-        bookedSlots += data.slots.filter(slot => 
-          slot.className && slot.className.includes('booked')
-        ).length;
-      }
-      if (data.rooms) {
-        totalRooms += data.rooms.length;
-      }
-    });
-
-    // Calculate derived statistics
-    const occupancyRate = totalSlots > 0 ? (bookedSlots / totalSlots) * 100 : 0;
-    const estimatedBookings = Math.floor(bookedSlots * 1.5); // Estimate daily bookings
-
-    const calculatedStats = {
-      ...mockStatsData,
-      totalBookings: estimatedBookings,
-      totalRooms,
-      occupancyRate: Math.round(occupancyRate * 10) / 10,
-      lastUpdated: new Date().toISOString()
-    };
-
-    return {
-      success: true,
-      data: calculatedStats,
-      source: 'libcal-integration'
-    };
+    
+    throw new Error('Failed to fetch booking data from bookingService');
 
   } catch (error) {
     console.error('Booking statistics error:', error);

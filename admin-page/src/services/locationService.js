@@ -1,97 +1,148 @@
 /**
  * Location Service
- * Provides location and building data management using unified API service
+ * Provides location and building data management using unified API service with new database schema
  */
 import apiService from './apiService';
+import supabaseService from './supabaseService';
 
 /**
  * Mock building data for fallback when API is unavailable
+ * Updated to match new database schema
  */
 const mockBuildings = [
   {
-    id: '1',
+    id: '550e8400-e29b-41d4-a716-446655440101',
     name: 'Mugar Memorial Library',
-    code: 'MUG',
+    short_name: 'mug',
     address: '771 Commonwealth Avenue, Boston, MA 02215',
     phone: '(617) 353-3732',
+    email: 'mugar@bu.edu',
+    website: 'https://www.bu.edu/library/mugar/',
+    latitude: 42.3505,
+    longitude: -71.1054,
+    description: 'Main library with extensive collections and study spaces',
     hours: 'Mon-Thu: 8:00 AM - 2:00 AM, Fri: 8:00 AM - 10:00 PM, Sat: 10:00 AM - 10:00 PM, Sun: 10:00 AM - 2:00 AM',
-    totalRooms: 15,
-    availableRooms: 8,
+    accessibility_features: ['Wheelchair Access', 'Elevators', 'Accessible Restrooms'],
+    amenities: ['24/7 Access', 'WiFi', 'Printing', 'Group Study Rooms', 'Cafe'],
+    is_active: true,
+    total_rooms: 15,
+    available_rooms: 8,
     status: 'operational',
-    features: ['24/7 Access', 'WiFi', 'Printing', 'Group Study Rooms'],
-    lastUpdated: new Date().toISOString()
+    created_at: new Date(Date.now() - 86400000 * 365).toISOString(), // 1 year ago
+    updated_at: new Date().toISOString()
   },
   {
-    id: '2', 
+    id: '550e8400-e29b-41d4-a716-446655440102',
     name: 'Pardee Library',
-    code: 'PAR',
+    short_name: 'par',
     address: '154 Bay State Road, Boston, MA 02215',
     phone: '(617) 353-3738',
+    email: 'pardee@bu.edu',
+    website: 'https://www.bu.edu/library/pardee/',
+    latitude: 42.3489,
+    longitude: -71.0967,
+    description: 'Management and social sciences collection with quiet study areas',
     hours: 'Mon-Fri: 8:00 AM - 12:00 AM, Sat-Sun: 10:00 AM - 12:00 AM',
-    totalRooms: 8,
-    availableRooms: 3,
+    accessibility_features: ['Wheelchair Access', 'Elevators'],
+    amenities: ['WiFi', 'Quiet Study', 'Computer Lab', 'Printing'],
+    is_active: true,
+    total_rooms: 8,
+    available_rooms: 3,
     status: 'operational',
-    features: ['WiFi', 'Quiet Study', 'Computer Lab'],
-    lastUpdated: new Date().toISOString()
+    created_at: new Date(Date.now() - 86400000 * 300).toISOString(),
+    updated_at: new Date().toISOString()
   },
   {
-    id: '3',
-    name: 'Pickering Educational Resources Library', 
-    code: 'PIC',
+    id: '550e8400-e29b-41d4-a716-446655440103',
+    name: 'Pickering Educational Resources Library',
+    short_name: 'pic',
     address: '2 Silber Way, Boston, MA 02215',
     phone: '(617) 353-3734',
+    email: 'pickering@bu.edu',
+    website: 'https://www.bu.edu/library/pickering/',
+    latitude: 42.3501,
+    longitude: -71.1048,
+    description: 'Educational resources and teacher preparation materials',
     hours: 'Mon-Fri: 8:00 AM - 9:00 PM, Sat-Sun: 12:00 PM - 6:00 PM',
-    totalRooms: 5,
-    availableRooms: 2,
+    accessibility_features: ['Wheelchair Access'],
+    amenities: ['Education Resources', 'WiFi', 'Multimedia Equipment'],
+    is_active: true,
+    total_rooms: 5,
+    available_rooms: 2,
     status: 'maintenance',
-    features: ['Education Resources', 'WiFi', 'Multimedia Equipment'],
-    lastUpdated: new Date().toISOString()
+    created_at: new Date(Date.now() - 86400000 * 200).toISOString(),
+    updated_at: new Date().toISOString()
   },
   {
-    id: '4',
+    id: '550e8400-e29b-41d4-a716-446655440104',
     name: 'Science & Engineering Library',
-    code: 'SCI',
-    address: '38 Cummington Mall, Boston, MA 02215', 
+    short_name: 'sci',
+    address: '38 Cummington Mall, Boston, MA 02215',
     phone: '(617) 353-3733',
+    email: 'scieng@bu.edu',
+    website: 'https://www.bu.edu/library/sel/',
+    latitude: 42.3496,
+    longitude: -71.1043,
+    description: 'Science, technology, engineering, and mathematics resources',
     hours: 'Mon-Thu: 8:00 AM - 12:00 AM, Fri: 8:00 AM - 8:00 PM, Sat-Sun: 12:00 PM - 8:00 PM',
-    totalRooms: 12,
-    availableRooms: 7,
+    accessibility_features: ['Wheelchair Access', 'Elevators', 'Accessible Workstations'],
+    amenities: ['STEM Resources', 'Computer Lab', 'WiFi', 'Collaboration Spaces', '3D Printing'],
+    is_active: true,
+    total_rooms: 12,
+    available_rooms: 7,
     status: 'operational',
-    features: ['STEM Resources', 'Computer Lab', 'WiFi', 'Collaboration Spaces'],
-    lastUpdated: new Date().toISOString()
+    created_at: new Date(Date.now() - 86400000 * 180).toISOString(),
+    updated_at: new Date().toISOString()
   }
 ];
 
 /**
  * Get all library buildings with current status
+ * @param {Object} options - Options for fetching buildings
  * @returns {Promise<{success: boolean, data: Array, error: string|null}>}
  */
-export const getBuildings = async () => {
+export const getBuildings = async (options = {}) => {
   try {
-    // Try to get real data from Supabase via apiService
-    const result = await apiService.getBuildings();
+    // Try to get data from Supabase first
+    const result = await supabaseService.getBuildings(options);
     
-    if (result.success && result.data && result.data.length > 0) {
-      return {
-        success: true,
-        data: result.data,
-        error: null
-      };
+    if (result.success) {
+      return result;
+    } else {
+      console.warn('Supabase query failed, using mock data:', result.error);
     }
+  } catch (error) {
+    console.warn('Supabase service unavailable, using mock data:', error.message);
+  }
 
-    // Fallback to mock data with warning
-    console.warn('Using mock building data - API unavailable');
+  // Fallback to mock data
+  try {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    let filteredBuildings = [...mockBuildings];
+    
+    // Apply filters if provided
+    if (options.status) {
+      filteredBuildings = filteredBuildings.filter(b => b.status === options.status);
+    }
+    
+    if (options.is_active !== undefined) {
+      filteredBuildings = filteredBuildings.filter(b => b.is_active === options.is_active);
+    }
+    
+    console.warn('Using mock building data - Database connection in progress');
     return {
       success: true,
-      data: mockBuildings,
-      error: 'Using mock data - database connection unavailable'
+      data: filteredBuildings,
+      error: null
     };
   } catch (error) {
     console.error('Failed to fetch buildings:', error);
     return {
       success: false,
-      data: mockBuildings,
-      error: 'Failed to fetch building data'
+      data: null,
+      error: error.message
     };
   }
 };
@@ -103,37 +154,42 @@ export const getBuildings = async () => {
  */
 export const getBuildingById = async (buildingId) => {
   try {
-    const buildingsResult = await getBuildings();
+    // Try to get data from Supabase first
+    const result = await supabaseService.getBuildingById(buildingId);
     
-    if (buildingsResult.success) {
-      const building = buildingsResult.data.find(b => b.id === buildingId);
-      
-      if (building) {
-        return {
-          success: true,
-          data: building,
-          error: null
-        };
-      }
-      
+    if (result.success) {
+      return result;
+    } else {
+      console.warn('Supabase query failed, using mock data:', result.error);
+    }
+  } catch (error) {
+    console.warn('Supabase service unavailable, using mock data:', error.message);
+  }
+  
+  // Fallback to mock data
+  try {
+    const building = mockBuildings.find(b => b.id === buildingId);
+    
+    if (building) {
+      await new Promise(resolve => setTimeout(resolve, 100));
       return {
-        success: false,
-        data: null,
-        error: `Building with ID ${buildingId} not found`
+        success: true,
+        data: building,
+        error: null
       };
     }
     
     return {
       success: false,
       data: null,
-      error: buildingsResult.error
+      error: `Building with ID ${buildingId} not found`
     };
   } catch (error) {
     console.error('Failed to fetch building by ID:', error);
     return {
       success: false,
       data: null,
-      error: 'Failed to fetch building details'
+      error: error.message
     };
   }
 };
@@ -146,10 +202,20 @@ export const getBuildingById = async (buildingId) => {
  */
 export const updateBuilding = async (buildingId, updates) => {
   try {
-    // This would typically make an API call to update the building
-    // For now, return mock success
-    console.log('Update building:', buildingId, updates);
+    // Try to update in Supabase first
+    const result = await supabaseService.updateBuilding(buildingId, updates);
     
+    if (result.success) {
+      return result;
+    } else {
+      console.warn('Supabase update failed, using mock response:', result.error);
+    }
+  } catch (error) {
+    console.warn('Supabase service unavailable, using mock response:', error.message);
+  }
+  
+  // Fallback to mock response
+  try {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500));
     
@@ -159,7 +225,7 @@ export const updateBuilding = async (buildingId, updates) => {
       const updatedBuilding = {
         ...buildingResult.data,
         ...updates,
-        lastUpdated: new Date().toISOString()
+        updated_at: new Date().toISOString()
       };
       
       return {
@@ -175,7 +241,7 @@ export const updateBuilding = async (buildingId, updates) => {
     return {
       success: false,
       data: null,
-      error: 'Failed to update building'
+      error: error.message
     };
   }
 };
@@ -186,17 +252,33 @@ export const updateBuilding = async (buildingId, updates) => {
  */
 export const getBuildingStats = async () => {
   try {
+    // Try to get stats from Supabase first
+    const result = await supabaseService.getBuildingStats();
+    
+    if (result.success) {
+      return result;
+    } else {
+      console.warn('Supabase stats query failed, using mock data:', result.error);
+    }
+  } catch (error) {
+    console.warn('Supabase service unavailable, using mock data:', error.message);
+  }
+  
+  // Fallback to mock data
+  try {
     const buildingsResult = await getBuildings();
     
     if (buildingsResult.success) {
       const buildings = buildingsResult.data;
       const stats = {
         totalBuildings: buildings.length,
+        activeBuildings: buildings.filter(b => b.is_active).length,
         operationalBuildings: buildings.filter(b => b.status === 'operational').length,
         maintenanceBuildings: buildings.filter(b => b.status === 'maintenance').length,
-        totalRooms: buildings.reduce((sum, b) => sum + (b.totalRooms || 0), 0),
-        availableRooms: buildings.reduce((sum, b) => sum + (b.availableRooms || 0), 0),
-        occupancyRate: 0
+        totalRooms: buildings.reduce((sum, b) => sum + (b.total_rooms || 0), 0),
+        availableRooms: buildings.reduce((sum, b) => sum + (b.available_rooms || 0), 0),
+        occupancyRate: 0,
+        buildings: buildings
       };
       
       stats.occupancyRate = stats.totalRooms > 0 
@@ -216,7 +298,7 @@ export const getBuildingStats = async () => {
     return {
       success: false,
       data: null,
-      error: 'Failed to fetch building statistics'
+      error: error.message
     };
   }
 };

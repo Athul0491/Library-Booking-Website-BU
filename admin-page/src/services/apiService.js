@@ -60,12 +60,10 @@ class ApiService {
       });
       return { success: true, connected: true, error: null };
     } catch (healthError) {
-      // Fallback to availability endpoint test
+      // Fallback to buildings endpoint test
       try {
-        await this.makeRequest(`${this.bubBackendUrl}/api/availability`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ library: 'mug', start: '2025-01-01', end: '2025-01-01' })
+        await this.makeRequest(`${this.bubBackendUrl}/api/buildings`, {
+          method: 'GET'
         });
         return { success: true, connected: true, error: null };
       } catch (error) {
@@ -76,20 +74,20 @@ class ApiService {
   }
 
   /**
-   * Test connection to Supabase
+   * Test connection to Supabase with new table names
    */
   async testSupabaseConnection() {
     try {
       const { data, error } = await supabase
-        .from('Buildings')
+        .from('buildings')
         .select('id')
         .limit(1);
       
       if (error) throw error;
-      return { connected: true, error: null };
+      return { success: true, connected: true, error: null };
     } catch (error) {
       console.warn('Supabase connection failed:', error.message);
-      return { connected: false, error: error.message };
+      return { success: false, connected: false, error: error.message };
     }
   }
 
@@ -142,26 +140,153 @@ class ApiService {
   }
 
   /**
-   * Get buildings from Supabase
+   * Get buildings from new backend API or Supabase
    */
   async getBuildings() {
     try {
-      const { data, error } = await supabase
-        .from('Buildings')
-        .select('*, Rooms(*)');
-
-      if (error) throw error;
-
+      // Try backend API first
+      const response = await this.makeRequest(`${this.bubBackendUrl}/api/buildings`, {
+        method: 'GET'
+      });
+      
       return {
         success: true,
-        data: data || [],
+        data: response.buildings || [],
+        error: null,
+        source: 'backend'
+      };
+    } catch (backendError) {
+      console.warn('Backend buildings API failed, trying Supabase:', backendError.message);
+      
+      try {
+        const { data, error } = await supabase
+          .from('buildings')
+          .select('*, rooms(*)');
+
+        if (error) throw error;
+
+        return {
+          success: true,
+          data: data || [],
+          error: null,
+          source: 'supabase'
+        };
+      } catch (supabaseError) {
+        console.warn('Failed to fetch buildings from Supabase:', supabaseError.message);
+        return {
+          success: false,
+          data: [],
+          error: supabaseError.message
+        };
+      }
+    }
+  }
+
+  /**
+   * Get bookings from new backend API
+   */
+  async getBookings(page = 1, limit = 10, filters = {}) {
+    try {
+      const queryParams = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        ...filters
+      });
+      
+      const response = await this.makeRequest(
+        `${this.bubBackendUrl}/api/bookings?${queryParams}`,
+        { method: 'GET' }
+      );
+      
+      return {
+        success: true,
+        data: response,
         error: null
       };
     } catch (error) {
-      console.warn('Failed to fetch buildings from Supabase:', error.message);
+      console.warn('Failed to fetch bookings from backend:', error.message);
       return {
         success: false,
-        data: [],
+        data: null,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Create a new booking via backend API
+   */
+  async createBooking(bookingData) {
+    try {
+      const response = await this.makeRequest(`${this.bubBackendUrl}/api/bookings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bookingData)
+      });
+      
+      return {
+        success: true,
+        data: response,
+        error: null
+      };
+    } catch (error) {
+      console.warn('Failed to create booking:', error.message);
+      return {
+        success: false,
+        data: null,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Update booking status via backend API
+   */
+  async updateBookingStatus(bookingId, status, reason = null) {
+    try {
+      const response = await this.makeRequest(
+        `${this.bubBackendUrl}/api/bookings/${bookingId}/status`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status, reason })
+        }
+      );
+      
+      return {
+        success: true,
+        data: response,
+        error: null
+      };
+    } catch (error) {
+      console.warn('Failed to update booking status:', error.message);
+      return {
+        success: false,
+        data: null,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Get system configuration from backend API
+   */
+  async getSystemConfig() {
+    try {
+      const response = await this.makeRequest(`${this.bubBackendUrl}/api/system-config`, {
+        method: 'GET'
+      });
+      
+      return {
+        success: true,
+        data: response,
+        error: null
+      };
+    } catch (error) {
+      console.warn('Failed to fetch system config:', error.message);
+      return {
+        success: false,
+        data: null,
         error: error.message
       };
     }
@@ -243,6 +368,10 @@ export default apiService;
 export const {
   getAvailability,
   getBuildings,
+  getBookings,
+  createBooking,
+  updateBookingStatus,
+  getSystemConfig,
   formatSlots,
   getLibraries,
   isValidLibraryCode,
