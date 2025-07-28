@@ -54,9 +54,9 @@ All services now include intelligent fallback:
 ### 🔧 Configuration
 
 #### Environment Setup
-- Created `.env.example` with Supabase configuration
+- Configured `.env.local` with real Supabase credentials
 - Matches bu-book project environment variables
-- Automatic fallback to mock data if not configured
+- Automatic fallback to mock data if connections fail
 
 #### API Integration
 - Unified API service for bub-backend communication

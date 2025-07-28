@@ -48,8 +48,9 @@ admin-page/
 
 2. **Configure Environment**
    ```bash
-   cp .env.example .env.local
-   # Edit .env.local with your Supabase credentials
+   # Environment is already configured with real Supabase credentials
+   # Check .env.local file for current configuration
+   # See SUPABASE_SETUP_GUIDE.md for detailed setup instructions
    ```
 
 3. **Start Development Server**
