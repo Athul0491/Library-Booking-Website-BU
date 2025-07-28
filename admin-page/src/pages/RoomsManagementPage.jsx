@@ -6,7 +6,6 @@ import {
   Button,
   Space,
   Select,
-  message,
   Typography,
   Input,
   Row,
@@ -289,7 +288,6 @@ const RoomsManagementPage = () => {
         
         console.log(`📊 Loaded ${transformedRooms.length} rooms from GlobalAPI`);
         console.log('🔍 Sample transformed room:', transformedRooms[0]);
-        message.success(`Loaded ${transformedRooms.length} rooms from backend`);
         
       } else {
         // No fallback - show error if no data
@@ -297,7 +295,6 @@ const RoomsManagementPage = () => {
         setDataError('No room data received from backend');
         setRooms([]);
         setFilteredRooms([]);
-        message.error('No room data available from backend');
       }
       
     } catch (error) {
@@ -305,7 +302,6 @@ const RoomsManagementPage = () => {
       setDataError(error.message);
       setRooms([]);
       setFilteredRooms([]);
-      message.error('Error loading room data from backend');
     } finally {
       setLoading(false);
     }
@@ -385,9 +381,8 @@ const RoomsManagementPage = () => {
       setFilteredRooms(updatedRooms);
       setAddRoomModalVisible(false);
       addRoomForm.resetFields();
-      message.success('Room added successfully');
     } catch (error) {
-      message.error('Failed to add room');
+      console.error('Failed to add room:', error);
     }
   };
 
@@ -410,9 +405,8 @@ const RoomsManagementPage = () => {
       setFilteredRooms(updatedRooms);
       setEditRoomModalVisible(false);
       setSelectedRoom(null);
-      message.success('Room updated successfully');
     } catch (error) {
-      message.error('Failed to update room');
+      console.error('Failed to update room:', error);
     }
   };
 
@@ -421,9 +415,8 @@ const RoomsManagementPage = () => {
       const updatedRooms = rooms.filter(room => room.id !== roomId);
       setRooms(updatedRooms);
       setFilteredRooms(updatedRooms);
-      message.success('Room deleted successfully');
     } catch (error) {
-      message.error('Failed to delete room');
+      console.error('Failed to delete room:', error);
     }
   };
 
@@ -453,9 +446,8 @@ const RoomsManagementPage = () => {
       setFilteredRooms(updatedRooms);
       setMaintenanceModalVisible(false);
       maintenanceForm.resetFields();
-      message.success('Maintenance schedule added successfully');
     } catch (error) {
-      message.error('Failed to add maintenance schedule');
+      console.error('Failed to add maintenance schedule:', error);
     }
   };
 
