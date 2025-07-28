@@ -13,23 +13,28 @@ import {
   Select,
   message,
   Row,
-  Col
+  Col,
+  Alert
 } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
   EnvironmentOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  ClockCircleOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  ApiOutlined
 } from '@ant-design/icons';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useDataSource } from '../contexts/DataSourceContext';
 import { 
-  ConnectionStatus, 
   TableSkeleton, 
   DataUnavailablePlaceholder,
   PageLoadingSkeleton 
 } from '../components/SkeletonComponents';
+import ConnectionStatus from '../components/ConnectionStatus';
 import locationService from '../services/locationService';
 
 const { Title, Paragraph } = Typography;
@@ -41,7 +46,10 @@ const { Option } = Select;
  */
 const LocationsPage = () => {
   const connection = useConnection();
-  const { useRealData } = useDataSource();
+  const { 
+    useRealData, 
+    addNotification 
+  } = useDataSource();
   const [loading, setLoading] = useState(false);
   const [buildings, setBuildings] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -52,34 +60,104 @@ const LocationsPage = () => {
   const [form] = Form.useForm();
   const [dataError, setDataError] = useState(null);
 
-  // Load buildings data with proper data source handling
+  // Connection and API status states (similar to DashboardPage)
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [apiStatus, setApiStatus] = useState('disconnected'); // 'connecting', 'connected', 'disconnected', 'error'
+  const [connectionDetails, setConnectionDetails] = useState({
+    backend: 'unknown',
+    database: 'unknown',
+    lastUpdated: null,
+    responseTime: null
+  });
+
+  // Load buildings data with unified loading pattern
   const loadBuildings = async () => {
+    const startTime = Date.now();
+    
     try {
       setLoading(true);
       setDataError(null);
+      setIsConnecting(true);
+      setApiStatus('connecting');
       
-      // Use real data or mock data based on DataSource context
-      const options = { forceUseMockData: !useRealData };
-      const result = await locationService.getAllBuildings(options);
+      console.log('🏢 Loading buildings data...');
+      
+      // Always try to load real data first, fall back to mock if needed
+      const result = await locationService.getAllBuildings();
+      
+      const responseTime = Date.now() - startTime;
       
       if (result.success) {
-        setBuildings(result.data?.buildings || []);
-        message.success(`Loaded ${result.data?.buildings?.length || 0} buildings`);
-      } else if (useRealData) {
-        throw new Error(`Failed to load buildings: ${result.error}`);
+        // Handle different response structures: result.data, result.buildings, or result itself
+        const buildingsData = result.data?.buildings || result.buildings || result.data || [];
+        setBuildings(buildingsData);
+        
+        // Update connection status - SUCCESS
+        setApiStatus('connected');
+        setConnectionDetails({
+          backend: 'healthy',
+          database: 'connected',
+          lastUpdated: new Date().toISOString(),
+          responseTime: responseTime
+        });
+        
+        // Log connection status instead of detailed data
+        console.log(`✅ Buildings loaded - Status: SUCCESS, Count: ${buildingsData.length}`);
+        console.log(`⏱️ Response time: ${responseTime}ms`);
+        console.log('Buildings data structure:', buildingsData);
+        
+        if (result.isMockData || result.source === 'mock-data') {
+          message.info('Using demo data - backend connection unavailable');
+          // Add notification
+          addNotification({
+            type: 'info',
+            title: 'Using Demo Data',
+            message: 'Backend connection unavailable, displaying demo buildings data',
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          message.success(`Loaded ${buildingsData.length} buildings`);
+          // Add success notification
+          addNotification({
+            type: 'success',
+            title: 'Buildings Data Loaded',
+            message: `Successfully loaded ${buildingsData.length} buildings from backend`,
+            timestamp: new Date().toISOString()
+          });
+        }
+      } else {
+        throw new Error(result.error || 'Failed to load buildings');
       }
     } catch (error) {
-      console.error('Error loading buildings:', error);
-      if (useRealData) {
-        setDataError(error.message);
-        message.error('Failed to load buildings data');
-      }
+      console.error('❌ Error loading buildings:', error);
+      
+      // Update connection status - ERROR
+      setApiStatus('error');
+      setConnectionDetails({
+        backend: 'unhealthy',
+        database: 'error',
+        lastUpdated: new Date().toISOString(),
+        responseTime: Date.now() - startTime
+      });
+      
+      setDataError(error.message);
+      message.error('Failed to load buildings data');
+      setBuildings([]);
+      
+      // Add error notification
+      addNotification({
+        type: 'error',
+        title: 'Buildings Loading Failed',
+        message: `Failed to load buildings: ${error.message}`,
+        timestamp: new Date().toISOString()
+      });
     } finally {
       setLoading(false);
+      setIsConnecting(false);
     }
   };
 
-  // Load rooms for selected building with proper data source handling
+  // Load rooms for selected building with unified loading pattern
   const loadRooms = async (buildingId) => {
     if (!buildingId) {
       console.log('⚠️ No building selected, skipping rooms load');
@@ -90,22 +168,30 @@ const LocationsPage = () => {
       setLoading(true);
       setDataError(null);
       
-      // Use real data or mock data based on DataSource context
-      const options = { forceUseMockData: !useRealData };
-      const result = await locationService.getRoomsByBuilding(buildingId, options);
+      console.log(`🏠 Loading rooms for building ${buildingId}...`);
+      
+      // Always try to load real data first, fall back to mock if needed
+      const result = await locationService.getRoomsByBuilding(buildingId);
       
       if (result.success) {
         setRooms(result.data?.rooms || []);
-        message.success(`Loaded ${result.data?.rooms?.length || 0} rooms for building`);
-      } else if (useRealData) {
-        throw new Error(`Failed to load rooms: ${result.error}`);
+        
+        // Log connection status instead of detailed data
+        console.log(`✅ Rooms loaded - Count: ${result.data?.rooms?.length || 0}`);
+        
+        if (result.isMockData) {
+          message.info('Using demo data - backend connection unavailable');
+        } else {
+          message.success(`Loaded ${result.data?.rooms?.length || 0} rooms for building`);
+        }
+      } else {
+        throw new Error(result.error || 'Failed to load rooms');
       }
     } catch (error) {
-      console.error('Error loading rooms:', error);
-      if (useRealData) {
-        setDataError(error.message);
-        message.error('Failed to load rooms data');
-      }
+      console.error('❌ Error loading rooms:', error);
+      setDataError(error.message);
+      message.error('Failed to load rooms data');
+      setRooms([]);
     } finally {
       setLoading(false);
     }
@@ -128,7 +214,7 @@ const LocationsPage = () => {
     }
   }, [selectedBuilding]);
 
-  // Building table columns (updated for new database schema)
+  // Building table columns (updated to match actual backend API response)
   const buildingColumns = [
     {
       title: 'Building Name',
@@ -148,16 +234,28 @@ const LocationsPage = () => {
       render: (text) => <Tag color="blue">{text}</Tag>,
     },
     {
-      title: 'Location/Address',
+      title: 'Address',
       dataIndex: 'address',
       key: 'address',
       render: (address) => address || 'N/A',
     },
     {
-      title: 'Total Rooms',
-      dataIndex: 'room_count',
-      key: 'room_count',
-      render: (count) => <Tag color="green">{count || 0} rooms</Tag>,
+      title: 'Phone',
+      dataIndex: ['contacts', 'phone'],
+      key: 'phone',
+      render: (phone) => phone || 'N/A',
+    },
+    {
+      title: 'Email',
+      dataIndex: ['contacts', 'email'],
+      key: 'email',
+      render: (email) => email || 'N/A',
+    },
+    {
+      title: 'LibCal ID',
+      dataIndex: 'libcal_id',
+      key: 'libcal_id',
+      render: (id) => id ? <Tag color="cyan">{id}</Tag> : <span style={{ color: '#ccc' }}>N/A</span>,
     },
     {
       title: 'Status',
@@ -300,22 +398,76 @@ const LocationsPage = () => {
       </Paragraph>
 
       {/* Connection Status */}
-      <ConnectionStatus connection={connection} style={{ marginBottom: 24 }} />
+      <ConnectionStatus 
+        showDetails={true} 
+        compact={false} 
+        style={{ marginBottom: 24 }}
+        customStatus={{
+          apiStatus: apiStatus,
+          connectionDetails: connectionDetails,
+          isConnecting: isConnecting
+        }}
+      />
+
+      {/* API Connection Status Indicator */}
+      {isConnecting && (
+        <Alert
+          message="Connecting to Location Service"
+          description="Establishing connection to buildings and rooms data service..."
+          type="info"
+          showIcon
+          icon={<ClockCircleOutlined spin />}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+      
+      {/* Real-time API Status */}
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <Space>
+              <Tag 
+                color={
+                  apiStatus === 'connected' ? 'success' : 
+                  apiStatus === 'connecting' ? 'processing' : 
+                  apiStatus === 'error' ? 'error' : 'default'
+                }
+                icon={
+                  apiStatus === 'connected' ? <CheckCircleOutlined /> :
+                  apiStatus === 'connecting' ? <ClockCircleOutlined spin /> :
+                  apiStatus === 'error' ? <CloseCircleOutlined /> :
+                  <ApiOutlined />
+                }
+              >
+                {apiStatus === 'connected' ? 'API Connected' :
+                 apiStatus === 'connecting' ? 'Connecting...' :
+                 apiStatus === 'error' ? 'API Error' :
+                 'Disconnected'}
+              </Tag>
+              <Tag color={connectionDetails.backend === 'healthy' ? 'success' : 'error'}>
+                Backend: {connectionDetails.backend}
+              </Tag>
+              <Tag color={connectionDetails.database === 'connected' ? 'success' : 'error'}>
+                Database: {connectionDetails.database}
+              </Tag>
+            </Space>
+          </div>
+          <div style={{ fontSize: '12px', color: '#666' }}>
+            {connectionDetails.responseTime && `${connectionDetails.responseTime}ms`}
+            {connectionDetails.lastUpdated && (
+              <span style={{ marginLeft: 8 }}>
+                Updated: {new Date(connectionDetails.lastUpdated).toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+        </div>
+      </Card>
 
       {/* Loading State */}
       {connection.loading && <PageLoadingSkeleton />}
 
-      {/* No Connection State */}
-      {!connection.loading && !connection.isDataAvailable && (
-        <DataUnavailablePlaceholder 
-          title="Location Data Unavailable"
-          description="Cannot connect to the location service. Please check your connection and try again."
-          onRetry={() => connection.refreshConnections()}
-        />
-      )}
-
-      {/* Normal Data Display */}
-      {!connection.loading && connection.isDataAvailable && (
+      {/* Main Content - Always show, let services handle data availability */}
+      {!connection.loading && (
         <Row gutter={[16, 16]}>
           {/* Buildings Section */}
           <Col span={24}>
