@@ -32,7 +32,7 @@ const App = () => {
           {/* Booking management page - view and manage all booking records */}
           <Route path="/bookings" element={<BookingsPage />} />
           
-          {/* Time availability management page - control time slot availability */}
+          {/* Room availability management page - control time slot availability */}
           <Route path="/availability" element={<AvailabilityPage />} />
           
           {/* Statistics report page - view various data analysis and reports */}

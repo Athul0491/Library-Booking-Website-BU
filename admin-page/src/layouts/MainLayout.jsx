@@ -49,7 +49,7 @@ const MainLayout = ({ children }) => {
     {
       key: '/availability',
       icon: <ClockCircleOutlined />,
-      label: 'Availability',
+      label: 'Room Availability',
     },
     {
       key: '/statistics',

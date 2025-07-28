@@ -1,4 +1,4 @@
-// Availability Management page - Control time slot open status with real API integration
+// Room Availability Management page - Control time slot open status with real API integration
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -29,7 +29,7 @@ const { Title, Paragraph } = Typography;
 const { Option } = Select;
 
 /**
- * Availability Management page component
+ * Room Availability Management page component
  * Used for managing room time slot availability with real API integration
  */
 const AvailabilityPage = () => {
@@ -144,7 +144,7 @@ const AvailabilityPage = () => {
 
   return (
     <div>
-      <Title level={2}>Availability Management</Title>
+      <Title level={2}>Room Availability Management</Title>
       <Paragraph>
         Manage library room time slot availability with real-time BU LibCal system data integration.
       </Paragraph>
