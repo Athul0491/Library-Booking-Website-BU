@@ -13,6 +13,10 @@ import BookingsPage from './pages/BookingsPage';
 import RoomsManagementPage from './pages/RoomsManagementPage';
 import StatisticsPage from './pages/StatisticsPage';
 import DataMonitorPage from './pages/DataMonitorPage';
+import FeatureComingSoon from './pages/FeatureComingSoon'; // 新增导入
+
+// Import feature toggle
+import { canUseFeature } from './utils/FeatureToggle'; // 新增导入
 
 /**
  * Main application component
@@ -47,7 +51,14 @@ const App = () => {
           <Route path="/availability" element={<RoomsManagementPage />} />
           
           {/* Statistics report page - view various data analysis and reports */}
-          <Route path="/statistics" element={<StatisticsPage />} />
+          <Route 
+            path="/statistics" 
+            element={
+              canUseFeature('STATISTICS_PAGE') 
+                ? <StatisticsPage /> 
+                : <FeatureComingSoon featureName="数据统计" />
+            } 
+          />
           
           {/* Data monitor page - monitor data from all systems */}
           <Route path="/monitor" element={<DataMonitorPage />} />

@@ -18,12 +18,14 @@ import {
   DatabaseOutlined,
   ExperimentOutlined,
   ApiOutlined,
-  ControlOutlined
+  ControlOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons';
 import { useDataSource } from '../contexts/DataSourceContext';
 import DataSourceConfig from '../components/DataSourceConfig';
 import ConnectionStatus from '../components/ConnectionStatus';
 import NotificationCenter from '../components/NotificationCenter';
+import { canUseFeature } from '../utils/FeatureToggle'; // 新增导入
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -70,8 +72,9 @@ const MainLayout = ({ children }) => {
     },
     {
       key: '/statistics',
-      icon: <BarChartOutlined />,
-      label: 'Statistics',
+      icon: canUseFeature('STATISTICS_PAGE') ? <BarChartOutlined /> : <ExclamationCircleOutlined />,
+      label: canUseFeature('STATISTICS_PAGE') ? 'Statistics' : 'Statistics (Coming Soon)',
+      disabled: !canUseFeature('STATISTICS_PAGE'),
     },
     {
       key: '/monitor',
