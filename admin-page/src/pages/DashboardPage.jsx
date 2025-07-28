@@ -231,15 +231,13 @@ const DashboardPage = () => {
         <>
           {/* System Status Alert */}
           <Alert
-            message={`Backend API Status: ${connectionStatus}`}
+            message={`Backend API Status: ${connection.isBackendConnected ? 'connected' : 'disconnected'}`}
             description={
-              connectionStatus === 'connected' 
+              connection.isBackendConnected 
                 ? 'bub-backend is connected and functioning normally.'
-                : connectionStatus === 'disconnected'
-                ? 'bub-backend API is not responding. Please check if the server is running on localhost:5000.'
-                : 'Error connecting to bub-backend API.'
+                : 'bub-backend API is not responding. Please check if the server is running on localhost:5000.'
             }
-            type={connectionStatus === 'connected' ? 'success' : 'warning'}
+            type={connection.isBackendConnected ? 'success' : 'warning'}
             style={{ marginBottom: 24 }}
             showIcon
           />
@@ -294,8 +292,8 @@ const DashboardPage = () => {
                   suffix="%"
                   prefix={<ApiOutlined />}
                 />
-                <div style={{ marginTop: 8, fontSize: '12px', color: connectionStatus === 'connected' ? '#52c41a' : '#ff4d4f' }}>
-                  Status: {connectionStatus}
+                <div style={{ marginTop: 8, fontSize: '12px', color: connection.isBackendConnected ? '#52c41a' : '#ff4d4f' }}>
+                  Status: {connection.isBackendConnected ? 'connected' : 'disconnected'}
                 </div>
               </Card>
             </Col>
@@ -431,37 +429,37 @@ const DashboardPage = () => {
         <Timeline
           items={[
             {
-              color: connection.database ? 'green' : 'red',
+              color: connection.isBackendConnected ? 'green' : 'red',
               children: (
                 <div>
                   <strong>Database Connection</strong> - PostgreSQL database with booking data
                   <br />
                   <span style={{ color: '#666' }}>
-                    Status: {connection.database ? 'Connected' : 'Disconnected'}
+                    Status: {connection.isBackendConnected ? 'Connected' : 'Disconnected'}
                   </span>
                 </div>
               ),
             },
             {
-              color: connection.backend ? 'green' : 'red',
+              color: connection.isBackendConnected ? 'green' : 'red',
               children: (
                 <div>
                   <strong>bub-backend API</strong> - REST API server with database integration
                   <br />
                   <span style={{ color: '#666' }}>
-                    Status: {connection.backend ? 'Connected' : 'Disconnected'} | Port: 5000
+                    Status: {connection.isBackendConnected ? 'Connected' : 'Disconnected'} | Port: 5000
                   </span>
                 </div>
               ),
             },
             {
-              color: connection.supabase ? 'green' : 'red',
+              color: connection.isSupabaseConnected ? 'green' : 'red',
               children: (
                 <div>
                   <strong>Supabase Integration</strong> - Buildings and rooms data (bu-book)
                   <br />
                   <span style={{ color: '#666' }}>
-                    Status: {connection.supabase ? 'Connected' : 'Disconnected'}
+                    Status: {connection.isSupabaseConnected ? 'Connected' : 'Disconnected'}
                   </span>
                 </div>
               ),
