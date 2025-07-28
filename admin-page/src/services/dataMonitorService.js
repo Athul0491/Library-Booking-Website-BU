@@ -43,7 +43,11 @@ const checkSystemHealth = async () => {
     // Test LibCal integration through backend
     if (backendResult.success) {
       const libcalStartTime = Date.now();
-      const libcalResult = await apiService.getAvailability('mug', new Date().toISOString().split('T')[0]);
+      // Use checkAvailability method instead of getAvailability
+      const libcalResult = await apiService.checkAvailability({
+        building: 'mug', 
+        date: new Date().toISOString().split('T')[0]
+      });
       health.libcal = {
         status: libcalResult.success ? 'running' : 'error',
         message: libcalResult.success ? 'LibCal API accessible via backend' : 'LibCal API not accessible',
@@ -74,19 +78,19 @@ const getApiStats = async () => {
       lastUpdated: new Date().toISOString(),
       endpoints: [
         {
-          path: '/api/availability',
+          path: '/buildings',
           requests: Math.floor(Math.random() * 1000) + 500,
           avgResponseTime: Math.floor(Math.random() * 150) + 50,
           successRate: Math.floor(Math.random() * 5) + 95
         },
         {
-          path: '/api/buildings',
+          path: '/buildings',
           requests: Math.floor(Math.random() * 500) + 200,
           avgResponseTime: Math.floor(Math.random() * 100) + 30,
           successRate: Math.floor(Math.random() * 3) + 97
         },
         {
-          path: '/api/health',
+          path: '/bookings',
           requests: Math.floor(Math.random() * 200) + 100,
           avgResponseTime: Math.floor(Math.random() * 50) + 10,
           successRate: 100

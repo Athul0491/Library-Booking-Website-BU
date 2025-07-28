@@ -228,6 +228,9 @@ class ApiService {
       if (filters.status) {
         query += `&status=eq.${filters.status}`;
       }
+      if (filters.user_email) {
+        query += `&user_email=eq.${filters.user_email}`;
+      }
       if (filters.startDate) {
         query += `&booking_date=gte.${filters.startDate}`;
       }

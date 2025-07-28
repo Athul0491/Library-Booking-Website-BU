@@ -286,14 +286,13 @@ export const updateBookingStatus = async (bookingId, status, reason = null) => {
  */
 export const getBookingsByUser = async (userEmail) => {
   try {
-    // Try backend API first
-    const response = await fetch(`http://localhost:5000/api/bookings/${encodeURIComponent(userEmail)}`);
+    // Use apiService to get bookings filtered by user email
+    const result = await apiService.getBookings({ user_email: userEmail });
     
-    if (response.ok) {
-      const data = await response.json();
+    if (result.bookings) {
       return {
         success: true,
-        data: data.bookings || [],
+        data: result.bookings,
         error: null
       };
     }
@@ -365,17 +364,10 @@ export const getBookingById = async (bookingId) => {
  */
 export const createBooking = async (bookingData) => {
   try {
-    // Try backend API first
-    const response = await fetch('http://localhost:5000/api/bookings', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(bookingData)
-    });
+    // Use apiService to create booking
+    const data = await apiService.createBooking(bookingData);
     
-    if (response.ok) {
-      const data = await response.json();
+    if (data) {
       return {
         success: true,
         data: data,
