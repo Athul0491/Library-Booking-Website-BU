@@ -171,19 +171,24 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Apply update timestamp triggers
+-- Apply update timestamp triggers (with IF NOT EXISTS equivalent)
+DROP TRIGGER IF EXISTS update_buildings_updated_at ON Buildings;
 CREATE TRIGGER update_buildings_updated_at BEFORE UPDATE ON Buildings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_rooms_updated_at ON Rooms;
 CREATE TRIGGER update_rooms_updated_at BEFORE UPDATE ON Rooms
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_user_profiles_updated_at ON UserProfiles;
 CREATE TRIGGER update_user_profiles_updated_at BEFORE UPDATE ON UserProfiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_bookings_updated_at ON Bookings;
 CREATE TRIGGER update_bookings_updated_at BEFORE UPDATE ON Bookings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_system_config_updated_at ON SystemConfig;
 CREATE TRIGGER update_system_config_updated_at BEFORE UPDATE ON SystemConfig
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -198,29 +203,37 @@ ALTER TABLE UserProfiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE Bookings ENABLE ROW LEVEL SECURITY;
 
 -- Buildings and Rooms are publicly accessible (read-only)
+DROP POLICY IF EXISTS "Buildings are viewable by everyone" ON Buildings;
 CREATE POLICY "Buildings are viewable by everyone" ON Buildings
     FOR SELECT USING (true);
 
+DROP POLICY IF EXISTS "Rooms are viewable by everyone" ON Rooms;
 CREATE POLICY "Rooms are viewable by everyone" ON Rooms
     FOR SELECT USING (true);
 
 -- UserProfiles policies - Simple email-based access
+DROP POLICY IF EXISTS "Users can view own profile by email" ON UserProfiles;
 CREATE POLICY "Users can view own profile by email" ON UserProfiles
     FOR SELECT USING (true);  -- Allow viewing for now, can be restricted later
 
+DROP POLICY IF EXISTS "Users can update own profile" ON UserProfiles;
 CREATE POLICY "Users can update own profile" ON UserProfiles
     FOR UPDATE USING (true);  -- Allow updating for now, can be restricted later
 
+DROP POLICY IF EXISTS "Anyone can create user profile" ON UserProfiles;
 CREATE POLICY "Anyone can create user profile" ON UserProfiles
     FOR INSERT WITH CHECK (true);
 
 -- Bookings policies - Simple access for anonymous users
+DROP POLICY IF EXISTS "Users can view bookings" ON Bookings;
 CREATE POLICY "Users can view bookings" ON Bookings
     FOR SELECT USING (true);  -- Allow viewing for now, can be restricted later
 
+DROP POLICY IF EXISTS "Anyone can create bookings" ON Bookings;
 CREATE POLICY "Anyone can create bookings" ON Bookings
     FOR INSERT WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Users can update bookings" ON Bookings;
 CREATE POLICY "Users can update bookings" ON Bookings
     FOR UPDATE USING (true);  -- Allow updating for now, can be restricted later
 
@@ -491,7 +504,8 @@ CREATE INDEX IF NOT EXISTS idx_rate_limit_logs_endpoint ON RateLimitLogs(endpoin
 -- 10. TRIGGERS FOR MONITORING TABLES
 -- ==============================================
 
--- Apply update timestamp triggers to monitoring tables
+-- Apply update timestamp triggers to monitoring tables (with IF NOT EXISTS equivalent)
+DROP TRIGGER IF EXISTS update_error_logs_updated_at ON ErrorLogs;
 CREATE TRIGGER update_error_logs_updated_at BEFORE UPDATE ON ErrorLogs
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -507,18 +521,23 @@ ALTER TABLE PerformanceMetrics ENABLE ROW LEVEL SECURITY;
 ALTER TABLE RateLimitLogs ENABLE ROW LEVEL SECURITY;
 
 -- Admin-only access policies for monitoring data
+DROP POLICY IF EXISTS "Admin can view access logs" ON AccessLogs;
 CREATE POLICY "Admin can view access logs" ON AccessLogs
     FOR SELECT USING (true);  -- Will be restricted to admin users later
 
+DROP POLICY IF EXISTS "Admin can view system status" ON SystemStatus;
 CREATE POLICY "Admin can view system status" ON SystemStatus
     FOR ALL USING (true);  -- Will be restricted to admin users later
 
+DROP POLICY IF EXISTS "Admin can view error logs" ON ErrorLogs;
 CREATE POLICY "Admin can view error logs" ON ErrorLogs
     FOR ALL USING (true);  -- Will be restricted to admin users later
 
+DROP POLICY IF EXISTS "Admin can view performance metrics" ON PerformanceMetrics;
 CREATE POLICY "Admin can view performance metrics" ON PerformanceMetrics
     FOR ALL USING (true);  -- Will be restricted to admin users later
 
+DROP POLICY IF EXISTS "Admin can view rate limit logs" ON RateLimitLogs;
 CREATE POLICY "Admin can view rate limit logs" ON RateLimitLogs
     FOR SELECT USING (true);  -- Will be restricted to admin users later
 
