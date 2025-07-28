@@ -24,6 +24,7 @@ import {
 import dayjs from 'dayjs';
 import statsService from '../services/statsService';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useDataSource } from '../contexts/DataSourceContext';
 import { 
   ConnectionStatus, 
   TableSkeleton, 
@@ -41,6 +42,7 @@ const { Option } = Select;
  */
 const StatisticsPage = () => {
   const connection = useConnection();
+  const { useRealData } = useDataSource();
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState([
     dayjs().subtract(30, 'day'),
@@ -53,18 +55,14 @@ const StatisticsPage = () => {
 
   // Load Statistics Data
   const loadStatistics = async () => {
-    if (!connection.isDataAvailable) {
-      console.log('⚠️ Data not available, skipping statistics load');
-      return;
-    }
-
     try {
       setLoading(true);
       
       // Use integrated statistics service that connects to real data sources
       const result = await statsService.getStatistics({
         dateRange,
-        selectedMetric
+        selectedMetric,
+        forceUseMockData: !useRealData // Pass flag to force mock data when toggled
       });
 
       if (result.success) {
@@ -72,8 +70,8 @@ const StatisticsPage = () => {
         setRoomStats(result.data.roomStats);
         setUserStats(result.data.userStats);
 
-        if (result.isMockData) {
-          message.warning('Using mock data - connect Supabase for real data');
+        if (result.isMockData || !useRealData) {
+          message.info(useRealData ? 'Using mock data - backend connection unavailable' : 'Using mock demo data');
         } else {
           message.success('Statistics loaded from real data sources');
         }
@@ -90,10 +88,8 @@ const StatisticsPage = () => {
 
   // Load data when component mounts and connection is available
   useEffect(() => {
-    if (connection.isDataAvailable) {
-      loadStatistics();
-    }
-  }, [dateRange, selectedMetric, connection.isDataAvailable]);
+    loadStatistics();
+  }, [dateRange, selectedMetric, connection.isDataAvailable, useRealData]);
 
   // ExportReport
   const exportReport = () => {

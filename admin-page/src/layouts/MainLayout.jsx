@@ -1,6 +1,6 @@
 // Main layout component - Contains sidebar, top navigation and content area
 import React, { useState } from 'react';
-import { Layout, Menu, Button, Avatar, Dropdown, Space, Typography } from 'antd';
+import { Layout, Menu, Button, Avatar, Dropdown, Space, Typography, Switch, Divider } from 'antd';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   DashboardOutlined,
@@ -14,8 +14,11 @@ import {
   UserOutlined,
   SettingOutlined,
   LogoutOutlined,
-  BellOutlined
+  BellOutlined,
+  DatabaseOutlined,
+  ExperimentOutlined
 } from '@ant-design/icons';
+import { useDataSource } from '../contexts/DataSourceContext';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text } = Typography;
@@ -28,6 +31,7 @@ const MainLayout = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { useRealData, toggleDataSource, dataSourceLabel } = useDataSource();
 
   // Menu items configuration
   const menuItems = [
@@ -154,9 +158,42 @@ const MainLayout = ({ children }) => {
           onClick={handleMenuClick}
           style={{ 
             borderRight: 0,
-            fontSize: '14px'
+            fontSize: '14px',
+            flex: 1
           }}
         />
+        
+        {/* Data source toggle */}
+        <div style={{ 
+          padding: '16px', 
+          borderTop: '1px solid #003a8c',
+          backgroundColor: '#001529'
+        }}>
+          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Space>
+                {useRealData ? <DatabaseOutlined style={{ color: '#52c41a' }} /> : <ExperimentOutlined style={{ color: '#1890ff' }} />}
+                {!collapsed && (
+                  <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: '12px' }}>
+                    Data Source
+                  </Text>
+                )}
+              </Space>
+              <Switch
+                size="small"
+                checked={useRealData}
+                onChange={toggleDataSource}
+                checkedChildren="Real"
+                unCheckedChildren="Mock"
+              />
+            </div>
+            {!collapsed && (
+              <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: '11px', display: 'block' }}>
+                {dataSourceLabel}
+              </Text>
+            )}
+          </Space>
+        </div>
       </Sider>
 
       <Layout>

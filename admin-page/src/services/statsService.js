@@ -45,6 +45,18 @@ const mockStatsData = {
 };
 
 /**
+ * Generate mock user statistics for demo purposes
+ */
+const generateMockUserStats = () => {
+  return [
+    { id: 1, name: 'John Doe', email: 'john.doe@bu.edu', bookings: 12, lastActive: '2025-01-27' },
+    { id: 2, name: 'Jane Smith', email: 'jane.smith@bu.edu', bookings: 8, lastActive: '2025-01-26' },
+    { id: 3, name: 'Bob Johnson', email: 'bob.johnson@bu.edu', bookings: 15, lastActive: '2025-01-25' },
+    { id: 4, name: 'Alice Brown', email: 'alice.brown@bu.edu', bookings: 6, lastActive: '2025-01-24' }
+  ];
+};
+
+/**
  * Get comprehensive system statistics
  * @param {Object} options - Query options
  * @param {Array} options.dateRange - Date range for statistics
@@ -53,7 +65,21 @@ const mockStatsData = {
  */
 const getStatistics = async (options = {}) => {
   try {
-    const { dateRange, selectedMetric } = options;
+    const { dateRange, selectedMetric, forceUseMockData = false } = options;
+    
+    // If forced to use mock data, return mock data immediately
+    if (forceUseMockData) {
+      return {
+        success: true,
+        data: {
+          statsData: mockStatsData,
+          roomStats: mockStatsData.buildingStats,
+          userStats: generateMockUserStats()
+        },
+        isMockData: true,
+        timestamp: new Date().toISOString()
+      };
+    }
     
     // Try to get real data from multiple sources
     const [buildingsResult, statsResult] = await Promise.allSettled([

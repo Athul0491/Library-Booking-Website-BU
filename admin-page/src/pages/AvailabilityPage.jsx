@@ -24,6 +24,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useDataSource } from '../contexts/DataSourceContext';
 import bookingService from '../services/bookingService';
 import { 
   ConnectionStatus, 
@@ -41,6 +42,7 @@ const { Option } = Select;
  */
 const AvailabilityPage = () => {
   const connection = useConnection();
+  const { useRealData } = useDataSource();
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(dayjs());
   const [selectedLibrary, setSelectedLibrary] = useState('par'); // Default to Pardee Library
@@ -56,8 +58,9 @@ const AvailabilityPage = () => {
 
   // Load real time slots data
   const loadRealTimeSlots = async () => {
-    if (!connection.isDataAvailable) {
-      console.log('⚠️ Data not available, skipping availability load');
+    // Check if we should use mock data or if real data is unavailable
+    if (!useRealData || !connection.isDataAvailable) {
+      loadMockTimeSlots();
       return;
     }
 
@@ -101,12 +104,35 @@ const AvailabilityPage = () => {
     }
   };
 
+  // Load mock time slots data
+  const loadMockTimeSlots = () => {
+    setLoading(true);
+    
+    // Simulate loading delay
+    setTimeout(() => {
+      const mockSlots = [
+        { id: 'mock_1', time: '08:00 - 09:00', room: 'Room A101', status: 'available', capacity: 6 },
+        { id: 'mock_2', time: '09:00 - 10:00', room: 'Room A102', status: 'booked', capacity: 4 },
+        { id: 'mock_3', time: '10:00 - 11:00', room: 'Room A103', status: 'available', capacity: 8 },
+        { id: 'mock_4', time: '11:00 - 12:00', room: 'Room A104', status: 'available', capacity: 5 },
+        { id: 'mock_5', time: '12:00 - 13:00', room: 'Room A105', status: 'booked', capacity: 6 },
+        { id: 'mock_6', time: '13:00 - 14:00', room: 'Room A106', status: 'available', capacity: 4 },
+        { id: 'mock_7', time: '14:00 - 15:00', room: 'Room A107', status: 'booked', capacity: 7 },
+        { id: 'mock_8', time: '15:00 - 16:00', room: 'Room A108', status: 'available', capacity: 5 }
+      ];
+      
+      setRealTimeSlots(mockSlots);
+      message.info(`Using mock demo data for ${LIBRARY_CODES[selectedLibrary].name}`);
+      setLoading(false);
+    }, 800);
+  };
+
   // Load data when connection is available and params change
   useEffect(() => {
-    if (connection.isDataAvailable && selectedLibrary && selectedDate) {
+    if (selectedLibrary && selectedDate) {
       loadRealTimeSlots();
     }
-  }, [selectedDate, selectedLibrary, connection.isDataAvailable]);
+  }, [selectedDate, selectedLibrary, connection.isDataAvailable, useRealData]);
 
   // Get date display content (for calendar)
   const getCellRender = (current, info) => {

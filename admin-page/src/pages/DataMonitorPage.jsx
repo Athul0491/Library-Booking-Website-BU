@@ -44,6 +44,7 @@ import dayjs from 'dayjs';
 import dataMonitorService from '../services/dataMonitorService';
 import apiService, { LIBRARY_CODES } from '../services/apiService';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useDataSource } from '../contexts/DataSourceContext';
 import { 
   ConnectionStatus, 
   TableSkeleton, 
@@ -60,6 +61,7 @@ const { Option } = Select;
  */
 const DataMonitorPage = () => {
   const connection = useConnection();
+  const { useRealData } = useDataSource();
   const [loading, setLoading] = useState(false);
   const [systemHealth, setSystemHealth] = useState({});
   const [availabilityData, setAvailabilityData] = useState([]);
@@ -71,9 +73,9 @@ const DataMonitorPage = () => {
 
   // Load all data when component mounts
   useEffect(() => {
-    if (connection.isDataAvailable) {
-      loadAllData();
-      // Set up auto-refresh every 30 seconds
+    loadAllData();
+    // Set up auto-refresh every 30 seconds if using real data
+    if (useRealData) {
       const interval = setInterval(loadAllData, 30000);
       setRefreshInterval(interval);
       
@@ -81,7 +83,7 @@ const DataMonitorPage = () => {
         if (interval) clearInterval(interval);
       };
     }
-  }, [connection.isDataAvailable]);
+  }, [connection.isDataAvailable, useRealData]);
 
   // Reload data when library or date changes
   useEffect(() => {
@@ -114,6 +116,17 @@ const DataMonitorPage = () => {
    */
   const checkSystemHealth = async () => {
     try {
+      if (!useRealData) {
+        // Use mock health data
+        setSystemHealth({
+          bubBackend: { status: 'healthy', message: 'Mock backend service running', responseTime: 45 },
+          supabase: { status: 'healthy', message: 'Mock database connected', responseTime: 32 },
+          libcal: { status: 'healthy', message: 'Mock LibCal API accessible', responseTime: 78 },
+          adminPage: { status: 'running', message: 'Current session active', responseTime: 5 }
+        });
+        return;
+      }
+
       const health = await dataMonitorService.checkSystemHealth();
       setSystemHealth(health);
     } catch (error) {
@@ -131,6 +144,18 @@ const DataMonitorPage = () => {
    */
   const loadApiStats = async () => {
     try {
+      if (!useRealData) {
+        // Use mock API stats
+        setApiStats({
+          totalRequests: 1247,
+          successRate: 98.5,
+          avgResponseTime: 245,
+          errorCount: 18,
+          lastUpdated: new Date().toISOString()
+        });
+        return;
+      }
+
       const stats = await dataMonitorService.getApiStats();
       setApiStats(stats);
     } catch (error) {
@@ -173,6 +198,17 @@ const DataMonitorPage = () => {
    */
   const loadBuildingData = async () => {
     try {
+      if (!useRealData) {
+        // Use mock building data
+        setBuildingData([
+          { id: 1, name: 'Mugar Memorial Library', rooms: 15, active: 12, utilization: 80 },
+          { id: 2, name: 'Pardee Library', rooms: 8, active: 6, utilization: 75 },
+          { id: 3, name: 'Pickering Educational Resources Library', rooms: 12, active: 9, utilization: 67 },
+          { id: 4, name: 'Science & Engineering Library', rooms: 20, active: 18, utilization: 90 }
+        ]);
+        return;
+      }
+
       const buildings = await dataMonitorService.getBuildingData();
       setBuildingData(buildings);
     } catch (error) {

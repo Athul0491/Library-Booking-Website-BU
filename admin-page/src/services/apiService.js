@@ -54,15 +54,24 @@ class ApiService {
    */
   async testBackendConnection() {
     try {
-      await this.makeRequest(`${this.bubBackendUrl}/api/availability`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ library: 'mug', start: '2025-01-01', end: '2025-01-01' })
+      // Try health check endpoint first (simpler and faster)
+      const response = await this.makeRequest(`${this.bubBackendUrl}/health`, {
+        method: 'GET'
       });
-      return { connected: true, error: null };
-    } catch (error) {
-      console.warn('Backend API connection failed:', error.message);
-      return { connected: false, error: error.message };
+      return { success: true, connected: true, error: null };
+    } catch (healthError) {
+      // Fallback to availability endpoint test
+      try {
+        await this.makeRequest(`${this.bubBackendUrl}/api/availability`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ library: 'mug', start: '2025-01-01', end: '2025-01-01' })
+        });
+        return { success: true, connected: true, error: null };
+      } catch (error) {
+        console.warn('Backend API connection failed:', error.message);
+        return { success: false, connected: false, error: error.message };
+      }
     }
   }
 

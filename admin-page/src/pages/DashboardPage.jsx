@@ -37,6 +37,7 @@ import {
 import statsService from '../services/statsService';
 import locationService from '../services/locationService';
 import { useConnection } from '../contexts/ConnectionContext';
+import { useDataSource } from '../contexts/DataSourceContext';
 import { 
   ConnectionStatus, 
   TableSkeleton, 

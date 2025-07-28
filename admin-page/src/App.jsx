@@ -3,6 +3,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import { ConnectionProvider } from './contexts/ConnectionContext';
+import { DataSourceProvider } from './contexts/DataSourceContext';
 
 // Import page components
 import DashboardPage from './pages/DashboardPage';
@@ -18,14 +19,15 @@ import DataMonitorPage from './pages/DataMonitorPage';
  */
 const App = () => {
   return (
-    <ConnectionProvider>
-      <Router 
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true
-        }}
-      >
-      <MainLayout>
+    <DataSourceProvider>
+      <ConnectionProvider>
+        <Router 
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true
+          }}
+        >
+        <MainLayout>
         <Routes>
           {/* Default route - redirect to dashboard */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -66,6 +68,7 @@ const App = () => {
         </MainLayout>
       </Router>
     </ConnectionProvider>
+    </DataSourceProvider>
   );
 };
 
