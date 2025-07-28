@@ -32,6 +32,7 @@ import {
   DataUnavailablePlaceholder,
   PageLoadingSkeleton 
 } from '../components/SkeletonComponents';
+import ServerStatusBanner from '../components/ServerStatusBanner';
 
 const { Title, Paragraph } = Typography;
 const { Option } = Select;
@@ -163,8 +164,15 @@ const AvailabilityPage = () => {
         Manage library room time slot availability with real-time BU LibCal system data integration.
       </Paragraph>
 
-      {/* Connection Status */}
-      <ConnectionStatus connection={connection} style={{ marginBottom: 24 }} />
+      {/* Server Status Banner */}
+      <ServerStatusBanner 
+        useGlobalApi={true}
+        showConnectionStatus={true}
+        showApiStatusCard={false}
+        showConnectingAlert={false}
+        showRefreshButton={false}
+        style={{ marginBottom: 24 }}
+      />
 
       {/* Loading State */}
       {connection.loading && <PageLoadingSkeleton />}

@@ -51,6 +51,7 @@ import {
   DataUnavailablePlaceholder,
   PageLoadingSkeleton 
 } from '../components/SkeletonComponents';
+import ServerStatusBanner from '../components/ServerStatusBanner';
 
 const { Title, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -332,8 +333,15 @@ const DataMonitorPage = () => {
         Monitor data from bub-backend API, bu-book frontend, and real-time availability systems.
       </Paragraph>
 
-      {/* Connection Status */}
-      <ConnectionStatus connection={connection} style={{ marginBottom: 24 }} />
+      {/* Server Status Banner */}
+      <ServerStatusBanner 
+        useGlobalApi={true}
+        showConnectionStatus={true}
+        showApiStatusCard={false}
+        showConnectingAlert={false}
+        showRefreshButton={false}
+        style={{ marginBottom: 24 }}
+      />
 
       {/* Show loading skeleton when data is not available */}
       {!connection.isDataAvailable ? (

@@ -17,7 +17,7 @@ import { useDataSource } from '../contexts/DataSourceContext';
 
 const { Text, Paragraph } = Typography;
 
-const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = null }) => {
+const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = null, onRefresh = null }) => {
   const { 
     connectionStatus, 
     testConnection, 
@@ -144,8 +144,8 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
           type="text" 
           size="small" 
           icon={<ReloadOutlined />}
-          onClick={testConnection}
-          title="Test Connection"
+          onClick={onRefresh || testConnection}
+          title={onRefresh ? "Refresh Global Data" : "Test Connection"}
         />
       </Space>
     );
@@ -169,9 +169,9 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
           type="text" 
           size="small" 
           icon={<ReloadOutlined />}
-          onClick={testConnection}
+          onClick={onRefresh || testConnection}
         >
-          Refresh
+          {onRefresh ? "Refresh Global" : "Refresh"}
         </Button>
       }
     >

@@ -29,12 +29,14 @@ import {
 } from '@ant-design/icons';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useDataSource } from '../contexts/DataSourceContext';
+import { useGlobalApi } from '../contexts/GlobalApiContext';
 import { 
   TableSkeleton, 
   DataUnavailablePlaceholder,
   PageLoadingSkeleton 
 } from '../components/SkeletonComponents';
 import ConnectionStatus from '../components/ConnectionStatus';
+import ServerStatusBanner from '../components/ServerStatusBanner';
 import locationService from '../services/locationService';
 
 const { Title, Paragraph } = Typography;
@@ -50,6 +52,8 @@ const LocationsPage = () => {
     useRealData, 
     addNotification 
   } = useDataSource();
+  const globalApi = useGlobalApi();
+  
   const [loading, setLoading] = useState(false);
   const [buildings, setBuildings] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -60,102 +64,17 @@ const LocationsPage = () => {
   const [form] = Form.useForm();
   const [dataError, setDataError] = useState(null);
 
-  // Connection and API status states (similar to DashboardPage)
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [apiStatus, setApiStatus] = useState('disconnected'); // 'connecting', 'connected', 'disconnected', 'error'
-  const [connectionDetails, setConnectionDetails] = useState({
-    backend: 'unknown',
-    database: 'unknown',
-    lastUpdated: null,
-    responseTime: null
-  });
-
-  // Load buildings data with unified loading pattern
-  const loadBuildings = async () => {
-    const startTime = Date.now();
-    
-    try {
-      setLoading(true);
-      setDataError(null);
-      setIsConnecting(true);
-      setApiStatus('connecting');
-      
-      console.log('🏢 Loading buildings data...');
-      
-      // Always try to load real data first, fall back to mock if needed
-      const result = await locationService.getAllBuildings();
-      
-      const responseTime = Date.now() - startTime;
-      
-      if (result.success) {
-        // Handle different response structures: result.data, result.buildings, or result itself
-        const buildingsData = result.data?.buildings || result.buildings || result.data || [];
-        setBuildings(buildingsData);
-        
-        // Update connection status - SUCCESS
-        setApiStatus('connected');
-        setConnectionDetails({
-          backend: 'healthy',
-          database: 'connected',
-          lastUpdated: new Date().toISOString(),
-          responseTime: responseTime
-        });
-        
-        // Log connection status instead of detailed data
-        console.log(`✅ Buildings loaded - Status: SUCCESS, Count: ${buildingsData.length}`);
-        console.log(`⏱️ Response time: ${responseTime}ms`);
-        console.log('Buildings data structure:', buildingsData);
-        
-        if (result.isMockData || result.source === 'mock-data') {
-          message.info('Using demo data - backend connection unavailable');
-          // Add notification
-          addNotification({
-            type: 'info',
-            title: 'Using Demo Data',
-            message: 'Backend connection unavailable, displaying demo buildings data',
-            timestamp: new Date().toISOString()
-          });
-        } else {
-          message.success(`Loaded ${buildingsData.length} buildings`);
-          // Add success notification
-          addNotification({
-            type: 'success',
-            title: 'Buildings Data Loaded',
-            message: `Successfully loaded ${buildingsData.length} buildings from backend`,
-            timestamp: new Date().toISOString()
-          });
-        }
-      } else {
-        throw new Error(result.error || 'Failed to load buildings');
-      }
-    } catch (error) {
-      console.error('❌ Error loading buildings:', error);
-      
-      // Update connection status - ERROR
-      setApiStatus('error');
-      setConnectionDetails({
-        backend: 'unhealthy',
-        database: 'error',
-        lastUpdated: new Date().toISOString(),
-        responseTime: Date.now() - startTime
-      });
-      
-      setDataError(error.message);
-      message.error('Failed to load buildings data');
+  // Load buildings from global cache
+  useEffect(() => {
+    const cachedBuildings = globalApi.getCachedData('buildings');
+    if (cachedBuildings && Array.isArray(cachedBuildings)) {
+      console.log(`📋 LocationsPage: Loading ${cachedBuildings.length} buildings from global cache`);
+      setBuildings(cachedBuildings);
+    } else {
+      console.log('⚠️ LocationsPage: No cached buildings data available');
       setBuildings([]);
-      
-      // Add error notification
-      addNotification({
-        type: 'error',
-        title: 'Buildings Loading Failed',
-        message: `Failed to load buildings: ${error.message}`,
-        timestamp: new Date().toISOString()
-      });
-    } finally {
-      setLoading(false);
-      setIsConnecting(false);
     }
-  };
+  }, [globalApi.globalData.lastUpdated]); // 响应全局数据更新
 
   // Load rooms for selected building with unified loading pattern
   const loadRooms = async (buildingId) => {
@@ -197,13 +116,21 @@ const LocationsPage = () => {
     }
   };
 
-  // Initial load when component mounts
-  useEffect(() => {
-    loadBuildings();
-  }, []);
+  // Note: No longer calling loadBuildings on mount - using global cached data instead
+  // Users can manually refresh data using the refresh button in ServerStatusBanner
 
-  // Note: Removed automatic reload when connection becomes available to reduce API calls
-  // Users can manually refresh data using the refresh button if needed
+  // Manual refresh function for ServerStatusBanner
+  const handleRefresh = async () => {
+    console.log('🔄 LocationsPage: Manual refresh triggered via ServerStatusBanner');
+    await globalApi.refreshApi(); // This will refresh global data
+    
+    // Update local buildings from refreshed global data
+    const refreshedBuildings = globalApi.getCachedData('buildings');
+    if (refreshedBuildings && Array.isArray(refreshedBuildings)) {
+      setBuildings(refreshedBuildings);
+      console.log(`📋 LocationsPage: Updated with ${refreshedBuildings.length} buildings from refreshed global cache`);
+    }
+  };
 
   // Load rooms when building is selected
   useEffect(() => {
@@ -381,7 +308,8 @@ const LocationsPage = () => {
       
       // Reload data
       if (modalType === 'building') {
-        loadBuildings();
+        // Refresh global data instead of local loadBuildings
+        await handleRefresh();
       } else {
         loadRooms(selectedBuilding?.id);
       }
@@ -397,71 +325,16 @@ const LocationsPage = () => {
         Manage library buildings and room configurations with real-time data synchronization.
       </Paragraph>
 
-      {/* Connection Status */}
-      <ConnectionStatus 
-        showDetails={true} 
-        compact={false} 
+      {/* Server Status Banner */}
+      <ServerStatusBanner 
+        useGlobalApi={true}
+        onRefresh={handleRefresh}
+        showConnectionStatus={true}
+        showApiStatusCard={false}
+        showConnectingAlert={true}
+        showRefreshButton={false}
         style={{ marginBottom: 24 }}
-        customStatus={{
-          apiStatus: apiStatus,
-          connectionDetails: connectionDetails,
-          isConnecting: isConnecting
-        }}
       />
-
-      {/* API Connection Status Indicator */}
-      {isConnecting && (
-        <Alert
-          message="Connecting to Location Service"
-          description="Establishing connection to buildings and rooms data service..."
-          type="info"
-          showIcon
-          icon={<ClockCircleOutlined spin />}
-          style={{ marginBottom: 16 }}
-        />
-      )}
-      
-      {/* Real-time API Status */}
-      <Card size="small" style={{ marginBottom: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <Space>
-              <Tag 
-                color={
-                  apiStatus === 'connected' ? 'success' : 
-                  apiStatus === 'connecting' ? 'processing' : 
-                  apiStatus === 'error' ? 'error' : 'default'
-                }
-                icon={
-                  apiStatus === 'connected' ? <CheckCircleOutlined /> :
-                  apiStatus === 'connecting' ? <ClockCircleOutlined spin /> :
-                  apiStatus === 'error' ? <CloseCircleOutlined /> :
-                  <ApiOutlined />
-                }
-              >
-                {apiStatus === 'connected' ? 'API Connected' :
-                 apiStatus === 'connecting' ? 'Connecting...' :
-                 apiStatus === 'error' ? 'API Error' :
-                 'Disconnected'}
-              </Tag>
-              <Tag color={connectionDetails.backend === 'healthy' ? 'success' : 'error'}>
-                Backend: {connectionDetails.backend}
-              </Tag>
-              <Tag color={connectionDetails.database === 'connected' ? 'success' : 'error'}>
-                Database: {connectionDetails.database}
-              </Tag>
-            </Space>
-          </div>
-          <div style={{ fontSize: '12px', color: '#666' }}>
-            {connectionDetails.responseTime && `${connectionDetails.responseTime}ms`}
-            {connectionDetails.lastUpdated && (
-              <span style={{ marginLeft: 8 }}>
-                Updated: {new Date(connectionDetails.lastUpdated).toLocaleTimeString()}
-              </span>
-            )}
-          </div>
-        </div>
-      </Card>
 
       {/* Loading State */}
       {connection.loading && <PageLoadingSkeleton />}
@@ -474,22 +347,13 @@ const LocationsPage = () => {
             <Card
               title="Buildings"
               extra={
-                <Space>
-                  <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={() => handleAdd('building')}
-                  >
-                    Add Building
-                  </Button>
-                  <Button
-                    icon={<ReloadOutlined />}
-                    onClick={loadBuildings}
-                    loading={loading}
-                  >
-                    Refresh
-                  </Button>
-                </Space>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => handleAdd('building')}
+                >
+                  Add Building
+                </Button>
               }
             >
               {loading ? (
