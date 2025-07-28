@@ -80,19 +80,37 @@ const BookingsPage = () => {
     }
   };
 
-  // Load booking data
+  // Load booking data using unified booking service
   const fetchBookings = async () => {
     try {
       setLoading(true);
-      const response = await bookingService.getAllBookings();
+      const response = await bookingService.getBookings({
+        page: 1,
+        pageSize: 100, // Get more records for the page
+        status: selectedStatus !== 'all' ? selectedStatus : undefined,
+        dateRange: selectedDateRange,
+        keyword: searchText
+      });
+      
       if (response.success) {
-        setBookings(response.data);
-        setFilteredBookings(response.data);
+        setBookings(response.data.list || []);
+        setFilteredBookings(response.data.list || []);
+        
+        if (response.isMockData) {
+          message.warning('Using mock data - connect Supabase for real booking data');
+        } else {
+          message.success('Booking data loaded from real data sources');
+        }
       } else {
         message.error('Failed to load booking data');
+        setBookings([]);
+        setFilteredBookings([]);
       }
     } catch (error) {
+      console.error('Load booking data failed:', error);
       message.error('Failed to load booking data');
+      setBookings([]);
+      setFilteredBookings([]);
     } finally {
       setLoading(false);
     }

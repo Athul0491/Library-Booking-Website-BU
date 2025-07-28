@@ -238,6 +238,69 @@ class StatsService {
     
     return result;
   }
+
+  // Get recent bookings for dashboard
+  async getRecentBookings(limit = 10) {
+    try {
+      await this.sleep(200);
+      
+      // Mock recent bookings data
+      const recentBookings = [];
+      const userNames = ['John Smith', 'Sarah Johnson', 'Michael Brown', 'Emily Davis', 'David Wilson'];
+      const rooms = ['Study Room A', 'Meeting Room B', 'Discussion Room C', 'Computer Lab D', 'Reading Area E'];
+      const statuses = ['confirmed', 'pending', 'completed'];
+
+      for (let i = 0; i < limit; i++) {
+        recentBookings.push({
+          id: i + 1,
+          userName: userNames[Math.floor(Math.random() * userNames.length)],
+          roomName: rooms[Math.floor(Math.random() * rooms.length)],
+          date: dayjs().subtract(Math.floor(Math.random() * 7), 'day').format('YYYY-MM-DD'),
+          startTime: `${8 + Math.floor(Math.random() * 12)}:00`,
+          status: statuses[Math.floor(Math.random() * statuses.length)],
+          createdAt: dayjs().subtract(Math.floor(Math.random() * 24), 'hour').toISOString()
+        });
+      }
+
+      return {
+        success: true,
+        data: recentBookings.sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf())
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to fetch recent bookings',
+        message: 'An error occurred while retrieving recent bookings'
+      };
+    }
+  }
+
+  // Get popular rooms for dashboard
+  async getPopularRooms(limit = 5) {
+    try {
+      await this.sleep(200);
+      
+      // Mock popular rooms data
+      const popularRooms = [
+        { id: 1, name: 'Study Room A', bookings: 156, utilization: 85 },
+        { id: 2, name: 'Meeting Room B', bookings: 89, utilization: 72 },
+        { id: 3, name: 'Discussion Room C', bookings: 124, utilization: 68 },
+        { id: 4, name: 'Computer Lab D', bookings: 67, utilization: 45 },
+        { id: 5, name: 'Reading Area E', bookings: 203, utilization: 92 },
+      ];
+
+      return {
+        success: true,
+        data: popularRooms.slice(0, limit)
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to fetch popular rooms',
+        message: 'An error occurred while retrieving popular rooms'
+      };
+    }
+  }
 }
 
 export default new StatsService();

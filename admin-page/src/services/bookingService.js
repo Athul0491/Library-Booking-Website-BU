@@ -419,6 +419,108 @@ class BookingService {
       };
     }
   }
+
+  // Check in booking
+  async checkIn(bookingId) {
+    try {
+      await this.sleep();
+      
+      return {
+        success: true,
+        data: {
+          id: bookingId,
+          checkedIn: true,
+          checkedInTime: dayjs().format('HH:mm:ss'),
+          updatedAt: dayjs().format('YYYY-MM-DD HH:mm:ss')
+        },
+        message: 'Check-in successful'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to check in',
+        message: 'An error occurred while checking in'
+      };
+    }
+  }
+
+  // Check out booking
+  async checkOut(bookingId) {
+    try {
+      await this.sleep();
+      
+      return {
+        success: true,
+        data: {
+          id: bookingId,
+          checkedOut: true,
+          checkedOutTime: dayjs().format('HH:mm:ss'),
+          updatedAt: dayjs().format('YYYY-MM-DD HH:mm:ss')
+        },
+        message: 'Check-out successful'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to check out',
+        message: 'An error occurred while checking out'
+      };
+    }
+  }
+
+  // Cancel booking
+  async cancelBooking(bookingId) {
+    try {
+      await this.sleep();
+      
+      return {
+        success: true,
+        data: {
+          id: bookingId,
+          status: 'cancelled',
+          updatedAt: dayjs().format('YYYY-MM-DD HH:mm:ss')
+        },
+        message: 'Booking cancelled successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to cancel booking',
+        message: 'An error occurred while cancelling the booking'
+      };
+    }
+  }
+
+  // Update booking
+  async updateBooking(bookingId, updateData) {
+    try {
+      await this.sleep();
+      
+      const bookingResult = await this.getBookingById(bookingId);
+      if (!bookingResult.success) {
+        return bookingResult;
+      }
+
+      const updatedBooking = {
+        ...bookingResult.data,
+        ...updateData,
+        id: bookingResult.data.id, // Ensure ID doesn't change
+        updatedAt: dayjs().format('YYYY-MM-DD HH:mm:ss')
+      };
+
+      return {
+        success: true,
+        data: updatedBooking,
+        message: 'Booking updated successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: 'Failed to update booking',
+        message: 'An error occurred while updating the booking'
+      };
+    }
+  }
 }
 
 // Create singleton instance
