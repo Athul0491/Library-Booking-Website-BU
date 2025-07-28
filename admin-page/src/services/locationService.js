@@ -329,12 +329,14 @@ export const getBuildingStats = async () => {
 };
 
 /**
+ * @deprecated Use GlobalApiContext.globalData.rooms and filter by building_id instead
  * Get rooms for a specific building
  * @param {string} buildingId - The building ID
  * @param {Object} options - Options for fetching rooms
  * @returns {Promise<{success: boolean, data: Object|null, error: string|null}>}
  */
 export const getRoomsByBuilding = async (buildingId, options = {}) => {
+  console.warn('⚠️ getRoomsByBuilding is deprecated. Use GlobalApiContext.globalData.rooms and filter by building_id instead.');
   try {
     // Try to get data from Supabase first
     const result = await supabaseService.getRoomsByBuilding(buildingId, options);

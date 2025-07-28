@@ -10,7 +10,7 @@ import { GlobalApiProvider } from './contexts/GlobalApiContext';
 import DashboardPage from './pages/DashboardPage';
 import LocationsPage from './pages/LocationsPage';
 import BookingsPage from './pages/BookingsPage';
-import AvailabilityPage from './pages/AvailabilityPage';
+import RoomsManagementPage from './pages/RoomsManagementPage';
 import StatisticsPage from './pages/StatisticsPage';
 import DataMonitorPage from './pages/DataMonitorPage';
 
@@ -43,8 +43,8 @@ const App = () => {
           {/* Booking management page - view and manage all booking records */}
           <Route path="/bookings" element={<BookingsPage />} />
           
-          {/* Room availability management page - control time slot availability */}
-          <Route path="/availability" element={<AvailabilityPage />} />
+          {/* Rooms management page - comprehensive room and schedule management */}
+          <Route path="/availability" element={<RoomsManagementPage />} />
           
           {/* Statistics report page - view various data analysis and reports */}
           <Route path="/statistics" element={<StatisticsPage />} />

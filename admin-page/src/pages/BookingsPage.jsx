@@ -31,6 +31,7 @@ import dayjs from 'dayjs';
 import bookingService from '../services/bookingService';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useDataSource } from '../contexts/DataSourceContext';
+import { useGlobalApi } from '../contexts/GlobalApiContext';
 import { 
   ConnectionStatus, 
   TableSkeleton, 
@@ -48,6 +49,7 @@ const { Search } = Input;
  */
 const BookingsPage = () => {
   const connection = useConnection();
+  const globalApi = useGlobalApi();
   const { useRealData } = useDataSource();
   const [loading, setLoading] = useState(false);
   const [bookings, setBookings] = useState([]);
@@ -63,12 +65,12 @@ const BookingsPage = () => {
   const columns = [
     {
       title: 'Booking ID',
-      dataIndex: 'booking_id',
-      key: 'booking_id',
+      dataIndex: 'booking_reference',
+      key: 'booking_reference',
       width: 120,
-      render: (id) => (
+      render: (ref) => (
         <code style={{ fontSize: '12px', color: '#666' }}>
-          {id || 'N/A'}
+          {ref || 'N/A'}
         </code>
       )
     },
@@ -171,19 +173,28 @@ const BookingsPage = () => {
     }
   ];
 
+  // Manual refresh function for ServerStatusBanner
+  const handleRefresh = async () => {
+    console.log('🔄 BookingsPage: Manual refresh triggered via ServerStatusBanner');
+    await globalApi.refreshApi(); // This will refresh global data
+    
+    // Also refresh local bookings data
+    await loadBookings();
+  };
+
   // Load bookings data with proper data source handling
   const loadBookings = async () => {
     try {
       setLoading(true);
       setDataError(null);
       
-      // Use real data or mock data based on DataSource context
-      const options = { forceUseMockData: !useRealData };
+      // Prepare filters - don't filter by status in API call, do it locally
+      const filters = {};
       
       const response = await bookingService.getBookings({
-        status: statusFilter,
-        library: 'all',
-        ...options
+        page: 1,
+        limit: 100, // Get more records for local filtering
+        filters: filters
       });
       
       if (response.success) {
@@ -191,17 +202,23 @@ const BookingsPage = () => {
         setFilteredBookings(response.data?.bookings || []);
         
         // Load statistics
-        const statsResponse = await bookingService.getBookingStats(options);
+        const statsResponse = await bookingService.getBookingStats();
         if (statsResponse.success) {
           setStats(statsResponse.data || {});
         }
-      } else if (useRealData) {
+      } else {
+        console.warn('Failed to load bookings:', response.error);
         throw new Error(`Failed to load bookings: ${response.error}`);
       }
     } catch (error) {
       console.error('Failed to load bookings:', error);
+      setDataError(error.message);
+      setBookings([]);
+      setFilteredBookings([]);
+      setStats({});
+      
+      // Only show error message if using real data
       if (useRealData) {
-        setDataError(error.message);
         message.error('Failed to load booking data');
       }
     } finally {
@@ -227,7 +244,7 @@ const BookingsPage = () => {
         (booking.room_name || '').toLowerCase().includes(query) ||
         (booking.building_name || '').toLowerCase().includes(query) ||
         (booking.building_short_name || '').toLowerCase().includes(query) ||
-        (booking.booking_id || '').toString().includes(query) ||
+        (booking.id || '').toString().includes(query) ||
         (booking.booking_reference || '').toLowerCase().includes(query)
       );
     }
@@ -242,13 +259,13 @@ const BookingsPage = () => {
   };
 
   const editBooking = (booking) => {
-    message.info(`Edit booking #${booking.id} - Feature coming soon`);
+    message.info(`Edit booking ${booking.booking_reference || booking.id} - Feature coming soon`);
   };
 
   const cancelBooking = async (booking) => {
     Modal.confirm({
       title: 'Cancel Booking',
-      content: `Are you sure you want to cancel booking #${booking.id}?`,
+      content: `Are you sure you want to cancel booking ${booking.booking_reference || booking.id}?`,
       okText: 'Yes, Cancel',
       okType: 'danger',
       cancelText: 'No',
@@ -292,6 +309,7 @@ const BookingsPage = () => {
       {/* Server Status Banner */}
       <ServerStatusBanner 
         useGlobalApi={true}
+        onRefresh={handleRefresh}
         showConnectionStatus={true}
         showApiStatusCard={false}
         showConnectingAlert={false}
@@ -300,19 +318,19 @@ const BookingsPage = () => {
       />
 
       {/* Loading State */}
-      {connection.loading && <PageLoadingSkeleton />}
+      {loading && <PageLoadingSkeleton />}
 
-      {/* No Connection State */}
-      {!connection.loading && !connection.isDataAvailable && (
+      {/* Error State */}
+      {dataError && !loading && (
         <DataUnavailablePlaceholder 
           title="Booking Data Unavailable"
-          description="Cannot connect to the booking service. Please check your connection and try again."
-          onRetry={() => connection.refreshConnections()}
+          description={`Error loading booking data: ${dataError}. Please try refreshing the page.`}
+          onRetry={loadBookings}
         />
       )}
 
       {/* Normal Data Display */}
-      {!connection.loading && connection.isDataAvailable && (
+      {!loading && !dataError && (
         <>
           {/* Statistics */}
           <Row gutter={16} style={{ marginBottom: 24 }}>
@@ -427,7 +445,7 @@ const BookingsPage = () => {
 
           {/* Booking Details Modal */}
           <Modal
-            title={`Booking Details - #${selectedBooking?.id}`}
+            title={`Booking Details - ${selectedBooking?.booking_reference || selectedBooking?.id}`}
             open={modalVisible}
             onCancel={() => setModalVisible(false)}
             footer={[
@@ -439,26 +457,26 @@ const BookingsPage = () => {
           >
             {selectedBooking && (
               <Descriptions column={2} bordered size="small">
-                <Descriptions.Item label="Booking ID" span={2}>
-                  <code>#{selectedBooking.id}</code>
+                <Descriptions.Item label="Booking Reference" span={2}>
+                  <code>{selectedBooking.booking_reference}</code>
                 </Descriptions.Item>
                 <Descriptions.Item label="User">
-                  {selectedBooking.user}
+                  {selectedBooking.user_name}
                 </Descriptions.Item>
                 <Descriptions.Item label="Email">
-                  {selectedBooking.email}
+                  {selectedBooking.user_email}
                 </Descriptions.Item>
                 <Descriptions.Item label="Room">
-                  {selectedBooking.room}
+                  {selectedBooking.room_name}
                 </Descriptions.Item>
-                <Descriptions.Item label="Library">
-                  {selectedBooking.library}
+                <Descriptions.Item label="Building">
+                  {selectedBooking.building_name} ({selectedBooking.building_short_name})
                 </Descriptions.Item>
                 <Descriptions.Item label="Date">
-                  {dayjs(selectedBooking.date).format('YYYY-MM-DD dddd')}
+                  {dayjs(selectedBooking.booking_date).format('YYYY-MM-DD dddd')}
                 </Descriptions.Item>
                 <Descriptions.Item label="Time">
-                  {selectedBooking.startTime} - {selectedBooking.endTime}
+                  {selectedBooking.start_time} - {selectedBooking.end_time}
                 </Descriptions.Item>
                 <Descriptions.Item label="Status">
                   <Tag color={
@@ -469,11 +487,17 @@ const BookingsPage = () => {
                     {selectedBooking.status}
                   </Tag>
                 </Descriptions.Item>
-                <Descriptions.Item label="Attendees">
-                  {selectedBooking.attendees} people
+                <Descriptions.Item label="Group Size">
+                  {selectedBooking.group_size} people
+                </Descriptions.Item>
+                <Descriptions.Item label="Duration">
+                  {selectedBooking.duration_minutes} minutes
+                </Descriptions.Item>
+                <Descriptions.Item label="Purpose" span={2}>
+                  {selectedBooking.purpose || 'Not specified'}
                 </Descriptions.Item>
                 <Descriptions.Item label="Created At" span={2}>
-                  {dayjs(selectedBooking.createdAt).format('YYYY-MM-DD HH:mm:ss')}
+                  {dayjs(selectedBooking.created_at).format('YYYY-MM-DD HH:mm:ss')}
                 </Descriptions.Item>
                 {selectedBooking.notes && (
                   <Descriptions.Item label="Notes" span={2}>

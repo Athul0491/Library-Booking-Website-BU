@@ -33,6 +33,7 @@ export const GlobalApiProvider = ({ children }) => {
   const [globalData, setGlobalData] = useState({
     dashboard: null,
     buildings: null,
+    rooms: null,
     lastUpdated: null
   });
 
@@ -61,9 +62,38 @@ export const GlobalApiProvider = ({ children }) => {
         });
         
         // Cache the data
+        const buildings = result.data?.buildings || [];
+        let allRooms = [];
+        
+        // Get all rooms with building info in one efficient call
+        if (buildings.length > 0) {
+          console.log('🏢 Fetching all rooms with building info...');
+          try {
+            const roomsResult = await apiService.getAllRooms();
+            if (roomsResult.success && roomsResult.data?.rooms) {
+              allRooms = roomsResult.data.rooms.map(room => ({
+                // Keep the original room data
+                ...room,
+                // Add building information for consistent structure
+                building_code: room.buildings?.short_name || 'unknown',
+                building_name: room.buildings?.name || 'Unknown Building',
+                // Keep existing building_id
+                building_id: room.building_id
+              }));
+              console.log(`🏠 Total rooms fetched: ${allRooms.length}`);
+              console.log('🔍 Sample room data:', allRooms[0]);
+            } else {
+              console.warn('No rooms data received:', roomsResult.error);
+            }
+          } catch (error) {
+            console.warn('Failed to fetch all rooms:', error);
+          }
+        }
+        
         setGlobalData({
           dashboard: result.data,
-          buildings: result.data?.buildings || [],
+          buildings: buildings,
+          rooms: allRooms,
           lastUpdated: new Date().toISOString()
         });
         
@@ -71,7 +101,7 @@ export const GlobalApiProvider = ({ children }) => {
         
         console.log(`✅ Global API Initialized - Status: SUCCESS`);
         console.log(`⏱️ Response time: ${responseTime}ms`);
-        console.log(`📊 Data cached: ${result.data?.buildings?.length || 0} buildings`);
+        console.log(`📊 Data cached: ${buildings.length} buildings, ${allRooms.length} rooms`);
         
       } else {
         throw new Error(result.error || 'API initialization failed');
@@ -147,10 +177,12 @@ export const GlobalApiProvider = ({ children }) => {
         return globalData.dashboard;
       case 'buildings':
         return globalData.buildings;
+      case 'rooms':
+        return globalData.rooms;
       default:
         return null;
     }
-  }, [globalData.dashboard, globalData.buildings]);
+  }, [globalData.dashboard, globalData.buildings, globalData.rooms]);
 
   const value = {
     // API Status

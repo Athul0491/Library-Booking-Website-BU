@@ -89,22 +89,21 @@ const LocationsPage = () => {
       
       console.log(`🏠 Loading rooms for building ${buildingId}...`);
       
-      // Always try to load real data first, fall back to mock if needed
-      const result = await locationService.getRoomsByBuilding(buildingId);
-      
-      if (result.success) {
-        setRooms(result.data?.rooms || []);
+      // Use global rooms data and filter by building ID
+      const { globalData } = globalApi;
+      if (globalData?.rooms && globalData.rooms.length > 0) {
+        const buildingRooms = globalData.rooms.filter(room => 
+          room.building_id === buildingId || 
+          room.building_id === String(buildingId)
+        );
         
-        // Log connection status instead of detailed data
-        console.log(`✅ Rooms loaded - Count: ${result.data?.rooms?.length || 0}`);
-        
-        if (result.isMockData) {
-          message.info('Using demo data - backend connection unavailable');
-        } else {
-          message.success(`Loaded ${result.data?.rooms?.length || 0} rooms for building`);
-        }
+        setRooms(buildingRooms);
+        console.log(`✅ Rooms loaded from global cache - Count: ${buildingRooms.length}`);
+        message.success(`Loaded ${buildingRooms.length} rooms for building`);
       } else {
-        throw new Error(result.error || 'Failed to load rooms');
+        console.warn('⚠️ No global rooms data available');
+        setRooms([]);
+        message.warning('No rooms data available. Try refreshing the page.');
       }
     } catch (error) {
       console.error('❌ Error loading rooms:', error);

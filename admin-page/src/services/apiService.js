@@ -229,53 +229,35 @@ class ApiService {
   }
 
   /**
-   * Get rooms by building ID
+   * Get all rooms with building information (more efficient than the old getRoomsByBuilding approach)
    */
-  async getRoomsByBuildingId(buildingId) {
+  async getAllRooms() {
     try {
-      // First need to find building short_name by ID
-      const buildingsResponse = await this.makeRequest('/buildings', {
-        method: 'GET'
-      });
-      
-      if (!buildingsResponse.success) {
-        throw new Error('Failed to fetch buildings');
-      }
-      
-      const building = buildingsResponse.buildings.find(b => b.id === buildingId);
-      if (!building) {
-        throw new Error(`Building with ID ${buildingId} not found`);
-      }
-      
-      return this.getRoomsByBuilding(building.short_name);
-    } catch (error) {
-      console.error('Failed to fetch rooms by building ID:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get rooms by building short name
-   */
-  async getRoomsByBuilding(shortName) {
-    try {
-      console.log(`Fetching rooms for building: ${shortName}`);
-      const response = await this.makeRequest(`/buildings/${shortName}/rooms`, {
+      console.log('Fetching all rooms with building info...');
+      const response = await this.makeRequest('/rooms', {
         method: 'GET'
       });
       
       if (response.success) {
         return { 
-          rooms: response.rooms,
-          building: response.building,
-          count: response.count
+          success: true,
+          data: {
+            rooms: response.rooms,
+            count: response.count
+          }
         };
       } else {
-        throw new Error(response.error || 'Unknown error');
+        return {
+          success: false,
+          error: response.error || 'Unknown error'
+        };
       }
     } catch (error) {
-      console.error('Failed to fetch rooms:', error);
-      throw error;
+      console.error('Failed to fetch all rooms:', error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 
