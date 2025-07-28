@@ -267,12 +267,13 @@ const BookingsPage = () => {
     });
   };
 
-  // Initialize data loading
+  // Initial load when component mounts
   useEffect(() => {
-    if (connection.isDataAvailable) {
-      loadBookings();
-    }
-  }, [connection.isDataAvailable, statusFilter, useRealData]);
+    loadBookings();
+  }, []);
+
+  // Note: Removed automatic reload when connection becomes available to reduce API calls
+  // Users can manually refresh data using the refresh button if needed
 
   // Filter bookings when search or status changes
   useEffect(() => {

@@ -82,6 +82,7 @@ const DashboardPage = () => {
   });
 
   // Load data when component mounts and connection is available
+  // Initial load when component mounts
   useEffect(() => {
     // Set initial connecting state
     setApiStatus('connecting');
@@ -96,12 +97,8 @@ const DashboardPage = () => {
     loadDashboardData();
   }, []);
 
-  // Also load data when connection becomes available
-  useEffect(() => {
-    if (connection.isDataAvailable) {
-      loadDashboardData();
-    }
-  }, [connection.isDataAvailable]);
+  // Note: Removed automatic reload when connection becomes available to reduce API calls
+  // Users can manually refresh data using the refresh button if needed
 
   // Load comprehensive dashboard data
   const loadDashboardData = async () => {
@@ -122,8 +119,8 @@ const DashboardPage = () => {
         
         const responseTime = Date.now() - startTime;
         
-        // Log the complete backend response
-        console.log('🔥 Backend API Response:', JSON.stringify(dashboardResult, null, 2));
+        // Log connection status instead of detailed data
+        console.log(`✅ Backend API Connected - Status: ${dashboardResult.success ? 'SUCCESS' : 'FAILED'}`);
         console.log(`⏱️ Response time: ${responseTime}ms`);
         
         if (dashboardResult.success) {
@@ -138,10 +135,9 @@ const DashboardPage = () => {
             responseTime: responseTime
           });
           
-          // Log parsed dashboard data
-          console.log('📊 Dashboard Data:', JSON.stringify(dashboardData, null, 2));
-          console.log('📈 Stats:', dashboardData.stats);
-          console.log('🏢 Buildings:', dashboardData.buildings);
+          // Log data summary instead of detailed data
+          console.log(`📊 Data Summary: ${dashboardData.buildings?.length || 0} buildings, ${dashboardData.stats?.total_rooms || 0} rooms`);
+          console.log(`📈 Active Bookings: ${dashboardData.stats?.active_bookings || 0}`);
           
           // Set data from optimized dashboard response
           setSystemStats({
@@ -219,10 +215,10 @@ const DashboardPage = () => {
         bookingService.getBookingStats()
       ]);
 
-      // Log individual API results
-      console.log('📊 Fallback Stats Result:', JSON.stringify(statsResult, null, 2));
-      console.log('🏢 Fallback Buildings Result:', JSON.stringify(buildingsResult, null, 2));
-      console.log('📅 Fallback Bookings Result:', JSON.stringify(bookingsResult, null, 2));
+      // Log fallback API connection status
+      console.log(`📊 Fallback APIs - Stats: ${statsResult.success ? 'SUCCESS' : 'FAILED'}`);
+      console.log(`🏢 Buildings: ${buildingsResult.success ? 'SUCCESS' : 'FAILED'}`);
+      console.log(`📅 Bookings: ${bookingsResult.success ? 'SUCCESS' : 'FAILED'}`);
 
       // Handle statistics data
       if (statsResult.success) {

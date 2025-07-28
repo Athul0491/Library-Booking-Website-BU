@@ -108,10 +108,10 @@ export const ConnectionProvider = ({ children }) => {
   useEffect(() => {
     checkAllConnections();
     
-    // Check connections every 30 seconds
-    const interval = setInterval(checkAllConnections, 30000);
-    
-    return () => clearInterval(interval);
+    // Disabled automatic connection checking to reduce API calls
+    // Users can manually refresh using the refresh button if needed
+    // const interval = setInterval(checkAllConnections, 30000);
+    // return () => clearInterval(interval);
   }, []);
 
   // Manual refresh connections

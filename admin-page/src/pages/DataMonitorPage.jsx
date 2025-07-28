@@ -74,23 +74,29 @@ const DataMonitorPage = () => {
   // Load all data when component mounts
   useEffect(() => {
     loadAllData();
-    // Set up auto-refresh every 30 seconds if using real data
-    if (useRealData) {
-      const interval = setInterval(loadAllData, 30000);
-      setRefreshInterval(interval);
-      
-      return () => {
-        if (interval) clearInterval(interval);
-      };
-    }
+    // Disabled auto-refresh to reduce API calls - users can manually refresh if needed
+    // if (useRealData) {
+    //   const interval = setInterval(loadAllData, 30000);
+    //   setRefreshInterval(interval);
+    //   
+    //   return () => {
+    //     if (interval) clearInterval(interval);
+    //   };
+    // }
   }, [connection.isDataAvailable, useRealData]);
 
-  // Reload data when library or date changes
+  // Initial load when component mounts
   useEffect(() => {
-    if (connection.isDataAvailable) {
-      loadAvailabilityData();
-    }
-  }, [selectedLibrary, selectedDate, connection.isDataAvailable]);
+    loadAvailabilityData();
+  }, []);
+
+  // Reload when library or date changes
+  useEffect(() => {
+    loadAvailabilityData();
+  }, [selectedLibrary, selectedDate]);
+
+  // Note: Removed automatic reload when connection becomes available to reduce API calls
+  // Users can manually refresh data using the refresh button if needed
 
   /**
    * Load all monitoring data

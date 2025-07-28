@@ -127,12 +127,22 @@ const AvailabilityPage = () => {
     }, 800);
   };
 
-  // Load data when connection is available and params change
+  // Initial load when component mounts
   useEffect(() => {
     if (selectedLibrary && selectedDate) {
       loadRealTimeSlots();
     }
-  }, [selectedDate, selectedLibrary, connection.isDataAvailable, useRealData]);
+  }, []);
+
+  // Reload when library or date changes
+  useEffect(() => {
+    if (selectedLibrary && selectedDate) {
+      loadRealTimeSlots();
+    }
+  }, [selectedDate, selectedLibrary]);
+
+  // Note: Removed automatic reload when connection becomes available to reduce API calls
+  // Users can manually refresh data using the refresh button if needed
 
   // Get date display content (for calendar)
   const getCellRender = (current, info) => {

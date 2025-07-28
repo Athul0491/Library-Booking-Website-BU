@@ -86,10 +86,18 @@ const StatisticsPage = () => {
     }
   };
 
-  // Load data when component mounts and connection is available
+  // Initial load when component mounts
   useEffect(() => {
     loadStatistics();
-  }, [dateRange, selectedMetric, connection.isDataAvailable, useRealData]);
+  }, []);
+
+  // Reload when date range or metric changes
+  useEffect(() => {
+    loadStatistics();
+  }, [dateRange, selectedMetric]);
+
+  // Note: Removed automatic reload when connection becomes available to reduce API calls
+  // Users can manually refresh data using the refresh button if needed
 
   // ExportReport
   const exportReport = () => {

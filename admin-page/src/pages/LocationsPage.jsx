@@ -111,12 +111,13 @@ const LocationsPage = () => {
     }
   };
 
-  // Load data when connection is available
+  // Initial load when component mounts
   useEffect(() => {
-    if (connection.isDataAvailable) {
-      loadBuildings();
-    }
-  }, [connection.isDataAvailable, useRealData]);
+    loadBuildings();
+  }, []);
+
+  // Note: Removed automatic reload when connection becomes available to reduce API calls
+  // Users can manually refresh data using the refresh button if needed
 
   // Load rooms when building is selected
   useEffect(() => {
