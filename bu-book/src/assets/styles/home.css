@@ -8,6 +8,8 @@
   background: #121212;
   color: #ddd;
   font-family: Arial, sans-serif;
+  height: 100vh; /* 填满整个视口高度 */
+  overflow: hidden; /* 防止外部滚动 */
 }
 
 /* header always full-width */
@@ -20,6 +22,30 @@
   margin: 0;
   font-weight: 600;
 }
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Error and loading banners */
+.error-banner {
+  background: rgba(255, 77, 79, 0.2);
+  border: 1px solid rgba(255, 77, 79, 0.4);
+  border-radius: 6px;
+  padding: 12px;
+  color: #ff6b6b;
+  text-align: center;
+}
+.loading-banner {
+  background: rgba(250, 173, 20, 0.2);
+  border: 1px solid rgba(250, 173, 20, 0.4);
+  border-radius: 6px;
+  padding: 12px;
+  text-align: center;
+  color: #faad14;
+}
+
 .info-icon {
   border: 1px solid #ddd;
   border-radius: 50%;
@@ -35,6 +61,8 @@
   display: flex;
   gap: 1rem;
   width: 100%;
+  flex: 1; /* 占用剩余空间 */
+  min-height: 0; /* 允许flex子元素收缩 */
 }
 
 /* sidebar list */
@@ -43,8 +71,8 @@
   background: #1e1e1e;
   border-radius: 8px;
   padding: 1rem;
-  max-height: 600px;
   overflow-y: auto;
+  max-height: 100%; /* 使用可用高度而不是固定高度 */
 }
 
 /* each building block */
@@ -131,12 +159,12 @@
   flex: 2;
   background: #222;
   border-radius: 8px;
-  min-height: 600px;
   display: flex;
   justify-content: center;
   align-items: center;
   color: #666;
   font-style: italic;
+  height: 100%; /* 使用父容器的完整高度 */
 }
 
 /* scroll bar styling */
@@ -146,4 +174,26 @@
 .building-list::-webkit-scrollbar-thumb {
   background: #444;
   border-radius: 4px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .home-container {
+    padding: 0.5rem;
+  }
+  
+  .list-map-wrapper {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .building-list {
+    flex: none;
+    max-height: 300px; /* 移动设备上限制列表高度 */
+  }
+  
+  .map-area {
+    flex: none;
+    min-height: 300px; /* 移动设备上确保地图有最小高度 */
+  }
 }
