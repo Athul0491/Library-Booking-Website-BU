@@ -1,6 +1,11 @@
 /**
  * Connection Status Context
  * Manages database and backend server connection states using unified API service
+ * 
+ * ✅ PRIMARY DATA SOURCE: Supabase API (Direct)
+ * ⚠️ SECONDARY (Optional): bub-backend proxy (for legacy compatibility)
+ * 
+ * This context tests both Supabase (primary) and backend (secondary) connections
  */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import apiService from '../services/apiService';
@@ -47,6 +52,7 @@ export const ConnectionProvider = ({ children }) => {
         lastChecked: timestamp
       };
     } catch (error) {
+      console.error('❌ Supabase connection test failed:', error);
       return {
         configured: false,
         connected: false,
@@ -69,6 +75,7 @@ export const ConnectionProvider = ({ children }) => {
         lastChecked: timestamp
       };
     } catch (error) {
+      console.warn('⚠️ Backend server not available (using Supabase instead):', error);
       return {
         connected: false,
         error: 'Backend server not available (using Supabase instead)',

@@ -2,6 +2,11 @@
  * Global API Context
  * Manages global API state and prevents unnecessary API calls
  * Only calls API on app initialization and manual refresh
+ * 
+ * ✅ DATA SOURCE: SUPABASE API (Direct)
+ * ❌ NOT USING: bub-backend proxy
+ * 
+ * This context now uses Supabase API directly via apiService -> supabaseService
  */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import apiService from '../services/apiService';
@@ -44,7 +49,6 @@ export const GlobalApiProvider = ({ children }) => {
     try {
       setIsConnecting(true);
       setApiStatus('connecting');
-      console.log('🚀 Initializing Global API...');
       
       // Try to get dashboard data as a health check
       const result = await apiService.getDashboardData();
@@ -67,9 +71,9 @@ export const GlobalApiProvider = ({ children }) => {
         
         // Get all rooms with building info in one efficient call
         if (buildings.length > 0) {
-          console.log('🏢 Fetching all rooms with building info...');
           try {
             const roomsResult = await apiService.getAllRooms();
+            
             if (roomsResult.success && roomsResult.data?.rooms) {
               allRooms = roomsResult.data.rooms.map(room => ({
                 // Keep the original room data
@@ -80,13 +84,9 @@ export const GlobalApiProvider = ({ children }) => {
                 // Keep existing building_id
                 building_id: room.building_id
               }));
-              console.log(`🏠 Total rooms fetched: ${allRooms.length}`);
-              console.log('🔍 Sample room data:', allRooms[0]);
-            } else {
-              console.warn('No rooms data received:', roomsResult.error);
             }
           } catch (error) {
-            console.warn('Failed to fetch all rooms:', error);
+            // Silently handle rooms fetch error
           }
         }
         
@@ -99,15 +99,11 @@ export const GlobalApiProvider = ({ children }) => {
         
         setLastApiCall(new Date().toISOString());
         
-        console.log(`✅ Global API Initialized - Status: SUCCESS`);
-        console.log(`⏱️ Response time: ${responseTime}ms`);
-        console.log(`📊 Data cached: ${buildings.length} buildings, ${allRooms.length} rooms`);
-        
       } else {
         throw new Error(result.error || 'API initialization failed');
       }
     } catch (error) {
-      console.error('❌ Global API initialization failed:', error);
+      console.error('Global API initialization failed:', error);
       
       // Update connection status - ERROR
       setApiStatus('error');
@@ -132,21 +128,18 @@ export const GlobalApiProvider = ({ children }) => {
 
   // Manual refresh function for user-triggered refreshes
   const refreshApi = useCallback(async () => {
-    console.log('🔄 Manual API refresh triggered...');
     setForceRefresh(true);
     await initializeApi();
   }, [initializeApi]);
 
   // Initialize on app start
   useEffect(() => {
-    console.log('🌐 App started - Initializing Global API...');
     initializeApi();
   }, [initializeApi]);
 
   // Listen for browser refresh (beforeunload event)
   useEffect(() => {
     const handleBeforeUnload = () => {
-      console.log('🔄 Browser refresh detected - will reinitialize API...');
       // We can't actually call API here due to browser limitations
       // but we reset the state so next load will call API
       setLastApiCall(null);

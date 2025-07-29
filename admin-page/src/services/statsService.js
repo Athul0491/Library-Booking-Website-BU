@@ -158,7 +158,6 @@ const getStatistics = async (options = {}) => {
     
     // Try to get real data from Supabase via apiService first
     try {
-      console.log('Getting statistics from Supabase...');
       const statsResult = await apiService.getStats();
       
       if (statsResult.success) {
