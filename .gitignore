@@ -2,6 +2,27 @@
 /bub-backend/__pycache__
 /.vscode
 
+# Environment Variables (Security - Never commit these!)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# Project-specific env files
+bu-book/.env
+bu-book/.env.local
+bu-book/.env.development.local
+bu-book/.env.test.local
+bu-book/.env.production.local
+
+admin-page/.env
+admin-page/.env.local
+admin-page/.env.development.local
+admin-page/.env.test.local
+admin-page/.env.production.local
+
 # Logs
 bu-book/logs
 bu-book/*.log

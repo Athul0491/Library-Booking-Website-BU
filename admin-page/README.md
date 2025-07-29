@@ -1,16 +1,27 @@
 # BU Library Admin Dashboard
 
-Professional admin dashboard for managing BU Library room bookings with real-time data integration.
+Professional admin dashboard for managing BU Library room bookings with direct Supabase integration.
 
 ## 🚀 Features
 
+- **Direct Supabase Integration**: Now uses Supabase directly instead of backend proxy
 - **Connection-Aware Architecture**: Intelligent connection status monitoring
 - **Skeleton Loading**: Professional loading states with skeleton components
-- **Real-time Data**: Integration with Supabase and BU LibCal API
-- **Multi-Service Integration**: Connects to bu-book and bub-backend systems
+- **Real-time Data**: Direct integration with Supabase database
+- **Serverless Architecture**: No need for separate backend server
 - **Responsive Design**: Mobile-friendly Ant Design interface
 
-## 📁 Project Structure
+## � Migration Status
+
+**✅ MIGRATED TO SUPABASE** - This project has been successfully migrated from Flask backend to direct Supabase API calls.
+
+### What Changed:
+- Removed dependency on `bub-backend` Python server
+- Updated `apiService.js` to use `supabaseService.js` directly
+- Environment variables now use `VITE_SUPABASE_*` instead of `VITE_BACKEND_URL`
+- All API methods now call Supabase database directly
+
+## �📁 Project Structure
 
 ```
 admin-page/
@@ -27,7 +38,13 @@ admin-page/
 │   │   ├── AvailabilityPage.jsx      # Availability management
 │   │   └── DataMonitorPage.jsx       # Data monitoring
 │   ├── services/
-│   │   ├── supabaseClient.js         # Supabase connection
+│   │   ├── apiService.js             # Main API service (now uses Supabase)
+│   │   ├── supabaseService.js        # Direct Supabase operations
+│   │   ├── locationService.js        # Location management
+│   │   ├── bookingService.js         # Booking operations
+│   │   └── statsService.js           # Statistics & analytics
+│   └── lib/
+│       └── supabase.js               # Supabase client configuration
 │   │   ├── bookingService.js         # Booking operations
 │   │   ├── locationService.js        # Location data
 │   │   ├── statsService.js           # Statistics

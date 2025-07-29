@@ -92,28 +92,25 @@ export const DataSourceProvider = ({ children }) => {
   // Connection testing functions
   const testConnection = async () => {
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
+      // Since we're now using Supabase directly, test the API service instead
       
-      // Test backend connection
+      // Test current API service (which now uses Supabase)
       let backendStatus = 'unhealthy';
       let backendError = null;
       
       try {
-        const response = await fetch(`${backendUrl}/api/health`);
-        if (response.ok) {
-          const data = await response.json();
-          backendStatus = data.status === 'healthy' ? 'healthy' : 'degraded';
+        const healthResult = await apiService.healthCheck();
+        if (healthResult.status === 'healthy') {
+          backendStatus = 'healthy';
           
-          // Check Supabase status from backend response
-          if (data.services && data.services.supabase_api) {
-            const supabaseStatus = data.services.supabase_api.status === 'healthy' ? 'healthy' : 'unhealthy';
-            setConnectionStatus(prev => ({
-              ...prev,
-              supabase: supabaseStatus
-            }));
-          }
+          // Update Supabase status as well since they're the same now
+          setConnectionStatus(prev => ({
+            ...prev,
+            supabase: 'healthy'
+          }));
         } else {
-          backendError = `HTTP ${response.status}`;
+          backendStatus = 'degraded';
+          backendError = healthResult.message;
         }
       } catch (error) {
         backendError = error.message;
@@ -131,22 +128,22 @@ export const DataSourceProvider = ({ children }) => {
       if (backendStatus === 'unhealthy') {
         addNotification({
           type: 'error',
-          title: 'Backend Connection Failed',
-          message: `Unable to connect to backend server: ${backendError}`,
+          title: 'Supabase Connection Failed',
+          message: `Unable to connect to Supabase: ${backendError}`,
           timestamp: new Date().toISOString()
         });
       } else if (backendStatus === 'degraded') {
         addNotification({
           type: 'warning',
           title: 'Service Status Degraded',
-          message: 'Backend service is accessible, but some features may be limited',
+          message: 'Supabase service is accessible, but some features may be limited',
           timestamp: new Date().toISOString()
         });
       } else {
         addNotification({
           type: 'success',
           title: 'Connection Successful',
-          message: 'Backend service is running normally',
+          message: 'Supabase service is running normally',
           timestamp: new Date().toISOString()
         });
       }
