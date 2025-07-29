@@ -156,28 +156,28 @@ const getStatistics = async (options = {}) => {
       };
     }
     
-    // Try to get real data from backend proxy first
+    // Try to get real data from Supabase via apiService first
     try {
-      console.log('Getting statistics from backend proxy...');
+      console.log('Getting statistics from Supabase...');
       const statsResult = await apiService.getStats();
       
       if (statsResult.success) {
-        const backendStats = statsResult.stats;
+        const supabaseStats = statsResult.stats;
         
-        // Transform backend data to expected format
+        // Transform Supabase data to expected format
         const transformedStats = {
           ...mockStatsData,
-          totalBuildings: backendStats.buildings.total || mockStatsData.totalBuildings,
-          activeBuildings: backendStats.buildings.available || mockStatsData.activeBuildings,
-          totalRooms: backendStats.rooms.total || mockStatsData.totalRooms,
-          totalBookings: backendStats.bookings.total || mockStatsData.totalBookings,
+          totalBuildings: supabaseStats.buildings.total || mockStatsData.totalBuildings,
+          activeBuildings: supabaseStats.buildings.available || mockStatsData.activeBuildings,
+          totalRooms: supabaseStats.rooms.total || mockStatsData.totalRooms,
+          totalBookings: supabaseStats.bookings.total || mockStatsData.totalBookings,
           bookingStatusBreakdown: {
-            confirmed: backendStats.bookings.confirmed || 0,
-            pending: backendStats.bookings.pending || 0,
+            confirmed: supabaseStats.bookings.confirmed || 0,
+            pending: supabaseStats.bookings.pending || 0,
             cancelled: mockStatsData.bookingStatusBreakdown.cancelled
           },
-          buildingStats: Object.keys(backendStats.rooms.by_building || {}).map((buildingName, index) => {
-            const buildingRooms = backendStats.rooms.by_building[buildingName];
+          buildingStats: Object.keys(supabaseStats.rooms.by_building || {}).map((buildingName, index) => {
+            const buildingRooms = supabaseStats.rooms.by_building[buildingName];
             return {
               id: `building-${index}`,
               name: buildingName,
@@ -190,7 +190,7 @@ const getStatistics = async (options = {}) => {
               status: 'operational'
             };
           }),
-          lastUpdated: backendStats.system.last_updated || new Date().toISOString()
+          lastUpdated: supabaseStats.system.last_updated || new Date().toISOString()
         };
         
         return {
@@ -202,14 +202,14 @@ const getStatistics = async (options = {}) => {
           },
           isMockData: false,
           timestamp: new Date().toISOString(),
-          source: 'backend-proxy'
+          source: 'supabase-direct'
         };
       }
-    } catch (backendError) {
-      console.warn('Backend proxy failed, falling back to individual services:', backendError);
+    } catch (supabaseError) {
+      console.warn('Supabase API failed, falling back to individual services:', supabaseError);
     }
     
-    // Fallback to individual services if backend proxy fails
+    // Fallback to individual services if Supabase API fails
     const [buildingsResult, bookingsResult, systemResult] = await Promise.allSettled([
       locationService.getBuildingStats(),
       bookingService.getBookingStats(),

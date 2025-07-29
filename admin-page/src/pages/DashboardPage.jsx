@@ -1,4 +1,4 @@
-// Dashboard page - Real-time overview of bu-book and bub-backend system
+// Dashboard page - Real-time overview of bu-book and Supabase system
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -239,7 +239,7 @@ const DashboardPage = () => {
       <div style={{ marginBottom: 16 }}>
         <Title level={2} style={{ margin: 0 }}>System Dashboard</Title>
         <Paragraph style={{ margin: 0, marginTop: 8 }}>
-          Real-time monitoring of Library Booking System - bu-book frontend, bub-backend API, and Supabase database integration.
+          Real-time monitoring of Library Booking System - bu-book frontend and Supabase database integration.
         </Paragraph>
       </div>
 
@@ -274,7 +274,7 @@ const DashboardPage = () => {
             }`}
             description={
               globalApi.apiStatus === 'connected' 
-                ? `bub-backend API is connected and functioning normally. Response time: ${globalApi.connectionDetails.responseTime}ms`
+                ? `Supabase API is connected and functioning normally. Response time: ${globalApi.connectionDetails.responseTime}ms`
                 : globalApi.apiStatus === 'connecting'
                 ? 'Establishing connection to backend services. Please wait...'
                 : globalApi.apiStatus === 'error'
