@@ -56,7 +56,7 @@ const App = () => {
             element={
               canUseFeature('STATISTICS_PAGE') 
                 ? <StatisticsPage /> 
-                : <FeatureComingSoon featureName="数据统计" />
+                : <FeatureComingSoon featureName="Website Stats" />
             } 
           />
           

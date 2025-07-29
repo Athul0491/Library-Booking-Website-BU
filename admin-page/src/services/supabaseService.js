@@ -413,6 +413,52 @@ class SupabaseService {
   }
 
   /**
+   * Get all rooms with building information
+   */
+  async getRooms(options = {}) {
+    try {
+      let query = this.client
+        .from('rooms')
+        .select(`
+          id, name, eid, url, room_type, capacity, gtype, available, building_id, created_at, updated_at,
+          buildings (
+            id, name, short_name, address
+          )
+        `);
+      
+      // Apply filters if provided
+      if (options.available !== undefined) {
+        query = query.eq('available', options.available);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      
+      // Map database fields to frontend expected field names
+      const mappedData = data.map(room => ({
+        ...room,
+        // Add legacy field names for backward compatibility
+        room_name: room.name,
+        is_active: room.available,
+        // Add building information for easy access
+        building_code: room.buildings?.short_name || 'unknown',
+        building_name: room.buildings?.name || 'Unknown Building'
+      }));
+      
+      return {
+        success: true,
+        data: mappedData
+      };
+    } catch (error) {
+      console.error('Error fetching all rooms:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * Get rooms by building ID with field mapping
    */
   async getRoomsByBuilding(buildingId, options = {}) {

@@ -2,6 +2,10 @@
  * Data Source Context
  * Manages data source configuration for the admin interface
  * Supports backend proxy, direct Supabase, and mock data modes
+ * 
+ * ✅ CURRENT IMPLEMENTATION: Uses Supabase API directly regardless of mode setting
+ * ⚠️ MODE SETTING: For future flexibility (currently all modes use Supabase)
+ * ❌ NOT USING: bub-backend proxy (migrated to Supabase)
  */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 

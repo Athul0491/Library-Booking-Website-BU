@@ -1,7 +1,21 @@
 /**
  * API Service for Admin Page
  * This service now directly calls Supabase API instead of backend proxy
- * Migrated from bub-backend to Supabase for better performance and reliability
+ * Migrat  async getBuildings() {
+    try {
+      return await this.supabaseService.getBuildings();rom bub-backend to Supabase for better pe  async getBookings(filters =   async createBooking(book  async updateBookingStatu  async getSystemConfig() {
+      async updateSystemConfi  async checkAvailability(params) {
+    try {
+      return await this.supabaseService.checkAvailability(params);nfig) {
+    try {
+      return await this.supabaseService.updateSystemConfig(config);{
+      return await this.supabaseService.getSystemConfig();okingId, status, cancellationReason = null) {
+    try {
+      return await this.supabaseService.updateBookingStatus(bookingId, status, cancellationReason);ata) {
+    try {
+      return await this.supabaseService.createBooking(bookingData);{
+    try {
+      return await this.supabaseService.getBookings(filters);mance and reliability
  */
 import supabaseService from './supabaseService';
 
@@ -18,13 +32,6 @@ class ApiService {
   constructor() {
     // Using Supabase service directly
     this.supabaseService = supabaseService;
-    
-    console.log('ApiService Debug:', {
-      mode: 'supabase-direct',
-      service: 'supabaseService'
-    });
-    
-    console.log('ApiService initialized successfully (Supabase direct mode)');
   }
 
   /**
@@ -32,7 +39,6 @@ class ApiService {
    */
   async healthCheck() {
     try {
-      console.log('Testing Supabase connection...');
       const result = await this.supabaseService.testConnection();
       
       if (result.success) {
@@ -87,18 +93,29 @@ class ApiService {
    */
   async getDashboardData() {
     try {
-      console.log('Fetching dashboard data...');
-      const result = await this.supabaseService.getBookingStats();
+      // Get both booking stats and buildings data in parallel
+      const [bookingStatsResult, buildingsResult] = await Promise.all([
+        this.supabaseService.getBookingStats(),
+        this.supabaseService.getBuildings()
+      ]);
       
-      if (result.success) {
+      if (bookingStatsResult.success && buildingsResult.success) {
+        const dashboardData = {
+          ...bookingStatsResult.data,
+          buildings: buildingsResult.data,
+          timestamp: new Date().toISOString()
+        };
+        
         return {
           success: true,
-          data: result.data,
+          data: dashboardData,
           error: null,
           source: 'supabase-direct'
         };
       } else {
-        throw new Error(result.error || 'Unknown error');
+        throw new Error(
+          bookingStatsResult.error || buildingsResult.error || 'Unknown error'
+        );
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -189,7 +206,6 @@ class ApiService {
    */
   async getAllRooms() {
     try {
-      console.log('Fetching all rooms with building info...');
       const result = await this.supabaseService.getRooms();
       
       if (result.success) {
@@ -220,7 +236,6 @@ class ApiService {
    */
   async getStats() {
     try {
-      console.log('Fetching comprehensive statistics...');
       const result = await this.supabaseService.getBookingStats();
       
       if (result.success) {

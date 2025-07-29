@@ -14,12 +14,13 @@ import {
   QuestionCircleOutlined
 } from '@ant-design/icons';
 import { useDataSource } from '../contexts/DataSourceContext';
+import { useConnection } from '../contexts/ConnectionContext';
 
 const { Text, Paragraph } = Typography;
 
 const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = null, onRefresh = null }) => {
   const { 
-    connectionStatus, 
+    connectionStatus: dataSourceConnectionStatus, 
     testConnection, 
     dataSourceMode, 
     dataSourceLabel,
@@ -28,16 +29,25 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
     isMockDataMode 
   } = useDataSource();
 
-  // Use custom status if provided, otherwise use context status
+  // Get real connection status from ConnectionContext
+  const {
+    connectionStatus: realConnectionStatus,
+    refreshConnections,
+    isSupabaseConnected,
+    isBackendConnected,
+    isLoading
+  } = useConnection();
+
+  // Use custom status if provided, otherwise use real connection status
   const currentStatus = customStatus || {
-    apiStatus: connectionStatus.backend === 'healthy' ? 'connected' : 'disconnected',
+    apiStatus: realConnectionStatus.backend.connected ? 'connected' : 'disconnected',
     connectionDetails: {
-      backend: connectionStatus.backend,
-      database: connectionStatus.supabase,
-      lastUpdated: null,
+      backend: realConnectionStatus.backend.connected ? 'healthy' : 'unhealthy',
+      database: realConnectionStatus.supabase.connected ? 'healthy' : 'unhealthy',
+      lastUpdated: realConnectionStatus.lastFullCheck,
       responseTime: null
     },
-    isConnecting: false
+    isConnecting: isLoading
   };
 
   const getStatusIcon = (status) => {
@@ -96,7 +106,7 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
   // Get effective backend and supabase status
   const effectiveBackendStatus = customStatus 
     ? mapApiStatusToLegacy(currentStatus.apiStatus)
-    : connectionStatus.backend;
+    : (realConnectionStatus.backend.connected ? 'healthy' : 'unhealthy');
   
   const effectiveSupabaseStatus = customStatus
     ? (currentStatus.connectionDetails.database === 'connected' ? 'healthy' : 
@@ -104,48 +114,45 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
        currentStatus.connectionDetails.database === 'connecting' ? 'degraded' :
        currentStatus.apiStatus === 'connected' ? 'healthy' :
        currentStatus.apiStatus === 'connecting' ? 'degraded' : 'unhealthy')
-    : connectionStatus.supabase;
+    : (realConnectionStatus.supabase.connected ? 'healthy' : 'unhealthy');
 
   if (compact) {
     return (
       <Space size="small">
-        <Tooltip title={`Backend API Status${currentStatus.connectionDetails.responseTime ? ` - ${currentStatus.connectionDetails.responseTime}ms` : ''}`}>
+        <Badge 
+          status={getStatusColor(effectiveBackendStatus)} 
+          text={
+            <Space size="small">
+              <ApiOutlined />
+              <Text style={{ fontSize: '12px' }} title={`Backend API Status${currentStatus.connectionDetails.responseTime ? ` - ${currentStatus.connectionDetails.responseTime}ms` : ''}`}>
+                Backend: {getStatusText(effectiveBackendStatus)}
+                {currentStatus.isConnecting && ' (Connecting...)'}
+              </Text>
+            </Space>
+          }
+        />
+        
+        {isBackendProxyMode && (
           <Badge 
-            status={getStatusColor(effectiveBackendStatus)} 
+            status={getStatusColor(effectiveSupabaseStatus)} 
             text={
               <Space size="small">
-                <ApiOutlined />
-                <Text style={{ fontSize: '12px' }}>
-                  Backend: {getStatusText(effectiveBackendStatus)}
-                  {currentStatus.isConnecting && ' (Connecting...)'}
+                <DatabaseOutlined />
+                <Text style={{ fontSize: '12px' }} title={`Database Connection Status${currentStatus.connectionDetails.lastUpdated ? ` - Updated: ${new Date(currentStatus.connectionDetails.lastUpdated).toLocaleTimeString()}` : ''}`}>
+                  Supabase: {getStatusText(effectiveSupabaseStatus)}
                 </Text>
               </Space>
             }
           />
-        </Tooltip>
-        
-        {isBackendProxyMode && (
-          <Tooltip title={`Database Connection Status${currentStatus.connectionDetails.lastUpdated ? ` - Updated: ${new Date(currentStatus.connectionDetails.lastUpdated).toLocaleTimeString()}` : ''}`}>
-            <Badge 
-              status={getStatusColor(effectiveSupabaseStatus)} 
-              text={
-                <Space size="small">
-                  <DatabaseOutlined />
-                  <Text style={{ fontSize: '12px' }}>
-                    Supabase: {getStatusText(effectiveSupabaseStatus)}
-                  </Text>
-                </Space>
-              }
-            />
-          </Tooltip>
         )}
         
         <Button 
           type="text" 
           size="small" 
           icon={<ReloadOutlined />}
-          onClick={onRefresh || testConnection}
+          onClick={onRefresh || refreshConnections}
           title={onRefresh ? "Refresh Global Data" : "Test Connection"}
+          loading={isLoading}
         />
       </Space>
     );
@@ -169,7 +176,8 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
           type="text" 
           size="small" 
           icon={<ReloadOutlined />}
-          onClick={onRefresh || testConnection}
+          onClick={onRefresh || refreshConnections}
+          loading={isLoading}
         >
           {onRefresh ? "Refresh Global" : "Refresh"}
         </Button>
@@ -209,10 +217,10 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
               </div>
             )}
             
-            {connectionStatus.errorMessage && (
+            {realConnectionStatus.backend.error && (
               <div style={{ marginLeft: '24px', marginTop: '4px' }}>
                 <Text type="secondary" style={{ fontSize: '12px' }}>
-                  Error: {connectionStatus.errorMessage}
+                  Error: {realConnectionStatus.backend.error}
                 </Text>
               </div>
             )}
@@ -233,16 +241,16 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
         )}
 
         {/* Last Check Time */}
-        {connectionStatus.lastCheck && (
+        {realConnectionStatus.lastFullCheck && (
           <div>
             <Text type="secondary" style={{ fontSize: '12px' }}>
-              Last Check: {new Date(connectionStatus.lastCheck).toLocaleTimeString()}
+              Last Check: {new Date(realConnectionStatus.lastFullCheck).toLocaleTimeString()}
             </Text>
           </div>
         )}
 
         {/* Connection Issues Alert */}
-        {(connectionStatus.backend === 'unhealthy' || connectionStatus.supabase === 'unhealthy') && (
+        {(!realConnectionStatus.backend.connected || !realConnectionStatus.supabase.connected) && (
           <Alert
             message="Connection Issues"
             description="Some services are inaccessible, which may affect data retrieval. Please check network connection or contact administrator."

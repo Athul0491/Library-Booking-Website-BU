@@ -104,11 +104,9 @@ const mockBuildings = [
 export const getBuildings = async (options = {}) => {
   try {
     // Use the updated API service (now with backend proxy)
-    console.log('Fetching buildings from backend proxy...');
     const result = await apiService.getBuildings();
     
     if (result && result.success) {
-      console.log('Successfully got buildings from backend proxy');
       return {
         success: true,
         data: result.data || result.buildings,
