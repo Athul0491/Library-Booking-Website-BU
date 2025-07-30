@@ -182,7 +182,7 @@ export default function Map() {
         }
     }, [buildings]);
 
-    // Boston University library locations - 仅作为备用
+    // Boston University library locations - for fallback only
     const libraryLocations: LocationData[] = [
         {
             id: 'mugar',
