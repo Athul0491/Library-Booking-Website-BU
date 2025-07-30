@@ -1,0 +1,276 @@
+.map-container {
+    position: relative;
+    width: 100%;
+    height: 100%; /* Changed to 100% to fill the parent container */
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.map-container-inner {
+    width: 100%;
+    height: 100%;
+}
+
+.map-error-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    color: #d32f2f;
+    font-weight: bold;
+}
+
+.map-error-detail {
+    font-size: 0.875rem;
+    color: #666;
+    margin-top: 8px;
+}
+
+/* Geocoding overlay */
+.geocoding-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(44, 90, 160, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+    color: white;
+}
+
+.geocoding-indicator {
+    text-align: center;
+    padding: 2rem;
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.1);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.geocoding-detail {
+    font-size: 0.875rem;
+    opacity: 0.8;
+    margin-top: 8px;
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+    margin: 0 auto 1rem auto;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Custom library icon */
+.custom-library-icon {
+    background: none !important;
+    border: none !important;
+}
+
+/* Custom popup styles */
+.custom-popup .leaflet-popup-content-wrapper {
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.custom-popup .leaflet-popup-content {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.library-popup {
+    padding: 16px;
+}
+
+.popup-title {
+    margin: 0 0 8px 0;
+    color: #2c5aa0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.popup-description {
+    margin: 0 0 12px 0;
+    color: #666;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.popup-details {
+    margin-bottom: 16px;
+}
+
+.popup-details p {
+    margin: 4px 0;
+    font-size: 13px;
+    color: #555;
+}
+
+.navigate-btn {
+    background: linear-gradient(135deg, #2c5aa0 0%, #1a4480 100%);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    width: 100%;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(44, 90, 160, 0.2);
+}
+
+.navigate-btn:hover {
+    background: linear-gradient(135deg, #1a4480 0%, #2c5aa0 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(44, 90, 160, 0.3);
+}
+
+/* Navigation Modal */
+.navigation-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+}
+
+.navigation-modal {
+    background: white;
+    border-radius: 16px;
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+    margin: 0;
+    color: #2c5aa0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #999;
+    padding: 4px;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+
+.close-btn:hover {
+    color: #666;
+}
+
+.modal-content p {
+    margin: 0 0 16px 0;
+    color: #666;
+    font-size: 16px;
+}
+
+.navigation-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.nav-option-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 16px;
+    color: #333;
+}
+
+.nav-option-btn:hover {
+    border-color: #2c5aa0;
+    background: #f8faff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(44, 90, 160, 0.1);
+}
+
+.nav-icon {
+    font-size: 20px;
+    min-width: 24px;
+}
+
+.nav-name {
+    font-weight: 500;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .navigation-modal {
+        width: 95%;
+        padding: 20px;
+        margin: 20px;
+    }
+    
+    .modal-header h3 {
+        font-size: 18px;
+    }
+    
+    .nav-option-btn {
+        padding: 14px;
+        font-size: 15px;
+    }
+}
