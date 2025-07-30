@@ -29,122 +29,6 @@ interface LocationData {
     type: 'library' | 'academic' | 'dining' | 'residence';
 }
 
-interface GeocodedLocation {
-    id: string;
-    name: string;
-    lat: number;
-    lng: number;
-    address: string;
-    description?: string;
-    phone?: string;
-    hours?: string;
-}
-
-// Geocoding service - using the free OpenStreetMap Nominatim API
-const geocodeAddress = async (address: string, retryCount = 0): Promise<{lat: number, lng: number} | null> => {
-    try {
-        // Add a delay to avoid API rate limits
-        if (retryCount > 0) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
-        }
-
-        const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?` +
-            `format=json&` +
-            `q=${encodeURIComponent(address + ', Boston, MA, USA')}&` +
-            `limit=1&` +
-            `countrycodes=us&` +
-            `bounded=1&` +
-            `viewbox=-71.15,-71.05,42.30,42.40`, // 限制在波士顿地区
-            {
-                headers: {
-                    'User-Agent': 'BU-Library-Booking-App/1.0'
-                }
-            }
-        );
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        
-        if (data && data.length > 0) {
-            const result = data[0];
-            return {
-                lat: parseFloat(result.lat),
-                lng: parseFloat(result.lon)
-            };
-        }
-        
-        return null;
-    } catch (error) {
-        console.error(`Geocoding failed for "${address}":`, error);
-        
-        // 重试逻辑
-        if (retryCount < 2) {
-            console.log(`Retrying geocoding for "${address}" (attempt ${retryCount + 2})`);
-            return geocodeAddress(address, retryCount + 1);
-        }
-        
-        return null;
-    }
-};
-
-// Batch geocoding to avoid API rate limits
-const geocodeLocations = async (buildings: any[]): Promise<GeocodedLocation[]> => {
-    const geocodedLocations: GeocodedLocation[] = [];
-    
-    for (let i = 0; i < buildings.length; i++) {
-        const building = buildings[i];
-        
-        // 跳过没有地址的建筑物
-        if (!building.address || building.address.trim() === '') {
-            console.warn(`❌ Skipping building without address: ${building.name}`);
-            continue;
-        }
-        
-        console.log(`Geocoding ${i + 1}/${buildings.length}: ${building.name} - ${building.address}`);
-        
-        const coordinates = await geocodeAddress(building.address);
-        
-        if (coordinates) {
-            geocodedLocations.push({
-                id: building.id,
-                name: building.name,
-                lat: coordinates.lat,
-                lng: coordinates.lng,
-                address: building.address,
-                description: building.description || `${building.name} library`,
-                phone: building.phone || '',
-                hours: building.hours || 'Hours not available'
-            });
-            console.log(`✅ Successfully geocoded: ${building.name} -> ${coordinates.lat}, ${coordinates.lng}`);
-        } else {
-            console.warn(`❌ Failed to geocode: ${building.name} - ${building.address}`);
-            
-            // Fallback: if geocoding fails, use a default location near the BU campus
-            geocodedLocations.push({
-                id: building.id,
-                name: building.name,
-                lat: 42.35018 + (Math.random() - 0.5) * 0.01, // Randomly distributed near BU
-                lng: -71.10498 + (Math.random() - 0.5) * 0.01,
-                address: building.address,
-                description: building.description || `${building.name} library (approximate location)`,
-                phone: building.phone || '',
-                hours: building.hours || 'Hours not available'
-            });
-        }
-        
-        // 添加延迟以避免API限制 (1 request per second)
-        if (i < buildings.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 1100));
-        }
-    }
-    
-    return geocodedLocations;
-};
-
 interface NavigationOption {
     name: string;
     url: string;
@@ -158,31 +42,28 @@ export default function Map() {
     const [errorMessage, setErrorMessage] = useState('');
     const [showNavigationModal, setShowNavigationModal] = useState(false);
     const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
-    const [isGeocoding, setIsGeocoding] = useState(false);
-    const [geocodedLocations, setGeocodedLocations] = useState<GeocodedLocation[]>([]);
-    
+
     const { buildings } = useGlobalApi();
 
-    // 地理编码建筑物地址
-    useEffect(() => {
-        if (buildings.length > 0) {
-            setIsGeocoding(true);
-            console.log(`Starting geocoding for ${buildings.length} buildings...`);
-            
-            geocodeLocations(buildings).then(locations => {
-                setGeocodedLocations(locations);
-                setIsGeocoding(false);
-                console.log(`Geocoding completed. ${locations.length} locations ready.`);
-            }).catch(error => {
-                console.error('Geocoding failed:', error);
-                setIsGeocoding(false);
-                setHasError(true);
-                setErrorMessage('Failed to get location coordinates');
-            });
-        }
-    }, [buildings]);
+    // 转换buildings数据为LocationData格式
+    const processBuildings = (buildings: any[]): LocationData[] => {
+        return buildings
+            .filter(building => building.latitude && building.longitude) // 只显示有坐标的建筑
+            .map(building => ({
+                id: building.id?.toString() || building.short_name,
+                name: building.name,
+                lat: parseFloat(building.latitude),
+                lng: parseFloat(building.longitude),
+                address: building.address || '',
+                description: building.description || `${building.name} library`,
+                phone: building.phone || '',
+                hours: building.hours || 'Hours not available',
+                amenities: building.amenities || [],
+                type: 'library' as const
+            }));
+    };
 
-    // Boston University library locations - for fallback only
+    // Boston University library locations - 仅作为备用
     const libraryLocations: LocationData[] = [
         {
             id: 'mugar',
@@ -240,7 +121,7 @@ export default function Map() {
         const isIOS = /iPad|iPhone|iPod/.test(userAgent);
         const isAndroid = /Android/.test(userAgent);
         const isMobile = isIOS || isAndroid;
-        
+
         return { isIOS, isAndroid, isMobile };
     };
 
@@ -319,7 +200,7 @@ export default function Map() {
 
     useEffect(() => {
         if (!mapContainerRef.current) return;
-        
+
         try {
             // Create map using OpenStreetMap - completely free!
             // Default view: https://www.openstreetmap.org/#map=15/42.34751/-71.11508
@@ -336,13 +217,15 @@ export default function Map() {
                 maxZoom: 19,
             }).addTo(map);
 
-            // Use geocoded locations if available, otherwise fall back to static data
-            const locationsToUse = geocodedLocations.length > 0 ? geocodedLocations : libraryLocations;
+            // Use database coordinates or fall back to static data
+            const locationsToUse = buildings.length > 0
+                ? processBuildings(buildings)
+                : libraryLocations;
 
             // Add library markers with custom popups
-            locationsToUse.forEach(location => {
-                const marker = L.marker([location.lat, location.lng], { 
-                    icon: createLibraryIcon() 
+            locationsToUse.forEach((location: LocationData) => {
+                const marker = L.marker([location.lat, location.lng], {
+                    icon: createLibraryIcon()
                 }).addTo(map);
 
                 // Create detailed popup content
@@ -354,8 +237,8 @@ export default function Map() {
                             <p><strong>📍 Address:</strong> ${location.address}</p>
                             ${location.phone ? `<p><strong>📞 Phone:</strong> ${location.phone}</p>` : ''}
                             ${location.hours ? `<p><strong>🕒 Hours:</strong> ${location.hours}</p>` : ''}
-                            ${(location as any).amenities && (location as any).amenities.length > 0 ? 
-                                `<p><strong>✨ Amenities:</strong> ${(location as any).amenities.join(', ')}</p>` : ''}
+                            ${location.amenities && location.amenities.length > 0 ?
+                        `<p><strong>✨ Amenities:</strong> ${location.amenities.join(', ')}</p>` : ''}
                         </div>
                         <button class="navigate-btn" onclick="window.openNavigationModal('${location.id}')">
                             🧭 Navigate Here
@@ -372,26 +255,19 @@ export default function Map() {
 
             // Make navigation function globally available for popup buttons
             (window as any).openNavigationModal = (locationId: string) => {
-                // Check both geocoded and static locations
-                let location = geocodedLocations.find(loc => loc.id === locationId);
+                // Check both database and static locations
+                const processedBuildings = processBuildings(buildings);
+                let location = processedBuildings.find(loc => loc.id === locationId);
                 if (!location) {
                     location = libraryLocations.find(loc => loc.id === locationId);
                 }
                 if (location) {
-                    setSelectedLocation({
-                        ...location,
-                        description: location.description || '',
-                        type: 'library' as const,
-                        amenities: (location as any).amenities || []
-                    });
+                    setSelectedLocation(location);
                     setShowNavigationModal(true);
                 }
             };
 
-            console.log(`OpenStreetMap loaded with ${locationsToUse.length} locations - No API key required!`);
-            if (isGeocoding) {
-                console.log('Geocoding in progress...');
-            }
+            console.log(`OpenStreetMap loaded with ${locationsToUse.length} locations - Using database coordinates!`);
             setHasError(false);
 
         } catch (error) {
@@ -406,7 +282,7 @@ export default function Map() {
             // Clean up global function
             delete (window as any).openNavigationModal;
         };
-    }, [geocodedLocations, isGeocoding]); // Re-run when geocoded locations change
+    }, [buildings]); // Re-run when buildings data changes
 
     return (
         <div className="map-container">
@@ -419,25 +295,13 @@ export default function Map() {
                 </div>
             )}
 
-            {isGeocoding && (
-                <div className="geocoding-overlay">
-                    <div className="geocoding-indicator">
-                        <div className="loading-spinner"></div>
-                        <div>🗺️ Getting precise locations from addresses...</div>
-                        <div className="geocoding-detail">
-                            Converting {buildings.length} building addresses to map coordinates
-                        </div>
-                    </div>
-                </div>
-            )}
-            
             {/* Navigation Modal */}
             {showNavigationModal && selectedLocation && (
                 <div className="navigation-modal-overlay" onClick={() => setShowNavigationModal(false)}>
                     <div className="navigation-modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
                             <h3>Navigate to {selectedLocation.name}</h3>
-                            <button 
+                            <button
                                 className="close-btn"
                                 onClick={() => setShowNavigationModal(false)}
                             >
