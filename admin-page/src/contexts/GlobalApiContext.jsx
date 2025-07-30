@@ -57,6 +57,7 @@ export const GlobalApiProvider = ({ children }) => {
       
       if (result.success) {
         // Update connection status - SUCCESS
+        console.log('✅ [GLOBAL API] Connection successful, updating status to connected');
         setApiStatus('connected');
         setConnectionDetails({
           backend: 'healthy',
@@ -103,7 +104,8 @@ export const GlobalApiProvider = ({ children }) => {
         throw new Error(result.error || 'API initialization failed');
       }
     } catch (error) {
-      console.error('Global API initialization failed:', error);
+      console.error('❌ [GLOBAL API] Initialization failed:', error);
+      console.log('⚠️ [GLOBAL API] Updating status to error');
       
       // Update connection status - ERROR
       setApiStatus('error');

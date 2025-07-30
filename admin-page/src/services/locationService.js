@@ -105,7 +105,7 @@ export const getBuildings = async (options = {}) => {
   try {
     // Use the updated API service (now with backend proxy)
     const result = await apiService.getBuildings();
-    
+
     if (result && result.success) {
       return {
         success: true,
@@ -117,11 +117,11 @@ export const getBuildings = async (options = {}) => {
     }
   } catch (error) {
     console.warn('Backend proxy failed, trying Supabase service:', error.message);
-    
+
     // Fallback to Supabase service
     try {
       const result = await supabaseService.getBuildings(options);
-      
+
       if (result.success) {
         return {
           ...result,
@@ -139,18 +139,18 @@ export const getBuildings = async (options = {}) => {
   try {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 200));
-    
+
     let filteredBuildings = [...mockBuildings];
-    
+
     // Apply filters if provided
     if (options.status) {
       filteredBuildings = filteredBuildings.filter(b => b.status === options.status);
     }
-    
+
     if (options.available !== undefined) {
       filteredBuildings = filteredBuildings.filter(b => b.available === options.available);
     }
-    
+
     console.warn('Using mock building data - Backend connection in progress');
     return {
       success: true,
@@ -179,7 +179,7 @@ export const getBuildingById = async (buildingId) => {
   try {
     // Try to get data from Supabase first
     const result = await supabaseService.getBuildingById(buildingId);
-    
+
     if (result.success) {
       return result;
     } else {
@@ -188,11 +188,11 @@ export const getBuildingById = async (buildingId) => {
   } catch (error) {
     console.warn('Supabase service unavailable, using mock data:', error.message);
   }
-  
+
   // Fallback to mock data
   try {
     const building = mockBuildings.find(b => b.id === buildingId);
-    
+
     if (building) {
       await new Promise(resolve => setTimeout(resolve, 100));
       return {
@@ -201,7 +201,7 @@ export const getBuildingById = async (buildingId) => {
         error: null
       };
     }
-    
+
     return {
       success: false,
       data: null,
@@ -224,40 +224,57 @@ export const getBuildingById = async (buildingId) => {
  * @returns {Promise<{success: boolean, data: Object|null, error: string|null}>}
  */
 export const updateBuilding = async (buildingId, updates) => {
+  console.log('🏗️ [LOCATION SERVICE] updateBuilding called:', {
+    buildingId,
+    updates,
+    timestamp: new Date().toISOString()
+  });
+
   try {
+    console.log('📡 [SUPABASE] Attempting Supabase update...');
+
     // Try to update in Supabase first
     const result = await supabaseService.updateBuilding(buildingId, updates);
-    
+
+    console.log('📊 [SUPABASE RESULT]', {
+      success: result.success,
+      data: result.data,
+      error: result.error
+    });
+
     if (result.success) {
+      console.log('✅ [SUPABASE SUCCESS] Building updated successfully');
       return result;
     } else {
-      console.warn('Supabase update failed, using mock response:', result.error);
+      console.warn('⚠️ [SUPABASE FAILED] Using mock response:', result.error);
     }
   } catch (error) {
-    console.warn('Supabase service unavailable, using mock response:', error.message);
+    console.error('❌ [SUPABASE ERROR] Service unavailable:', error.message);
   }
-  
+
+  console.log('🔄 [FALLBACK] Using mock response...');
+
   // Fallback to mock response
   try {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     const buildingResult = await getBuildingById(buildingId);
-    
+
     if (buildingResult.success) {
       const updatedBuilding = {
         ...buildingResult.data,
         ...updates,
         updated_at: new Date().toISOString()
       };
-      
+
       return {
         success: true,
         data: updatedBuilding,
         error: null
       };
     }
-    
+
     return buildingResult;
   } catch (error) {
     console.error('Failed to update building:', error);
@@ -277,7 +294,7 @@ export const getBuildingStats = async () => {
   try {
     // Try to get stats from Supabase first
     const result = await supabaseService.getBuildingStats();
-    
+
     if (result.success) {
       return result;
     } else {
@@ -286,11 +303,11 @@ export const getBuildingStats = async () => {
   } catch (error) {
     console.warn('Supabase service unavailable, using mock data:', error.message);
   }
-  
+
   // Fallback to mock data
   try {
     const buildingsResult = await getBuildings();
-    
+
     if (buildingsResult.success) {
       const buildings = buildingsResult.data;
       const stats = {
@@ -303,18 +320,18 @@ export const getBuildingStats = async () => {
         occupancyRate: 0,
         buildings: buildings
       };
-      
-      stats.occupancyRate = stats.totalRooms > 0 
+
+      stats.occupancyRate = stats.totalRooms > 0
         ? ((stats.totalRooms - stats.availableRooms) / stats.totalRooms * 100).toFixed(1)
         : 0;
-      
+
       return {
         success: true,
         data: stats,
         error: null
       };
     }
-    
+
     return buildingsResult;
   } catch (error) {
     console.error('Failed to fetch building stats:', error);
@@ -338,7 +355,7 @@ export const getRoomsByBuilding = async (buildingId, options = {}) => {
   try {
     // Try to get data from Supabase first
     const result = await supabaseService.getRoomsByBuilding(buildingId, options);
-    
+
     if (result.success) {
       return result;
     } else {
@@ -352,7 +369,7 @@ export const getRoomsByBuilding = async (buildingId, options = {}) => {
   try {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 200));
-    
+
     // Mock room data for the building
     const mockRooms = [
       {
@@ -387,7 +404,7 @@ export const getRoomsByBuilding = async (buildingId, options = {}) => {
         building_id: buildingId
       }
     ];
-    
+
     console.warn('Using mock room data - Database connection in progress');
     return {
       success: true,
@@ -407,7 +424,7 @@ export const getRoomsByBuilding = async (buildingId, options = {}) => {
 export default {
   getBuildings,
   getAllBuildings: getBuildings, // Alias for getBuildings
-  getBuildingById, 
+  getBuildingById,
   updateBuilding,
   getBuildingStats,
   getRoomsByBuilding

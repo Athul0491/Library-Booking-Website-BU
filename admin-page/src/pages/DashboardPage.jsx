@@ -57,15 +57,15 @@ const { Title, Paragraph } = Typography;
 const DashboardPage = () => {
   const connection = useConnection();
   const globalApi = useGlobalApi();
-  const { 
-    useRealData, 
-    apiConfig, 
-    autoRefreshEnabled, 
+  const {
+    useRealData,
+    apiConfig,
+    autoRefreshEnabled,
     refreshInterval,
     dataSourceMode,
     isBackendProxyMode,
     isMockDataMode,
-    addNotification 
+    addNotification
   } = useDataSource();
   const [loading, setLoading] = useState(true);
   const [systemStats, setSystemStats] = useState({});
@@ -77,10 +77,8 @@ const DashboardPage = () => {
   // Load dashboard data from global cache
   useEffect(() => {
     const cachedDashboardData = globalApi.getCachedData('dashboard');
-    
+
     if (cachedDashboardData) {
-      console.log('📊 DashboardPage: Loading data from global cache');
-      
       // Set data from cached dashboard response
       setSystemStats({
         total_buildings: cachedDashboardData.stats?.total_buildings || 0,
@@ -92,27 +90,24 @@ const DashboardPage = () => {
         api_health_score: 95,
         lastUpdated: cachedDashboardData.timestamp
       });
-      
+
       setBuildingStats({
         totalBuildings: cachedDashboardData.stats?.total_buildings || 0,
         buildings: cachedDashboardData.buildings || [],
         activeBuildings: cachedDashboardData.buildings?.filter(b => b.available).length || 0
       });
-      
+
       setBookingStats({
         totalBookings: cachedDashboardData.stats?.active_bookings || 0,
         activeBookings: cachedDashboardData.stats?.active_bookings || 0
       });
-      
-      console.log('✅ Dashboard data loaded from Global API cache');
     } else {
-      console.log('⚠️ DashboardPage: No cached dashboard data available');
       // Set empty default values
       setSystemStats({});
       setBuildingStats({});
       setBookingStats({});
     }
-    
+
     setLoading(false);
   }, [globalApi.globalData.lastUpdated]); // Respond to global data updates
 
@@ -123,7 +118,7 @@ const DashboardPage = () => {
   const handleRefresh = async () => {
     console.log('🔄 Manual refresh triggered from Dashboard');
     await globalApi.refreshApi();
-    
+
     // After global refresh, reload local data
     const cachedDashboardData = globalApi.getCachedData('dashboard');
     if (cachedDashboardData) {
@@ -138,13 +133,13 @@ const DashboardPage = () => {
         api_health_score: 95,
         lastUpdated: cachedDashboardData.timestamp
       });
-      
+
       setBuildingStats({
         totalBuildings: cachedDashboardData.stats.total_buildings,
         buildings: cachedDashboardData.buildings,
         activeBuildings: cachedDashboardData.buildings.filter(b => b.available).length
       });
-      
+
       setBookingStats({
         totalBookings: cachedDashboardData.stats.active_bookings,
         activeBookings: cachedDashboardData.stats.active_bookings
@@ -244,7 +239,7 @@ const DashboardPage = () => {
       </div>
 
       {/* Server Status Banner */}
-      <ServerStatusBanner 
+      <ServerStatusBanner
         useGlobalApi={true}
         showConnectionStatus={true}
         showApiStatusCard={false}
@@ -266,25 +261,24 @@ const DashboardPage = () => {
         <>
           {/* Dynamic System Status Alert */}
           <Alert
-            message={`System Status: ${
-              globalApi.apiStatus === 'connected' ? 'System Online' :
-              globalApi.apiStatus === 'connecting' ? 'Initializing...' :
-              globalApi.apiStatus === 'error' ? 'Service Issues' :
-              'System Offline'
-            }`}
+            message={`System Status: ${globalApi.apiStatus === 'connected' ? 'System Online' :
+                globalApi.apiStatus === 'connecting' ? 'Initializing...' :
+                  globalApi.apiStatus === 'error' ? 'Service Issues' :
+                    'System Offline'
+              }`}
             description={
-              globalApi.apiStatus === 'connected' 
+              globalApi.apiStatus === 'connected'
                 ? `Supabase API is connected and functioning normally. Response time: ${globalApi.connectionDetails.responseTime}ms`
                 : globalApi.apiStatus === 'connecting'
-                ? 'Establishing connection to backend services. Please wait...'
-                : globalApi.apiStatus === 'error'
-                ? 'Backend API is experiencing issues. Some features may be limited.'
-                : 'System is not responding. Please check your connection.'
+                  ? 'Establishing connection to backend services. Please wait...'
+                  : globalApi.apiStatus === 'error'
+                    ? 'Backend API is experiencing issues. Some features may be limited.'
+                    : 'System is not responding. Please check your connection.'
             }
             type={
               globalApi.apiStatus === 'connected' ? 'success' :
-              globalApi.apiStatus === 'connecting' ? 'info' :
-              'warning'
+                globalApi.apiStatus === 'connecting' ? 'info' :
+                  'warning'
             }
             style={{ marginBottom: 24 }}
             showIcon
@@ -337,35 +331,35 @@ const DashboardPage = () => {
                   title="API Health Score"
                   value={
                     globalApi.apiStatus === 'connected' ? 95 :
-                    globalApi.apiStatus === 'connecting' ? 50 :
-                    globalApi.apiStatus === 'error' ? 25 :
-                    0
+                      globalApi.apiStatus === 'connecting' ? 50 :
+                        globalApi.apiStatus === 'error' ? 25 :
+                          0
                   }
                   precision={0}
                   suffix="%"
                   prefix={<ApiOutlined />}
                   valueStyle={{
-                    color: 
+                    color:
                       globalApi.apiStatus === 'connected' ? '#52c41a' :
-                      globalApi.apiStatus === 'connecting' ? '#1890ff' :
-                      globalApi.apiStatus === 'error' ? '#ff4d4f' :
-                      '#d9d9d9'
+                        globalApi.apiStatus === 'connecting' ? '#1890ff' :
+                          globalApi.apiStatus === 'error' ? '#ff4d4f' :
+                            '#d9d9d9'
                   }}
                 />
-                <div style={{ 
-                  marginTop: 8, 
-                  fontSize: '12px', 
-                  color: 
+                <div style={{
+                  marginTop: 8,
+                  fontSize: '12px',
+                  color:
                     globalApi.apiStatus === 'connected' ? '#52c41a' :
-                    globalApi.apiStatus === 'connecting' ? '#1890ff' :
-                    globalApi.apiStatus === 'error' ? '#ff4d4f' :
-                    '#d9d9d9'
+                      globalApi.apiStatus === 'connecting' ? '#1890ff' :
+                        globalApi.apiStatus === 'error' ? '#ff4d4f' :
+                          '#d9d9d9'
                 }}>
                   Status: {
                     globalApi.apiStatus === 'connected' ? 'Healthy' :
-                    globalApi.apiStatus === 'connecting' ? 'Initializing' :
-                    globalApi.apiStatus === 'error' ? 'Error' :
-                    'Offline'
+                      globalApi.apiStatus === 'connecting' ? 'Initializing' :
+                        globalApi.apiStatus === 'error' ? 'Error' :
+                          'Offline'
                   }
                 </div>
               </Card>
@@ -375,7 +369,7 @@ const DashboardPage = () => {
           {/* Detailed Analytics Row */}
           <Row gutter={[16, 16]}>
             <Col xs={24} lg={12}>
-              <Card 
+              <Card
                 title={
                   <Space>
                     <DatabaseOutlined />
@@ -388,29 +382,29 @@ const DashboardPage = () => {
                     {buildingStats.totalBuildings || systemStats.total_buildings || 0} / {systemStats.total_buildings || 0}
                   </Descriptions.Item>
                   <Descriptions.Item label="Room Availability Rate">
-                    <Progress 
+                    <Progress
                       percent={
-                        systemStats.total_rooms 
+                        systemStats.total_rooms
                           ? Math.round(((systemStats.total_rooms - (systemStats.active_bookings || 0)) / systemStats.total_rooms) * 100)
                           : 100
-                      } 
-                      size="small" 
+                      }
+                      size="small"
                       status="active"
                     />
                   </Descriptions.Item>
                   <Descriptions.Item label="Building Availability Rate">
-                    <Progress 
+                    <Progress
                       percent={
                         systemStats.total_buildings
                           ? Math.round(((buildingStats.activeBuildings || systemStats.total_buildings || 0) / systemStats.total_buildings) * 100)
                           : 100
-                      } 
-                      size="small" 
+                      }
+                      size="small"
                       status="active"
                     />
                   </Descriptions.Item>
                   <Descriptions.Item label="Average Rooms per Building">
-                    {systemStats.total_buildings 
+                    {systemStats.total_buildings
                       ? Math.round((systemStats.total_rooms / systemStats.total_buildings) * 10) / 10
                       : 0}
                   </Descriptions.Item>
@@ -419,7 +413,7 @@ const DashboardPage = () => {
             </Col>
 
             <Col xs={24} lg={12}>
-              <Card 
+              <Card
                 title={
                   <Space>
                     <CalendarOutlined />
@@ -429,7 +423,7 @@ const DashboardPage = () => {
               >
                 <Descriptions column={1} size="small">
                   <Descriptions.Item label="Booking Status">
-                    <Tag 
+                    <Tag
                       color={systemStats.active_bookings > 0 ? 'green' : 'orange'}
                       icon={systemStats.active_bookings > 0 ? <CheckCircleOutlined /> : <ClockCircleOutlined />}
                     >
@@ -440,13 +434,13 @@ const DashboardPage = () => {
                     {systemStats.active_bookings || 0} total active
                   </Descriptions.Item>
                   <Descriptions.Item label="Room Utilization Rate">
-                    <Progress 
+                    <Progress
                       percent={
-                        systemStats.total_rooms 
+                        systemStats.total_rooms
                           ? Math.round((systemStats.active_bookings / systemStats.total_rooms) * 100)
                           : 0
-                      } 
-                      size="small" 
+                      }
+                      size="small"
                       status="active"
                     />
                   </Descriptions.Item>
@@ -455,89 +449,89 @@ const DashboardPage = () => {
             </Col>
           </Row>
 
-      {/* Recent Activity Table */}
-      <Card 
-        title={
-          <Space>
-            <CalendarOutlined />
-            <span>Recent Activity</span>
-          </Space>
-        }
-        style={{ marginTop: 24 }}
-      >
-        <Table
-          columns={activityColumns}
-          dataSource={recentActivity}
-          rowKey={(record) => record.id || record.checksum || Math.random()}
-          pagination={{
-            pageSize: 10,
-            showSizeChanger: false,
-            showQuickJumper: true,
-            showTotal: (total) => `Total ${total} activities`
-          }}
-          scroll={{ x: 800 }}
-        />
-      </Card>
+          {/* Recent Activity Table */}
+          <Card
+            title={
+              <Space>
+                <CalendarOutlined />
+                <span>Recent Activity</span>
+              </Space>
+            }
+            style={{ marginTop: 24 }}
+          >
+            <Table
+              columns={activityColumns}
+              dataSource={recentActivity}
+              rowKey={(record) => record.id || record.checksum || Math.random()}
+              pagination={{
+                pageSize: 10,
+                showSizeChanger: false,
+                showQuickJumper: true,
+                showTotal: (total) => `Total ${total} activities`
+              }}
+              scroll={{ x: 800 }}
+            />
+          </Card>
 
-      {/* System Integration Status Footer */}
-      <Card 
-        title="System Integration Status" 
-        style={{ marginTop: 24 }}
-        size="small"
-      >
-        <Timeline
-          items={[
-            {
-              color: connection.isBackendConnected ? 'green' : 'red',
-              children: (
-                <div>
-                  <strong>Database Connection</strong> - PostgreSQL database with booking data
-                  <br />
-                  <span style={{ color: '#666' }}>
-                    Status: {connection.isBackendConnected ? 'Connected' : 'Disconnected'}
-                  </span>
-                </div>
-              ),
-            },
-            {
-              color: connection.isBackendConnected ? 'green' : 'red',
-              children: (
-                <div>
-                  <strong>bub-backend API</strong> - REST API server with database integration
-                  <br />
-                  <span style={{ color: '#666' }}>
-                    Status: {connection.isBackendConnected ? 'Connected' : 'Disconnected'} | Port: 5000
-                  </span>
-                </div>
-              ),
-            },
-            {
-              color: connection.isSupabaseConnected ? 'green' : 'red',
-              children: (
-                <div>
-                  <strong>Supabase Integration</strong> - Buildings and rooms data (bu-book)
-                  <br />
-                  <span style={{ color: '#666' }}>
-                    Status: {connection.isSupabaseConnected ? 'Connected' : 'Disconnected'}
-                  </span>
-                </div>
-              ),
-            },
-            {
-              color: 'blue',
-              children: (
-                <div>
-                  <strong>Admin Dashboard</strong> - Real-time monitoring interface
-                  <br />
-                  <span style={{ color: '#666' }}>
-                    Data Source: {useRealData ? 'Real Data' : 'Mock Data'} | Auto-refresh enabled
-                  </span>
-                </div>
-              ),
-            },
-          ]}
-        />
-      </Card>
+          {/* System Integration Status Footer */}
+          <Card
+            title="System Integration Status"
+            style={{ marginTop: 24 }}
+            size="small"
+          >
+            <Timeline
+              items={[
+                {
+                  color: connection.isBackendConnected ? 'green' : 'red',
+                  children: (
+                    <div>
+                      <strong>Database Connection</strong> - PostgreSQL database with booking data
+                      <br />
+                      <span style={{ color: '#666' }}>
+                        Status: {connection.isBackendConnected ? 'Connected' : 'Disconnected'}
+                      </span>
+                    </div>
+                  ),
+                },
+                {
+                  color: connection.isBackendConnected ? 'green' : 'red',
+                  children: (
+                    <div>
+                      <strong>bub-backend API</strong> - REST API server with database integration
+                      <br />
+                      <span style={{ color: '#666' }}>
+                        Status: {connection.isBackendConnected ? 'Connected' : 'Disconnected'} | Port: 5000
+                      </span>
+                    </div>
+                  ),
+                },
+                {
+                  color: connection.isSupabaseConnected ? 'green' : 'red',
+                  children: (
+                    <div>
+                      <strong>Supabase Integration</strong> - Buildings and rooms data (bu-book)
+                      <br />
+                      <span style={{ color: '#666' }}>
+                        Status: {connection.isSupabaseConnected ? 'Connected' : 'Disconnected'}
+                      </span>
+                    </div>
+                  ),
+                },
+                {
+                  color: 'blue',
+                  children: (
+                    <div>
+                      <strong>Admin Dashboard</strong> - Real-time monitoring interface
+                      <br />
+                      <span style={{ color: '#666' }}>
+                        Data Source: {useRealData ? 'Real Data' : 'Mock Data'} | Auto-refresh enabled
+                      </span>
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </Card>
         </>
       )}
     </div>

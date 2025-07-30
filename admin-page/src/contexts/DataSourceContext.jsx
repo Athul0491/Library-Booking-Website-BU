@@ -8,6 +8,7 @@
  * ❌ NOT USING: bub-backend proxy (migrated to Supabase)
  */
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import apiService from '../services/apiService';
 
 const DataSourceContext = createContext();
 
@@ -58,6 +59,9 @@ export const DataSourceProvider = ({ children }) => {
   });
 
   const [notifications, setNotifications] = useState([]);
+  
+  // Prevent multiple simultaneous connection tests
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
 
   // Save preferences to localStorage
   useEffect(() => {
@@ -95,6 +99,15 @@ export const DataSourceProvider = ({ children }) => {
 
   // Connection testing functions
   const testConnection = async () => {
+    // Prevent multiple simultaneous calls
+    if (isTestingConnection) {
+      console.log('🔄 [DataSourceContext] Connection test already in progress, skipping');
+      return connectionStatus;
+    }
+    
+    setIsTestingConnection(true);
+    console.log('🔗 [DataSourceContext] Starting connection test');
+    
     try {
       // Since we're now using Supabase directly, test the API service instead
       
@@ -170,16 +183,43 @@ export const DataSourceProvider = ({ children }) => {
       });
       
       return errorStatus;
+    } finally {
+      setIsTestingConnection(false);
+      console.log('✅ [DataSourceContext] Connection test completed');
     }
   };
 
   // Notification management
   const addNotification = (notification) => {
+    // Check for duplicate notifications (same title and type within last 30 seconds)
+    const now = Date.now();
+    const isDuplicate = notifications.some(existing => 
+      existing.title === notification.title && 
+      existing.type === notification.type && 
+      (now - existing.id) < 30000 // 30 seconds for better protection
+    );
+    
+    if (isDuplicate) {
+      console.log('🚫 [DataSourceContext] Duplicate notification prevented:', {
+        title: notification.title,
+        type: notification.type,
+        timeSinceLastSimilar: Math.min(...notifications
+          .filter(n => n.title === notification.title && n.type === notification.type)
+          .map(n => now - n.id)) + 'ms'
+      });
+      return; // Don't add duplicate notification
+    }
+    
     const newNotification = {
-      id: Date.now(),
+      id: now,
       ...notification
     };
     
+    console.log('📢 [DataSourceContext] Adding notification:', {
+      title: newNotification.title,
+      type: newNotification.type,
+      id: newNotification.id
+    });
     setNotifications(prev => [newNotification, ...prev.slice(0, 9)]); // Keep last 10 notifications
     
     // Auto-remove success notifications after 5 seconds
@@ -201,7 +241,13 @@ export const DataSourceProvider = ({ children }) => {
   // Test connection when data source mode changes
   useEffect(() => {
     if (dataSourceMode !== DATA_SOURCE_MODES.MOCK_DATA) {
-      testConnection();
+      // Add a small delay to prevent multiple calls during initialization
+      const timeoutId = setTimeout(() => {
+        console.log('🔗 [DataSourceContext] Testing connection for mode:', dataSourceMode);
+        testConnection();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [dataSourceMode]);
 
