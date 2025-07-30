@@ -40,10 +40,10 @@ interface GeocodedLocation {
     hours?: string;
 }
 
-// 地理编码服务 - 使用免费的OpenStreetMap Nominatim API
+// Geocoding service - using the free OpenStreetMap Nominatim API
 const geocodeAddress = async (address: string, retryCount = 0): Promise<{lat: number, lng: number} | null> => {
     try {
-        // 添加延迟以避免API限制
+        // Add a delay to avoid API rate limits
         if (retryCount > 0) {
             await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
