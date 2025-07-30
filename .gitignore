@@ -2,6 +2,10 @@
 /bub-backend/__pycache__
 /.vscode
 
+# Database files and SQL scripts (contains sensitive data)
+/supabase/
+supabase/
+
 # Environment Variables (Security - Never commit these!)
 .env
 .env.local
