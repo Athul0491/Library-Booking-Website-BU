@@ -48,3 +48,5 @@ bu-book/*.njsproj
 bu-book/*.sln
 bu-book/*.sw?
 /bu-book/.env
+.vscode/*
+*/.vscode/*
