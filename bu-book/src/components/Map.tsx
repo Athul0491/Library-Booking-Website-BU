@@ -91,7 +91,7 @@ const geocodeAddress = async (address: string, retryCount = 0): Promise<{lat: nu
     }
 };
 
-// 批量地理编码，避免API限制
+// Batch geocoding to avoid API rate limits
 const geocodeLocations = async (buildings: any[]): Promise<GeocodedLocation[]> => {
     const geocodedLocations: GeocodedLocation[] = [];
     
