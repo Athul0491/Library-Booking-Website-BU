@@ -123,11 +123,11 @@ const geocodeLocations = async (buildings: any[]): Promise<GeocodedLocation[]> =
         } else {
             console.warn(`❌ Failed to geocode: ${building.name} - ${building.address}`);
             
-            // 回退：如果地理编码失败，使用BU校园的默认位置附近
+            // Fallback: if geocoding fails, use a default location near the BU campus
             geocodedLocations.push({
                 id: building.id,
                 name: building.name,
-                lat: 42.35018 + (Math.random() - 0.5) * 0.01, // 随机分布在BU附近
+                lat: 42.35018 + (Math.random() - 0.5) * 0.01, // Randomly distributed near BU
                 lng: -71.10498 + (Math.random() - 0.5) * 0.01,
                 address: building.address,
                 description: building.description || `${building.name} library (approximate location)`,
