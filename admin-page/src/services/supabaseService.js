@@ -218,7 +218,7 @@ class SupabaseService {
     try {
       const { data: buildingsData, error: buildingsError } = await this.client
         .from('buildings')
-        .select('id, name, short_name, address, available, libcal_id, lid');
+        .select('id, name, short_name, address, website, contacts, available, libcal_id, lid, latitude, longitude, geocoding_status');
       
       if (buildingsError) {
         return { success: false, error: buildingsError.message };
@@ -297,7 +297,7 @@ class SupabaseService {
     try {
       let query = this.client
         .from('buildings')
-        .select('id, name, short_name, address, available, libcal_id, lid, created_at, updated_at');
+        .select('id, name, short_name, address, website, contacts, available, libcal_id, lid, created_at, updated_at, latitude, longitude, geocoding_status, geocoded_at');
       
       // Apply filters if provided
       if (options.available !== undefined) {
@@ -337,7 +337,7 @@ class SupabaseService {
     try {
       const { data, error } = await this.client
         .from('buildings')
-        .select('id, name, short_name, address, available, libcal_id, lid, created_at, updated_at')
+        .select('id, name, short_name, address, website, contacts, available, libcal_id, lid, created_at, updated_at, latitude, longitude, geocoding_status, geocoded_at')
         .eq('id', buildingId)
         .single();
       

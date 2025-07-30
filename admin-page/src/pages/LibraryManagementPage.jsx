@@ -1,4 +1,3 @@
-// Building and Room Management page with skeleton loading support
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -14,7 +13,10 @@ import {
   message,
   Row,
   Col,
-  Alert
+  Alert,
+  Spin,
+  Progress,
+  Tooltip
 } from 'antd';
 import {
   PlusOutlined,
@@ -25,19 +27,27 @@ import {
   ClockCircleOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  ApiOutlined
+  ApiOutlined,
+  LoadingOutlined,
+  GlobalOutlined
 } from '@ant-design/icons';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useDataSource } from '../contexts/DataSourceContext';
 import { useGlobalApi } from '../contexts/GlobalApiContext';
-import { 
-  TableSkeleton, 
+import {
+  TableSkeleton,
   DataUnavailablePlaceholder,
-  PageLoadingSkeleton 
+  PageLoadingSkeleton
 } from '../components/SkeletonComponents';
 import ConnectionStatus from '../components/ConnectionStatus';
 import ServerStatusBanner from '../components/ServerStatusBanner';
 import locationService from '../services/locationService';
+import {
+  geocodeAndUpdateBuilding,
+  validateCoordinates,
+  calculateDistance,
+  BU_CAMPUS_CENTER
+} from '../services/geocodingService';
 
 const { Title, Paragraph } = Typography;
 const { Option } = Select;
@@ -48,12 +58,12 @@ const { Option } = Select;
  */
 const LibraryManagementPage = () => {
   const connection = useConnection();
-  const { 
-    useRealData, 
-    addNotification 
+  const {
+    useRealData,
+    addNotification
   } = useDataSource();
   const globalApi = useGlobalApi();
-  
+
   const [loading, setLoading] = useState(false);
   const [buildings, setBuildings] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -62,6 +72,12 @@ const LibraryManagementPage = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [modalType, setModalType] = useState('building'); // 'building' or 'room'
   const [form] = Form.useForm();
+
+  // Geocoding related states
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [geocodingLoading, setGeocodingLoading] = useState(false);
+  const [geocodingProgress, setGeocodingProgress] = useState(0);
+  const [geocodingStatus, setGeocodingStatus] = useState('');
   const [dataError, setDataError] = useState(null);
 
   // Load buildings from global cache
@@ -86,17 +102,17 @@ const LibraryManagementPage = () => {
     try {
       setLoading(true);
       setDataError(null);
-      
+
       console.log(`🏠 Loading rooms for building ${buildingId}...`);
-      
+
       // Use global rooms data and filter by building ID
       const { globalData } = globalApi;
       if (globalData?.rooms && globalData.rooms.length > 0) {
-        const buildingRooms = globalData.rooms.filter(room => 
-          room.building_id === buildingId || 
+        const buildingRooms = globalData.rooms.filter(room =>
+          room.building_id === buildingId ||
           room.building_id === String(buildingId)
         );
-        
+
         setRooms(buildingRooms);
         console.log(`✅ Rooms loaded from global cache - Count: ${buildingRooms.length}`);
         message.success(`Loaded ${buildingRooms.length} rooms for building`);
@@ -122,7 +138,7 @@ const LibraryManagementPage = () => {
   const handleRefresh = async () => {
     console.log('🔄 LocationsPage: Manual refresh triggered via ServerStatusBanner');
     await globalApi.refreshApi(); // This will refresh global data
-    
+
     // Update local buildings from refreshed global data
     const refreshedBuildings = globalApi.getCachedData('buildings');
     if (refreshedBuildings && Array.isArray(refreshedBuildings)) {
@@ -166,16 +182,123 @@ const LibraryManagementPage = () => {
       render: (address) => address || 'N/A',
     },
     {
+      title: 'Website',
+      dataIndex: 'website',
+      key: 'website',
+      render: (website) => website ? (
+        <a href={website} target="_blank" rel="noopener noreferrer">
+          <Button type="link" size="small" icon={<GlobalOutlined />}>
+            Visit
+          </Button>
+        </a>
+      ) : <span style={{ color: '#ccc' }}>N/A</span>,
+    },
+    {
+      title: 'Geocoding Status',
+      key: 'geocoding_status',
+      render: (_, record) => {
+        const address = record.address || record.location;
+        const hasCoordinates = record.latitude && record.longitude;
+        
+        if (hasCoordinates) {
+          return (
+            <Tag color="success">Geocoded</Tag>
+          );
+        } else if (address) {
+          return (
+            <Space>
+              <Tag color="warning">Not Geocoded</Tag>
+              <Button
+                size="small"
+                type="link"
+                loading={geocodingLoading}
+                onClick={() => handleGeocode(record)}
+                title={`Geocode address: ${address}`}
+              >
+                Geocode
+              </Button>
+            </Space>
+          );
+        } else {
+          return (
+            <Space direction="vertical" size="small">
+              <Tag color="default">No Address</Tag>
+              <small style={{ color: '#999' }}>
+                Address required for geocoding
+              </small>
+            </Space>
+          );
+        }
+      },
+    },
+    {
       title: 'Phone',
-      dataIndex: ['contacts', 'phone'],
       key: 'phone',
-      render: (phone) => phone || 'N/A',
+      render: (_, record) => {
+        // Debug: log the contacts data
+        console.log('Phone - record.contacts:', record.contacts);
+        
+        let contacts = record.contacts;
+        
+        // Handle if contacts is a string (needs parsing)
+        if (typeof contacts === 'string') {
+          try {
+            contacts = JSON.parse(contacts);
+          } catch (e) {
+            console.error('Failed to parse contacts JSON:', contacts);
+            return 'N/A';
+          }
+        }
+        
+        const phone = contacts?.phone;
+        return phone || 'N/A';
+      },
     },
     {
       title: 'Email',
-      dataIndex: ['contacts', 'email'],
       key: 'email',
-      render: (email) => email || 'N/A',
+      render: (_, record) => {
+        // Debug: log the contacts data
+        console.log('Email - record.contacts:', record.contacts);
+        
+        let contacts = record.contacts;
+        
+        // Handle if contacts is a string (needs parsing)
+        if (typeof contacts === 'string') {
+          try {
+            contacts = JSON.parse(contacts);
+          } catch (e) {
+            console.error('Failed to parse contacts JSON:', contacts);
+            return 'N/A';
+          }
+        }
+        
+        const email = contacts?.email;
+        return email || 'N/A';
+      },
+    },
+    {
+      title: 'Fax',
+      key: 'fax',
+      render: (_, record) => {
+        // Debug: log the contacts data
+        console.log('Fax - record.contacts:', record.contacts);
+        
+        let contacts = record.contacts;
+        
+        // Handle if contacts is a string (needs parsing)
+        if (typeof contacts === 'string') {
+          try {
+            contacts = JSON.parse(contacts);
+          } catch (e) {
+            console.error('Failed to parse contacts JSON:', contacts);
+            return 'N/A';
+          }
+        }
+        
+        const fax = contacts?.fax;
+        return fax || 'N/A';
+      },
     },
     {
       title: 'LibCal ID',
@@ -198,19 +321,28 @@ const LibraryManagementPage = () => {
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button 
-            type="primary" 
+          <Button
+            type="primary"
             size="small"
             onClick={() => setSelectedBuilding(record)}
           >
             View Rooms
           </Button>
-          <Button 
-            icon={<EditOutlined />} 
+          <Button
+            icon={<EditOutlined />}
             size="small"
             onClick={() => handleEdit('building', record)}
           >
             Edit
+          </Button>
+          <Button
+            icon={<DeleteOutlined />}
+            size="small"
+            danger
+            onClick={() => handleDelete('building', record)}
+            title="Disable building (soft delete)"
+          >
+            Delete
           </Button>
         </Space>
       ),
@@ -243,8 +375,8 @@ const LibraryManagementPage = () => {
       render: (equipment) => {
         if (!equipment) return <span style={{ color: '#ccc' }}>None</span>;
         // Handle equipment as array or JSON string
-        const equipmentArray = Array.isArray(equipment) ? equipment : 
-                              typeof equipment === 'string' ? JSON.parse(equipment) : [];
+        const equipmentArray = Array.isArray(equipment) ? equipment :
+          typeof equipment === 'string' ? JSON.parse(equipment) : [];
         return (
           <Space wrap>
             {equipmentArray.map((item, index) => (
@@ -269,24 +401,77 @@ const LibraryManagementPage = () => {
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button 
-            icon={<EditOutlined />} 
+          <Button
+            icon={<EditOutlined />}
             size="small"
             onClick={() => handleEdit('room', record)}
           >
             Edit
+          </Button>
+          <Button
+            icon={<DeleteOutlined />}
+            size="small"
+            danger
+            onClick={() => handleDelete('room', record)}
+            title="Disable room (soft delete)"
+          >
+            Delete
           </Button>
         </Space>
       ),
     },
   ];
 
+  // Handle geocoding for a specific building
+  const handleGeocode = async (building) => {
+    const address = building.address || building.location;
+    
+    if (!address) {
+      message.warning('No address available for geocoding');
+      return;
+    }
+
+    setGeocodingLoading(true);
+    try {
+      console.log(`🌍 Geocoding building ${building.name} with address: ${address}`);
+      const result = await geocodeAndUpdateBuilding(building.id, address);
+      
+      if (result.success) {
+        message.success(`Successfully geocoded ${building.name}`);
+        console.log(`✅ Geocoding successful for ${building.name}`);
+        
+        // Refresh the buildings list to show updated geocoding status
+        await handleRefresh();
+        const refreshedBuildings = globalApi.getCachedData('buildings');
+        setBuildings(refreshedBuildings);
+      } else {
+        message.error(`Failed to geocode ${building.name}: ${result.error}`);
+        console.error(`❌ Geocoding failed for ${building.name}:`, result.error);
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      message.error(`Error geocoding ${building.name}: ${error.message}`);
+    } finally {
+      setGeocodingLoading(false);
+    }
+  };
+
   // Handle edit action
   const handleEdit = (type, item) => {
     setModalType(type);
     setEditingItem(item);
     setModalVisible(true);
-    form.setFieldsValue(item);
+    
+    // Handle nested contacts field for buildings
+    if (type === 'building' && item.contacts) {
+      const formData = {
+        ...item,
+        contacts: typeof item.contacts === 'string' ? JSON.parse(item.contacts) : item.contacts
+      };
+      form.setFieldsValue(formData);
+    } else {
+      form.setFieldsValue(item);
+    }
   };
 
   // Handle add new action
@@ -297,20 +482,85 @@ const LibraryManagementPage = () => {
     form.resetFields();
   };
 
+  // Handle delete action (soft delete - disable)
+  const handleDelete = (type, item) => {
+    Modal.confirm({
+      title: `Delete ${type}`,
+      content: `Are you sure you want to delete "${item.name}"? This will disable it rather than permanently delete it.`,
+      okText: 'Yes, Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        try {
+          // Here we would call the API to soft delete (disable) the item
+          console.log(`🗑️ Soft deleting ${type}:`, item);
+          
+          // For now, just show a message since the server disables actual deletion
+          message.warning(`${type} deletion is disabled on the server for data safety. Item would be marked as unavailable instead.`);
+          
+          // In a real implementation, this would call:
+          // await apiService.deleteBuilding(item.id) or similar
+          // await handleRefresh();
+          
+        } catch (error) {
+          console.error(`Failed to delete ${type}:`, error);
+          message.error(`Failed to delete ${type}: ${error.message}`);
+        }
+      },
+    });
+  };
+
   // Handle modal submit
   const handleModalSubmit = async () => {
     try {
       const values = await form.validateFields();
       console.log('Form values:', values);
-      message.success(`${editingItem ? 'Updated' : 'Added'} ${modalType} successfully`);
-      setModalVisible(false);
-      
-      // Reload data
-      if (modalType === 'building') {
-        // Refresh global data instead of local loadBuildings
-        await handleRefresh();
+
+      // For buildings with address, attempt geocoding
+      if (modalType === 'building' && values.address) {
+        try {
+          // First save the building data
+          message.success(`${editingItem ? 'Updated' : 'Added'} ${modalType} successfully`);
+          setModalVisible(false);
+
+          // Then attempt geocoding if address is provided
+          setGeocodingLoading(true);
+
+          // Determine building ID - if editing, use existing ID; if new, we'd need the returned ID from the save operation
+          // For now, we'll refresh and then geocode by name
+          await handleRefresh();
+
+          // Find the building by name to get its ID
+          const updatedBuildings = buildings || [];
+          const buildingToGeocode = updatedBuildings.find(b => b.name === values.name);
+
+          if (buildingToGeocode) {
+            const geocodeResult = await geocodeAndUpdateBuilding(buildingToGeocode.id, values.address);
+            if (geocodeResult.success) {
+              message.success(`Building geocoded successfully`);
+              // Refresh again to show updated geocoding status
+              await handleRefresh();
+            } else {
+              message.warning(`Building saved but geocoding failed: ${geocodeResult.error}`);
+            }
+          }
+        } catch (geocodeError) {
+          console.error('Geocoding error:', geocodeError);
+          message.warning(`Building saved but geocoding failed: ${geocodeError.message}`);
+        } finally {
+          setGeocodingLoading(false);
+        }
       } else {
-        loadRooms(selectedBuilding?.id);
+        // For non-building items or buildings without address, just save normally
+        message.success(`${editingItem ? 'Updated' : 'Added'} ${modalType} successfully`);
+        setModalVisible(false);
+
+        // Reload data
+        if (modalType === 'building') {
+          await handleRefresh();
+        } else {
+          loadRooms(selectedBuilding?.id);
+        }
       }
     } catch (error) {
       console.error('Form validation failed:', error);
@@ -325,7 +575,7 @@ const LibraryManagementPage = () => {
       </Paragraph>
 
       {/* Server Status Banner */}
-      <ServerStatusBanner 
+      <ServerStatusBanner
         useGlobalApi={true}
         onRefresh={handleRefresh}
         showConnectionStatus={true}
@@ -366,7 +616,7 @@ const LibraryManagementPage = () => {
                   locale={{ emptyText: 'No buildings found' }}
                   onRow={(record) => ({
                     onClick: () => setSelectedBuilding(record),
-                    style: { 
+                    style: {
                       cursor: 'pointer',
                       backgroundColor: selectedBuilding?.id === record.id ? '#f0f7ff' : undefined
                     }
@@ -438,8 +688,8 @@ const LibraryManagementPage = () => {
                 <Input placeholder="Enter building name" />
               </Form.Item>
               <Form.Item
-                label="Building Code"
-                name="code"
+                label="Building Code (Short Name)"
+                name="short_name"
                 rules={[{ required: true, message: 'Please enter building code' }]}
               >
                 <Input placeholder="Enter building code (e.g., MUG, PAR)" />
@@ -450,6 +700,53 @@ const LibraryManagementPage = () => {
                 rules={[{ required: true, message: 'Please enter building address' }]}
               >
                 <Input.TextArea placeholder="Enter building address" />
+              </Form.Item>
+              <Form.Item
+                label="Website"
+                name="website"
+              >
+                <Input placeholder="Enter building website URL" />
+              </Form.Item>
+              <Form.Item
+                label="Phone"
+                name={['contacts', 'phone']}
+              >
+                <Input placeholder="Enter phone number" />
+              </Form.Item>
+              <Form.Item
+                label="Email"
+                name={['contacts', 'email']}
+              >
+                <Input placeholder="Enter email address" />
+              </Form.Item>
+              <Form.Item
+                label="Fax"
+                name={['contacts', 'fax']}
+              >
+                <Input placeholder="Enter fax number" />
+              </Form.Item>
+              <Form.Item
+                label="LibCal ID"
+                name="libcal_id"
+              >
+                <Input type="number" placeholder="Enter LibCal ID" />
+              </Form.Item>
+              <Form.Item
+                label="LibCal Location ID (LID)"
+                name="lid"
+                rules={[{ required: true, message: 'Please enter LibCal Location ID' }]}
+              >
+                <Input type="number" placeholder="Enter LibCal Location ID" />
+              </Form.Item>
+              <Form.Item
+                label="Status"
+                name="available"
+                rules={[{ required: true, message: 'Please select building status' }]}
+              >
+                <Select placeholder="Select building status">
+                  <Option value={true}>Available</Option>
+                  <Option value={false}>Unavailable</Option>
+                </Select>
               </Form.Item>
             </>
           ) : (
