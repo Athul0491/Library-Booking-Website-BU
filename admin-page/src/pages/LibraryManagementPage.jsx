@@ -199,7 +199,7 @@ const LibraryManagementPage = () => {
       render: (_, record) => {
         const address = record.address || record.location;
         const hasCoordinates = record.latitude && record.longitude;
-        
+
         if (hasCoordinates) {
           return (
             <Tag color="success">Geocoded</Tag>
@@ -237,9 +237,9 @@ const LibraryManagementPage = () => {
       render: (_, record) => {
         // Debug: log the contacts data
         console.log('Phone - record.contacts:', record.contacts);
-        
+
         let contacts = record.contacts;
-        
+
         // Handle if contacts is a string (needs parsing)
         if (typeof contacts === 'string') {
           try {
@@ -249,7 +249,7 @@ const LibraryManagementPage = () => {
             return 'N/A';
           }
         }
-        
+
         const phone = contacts?.phone;
         return phone || 'N/A';
       },
@@ -260,9 +260,9 @@ const LibraryManagementPage = () => {
       render: (_, record) => {
         // Debug: log the contacts data
         console.log('Email - record.contacts:', record.contacts);
-        
+
         let contacts = record.contacts;
-        
+
         // Handle if contacts is a string (needs parsing)
         if (typeof contacts === 'string') {
           try {
@@ -272,7 +272,7 @@ const LibraryManagementPage = () => {
             return 'N/A';
           }
         }
-        
+
         const email = contacts?.email;
         return email || 'N/A';
       },
@@ -283,9 +283,9 @@ const LibraryManagementPage = () => {
       render: (_, record) => {
         // Debug: log the contacts data
         console.log('Fax - record.contacts:', record.contacts);
-        
+
         let contacts = record.contacts;
-        
+
         // Handle if contacts is a string (needs parsing)
         if (typeof contacts === 'string') {
           try {
@@ -295,7 +295,7 @@ const LibraryManagementPage = () => {
             return 'N/A';
           }
         }
-        
+
         const fax = contacts?.fax;
         return fax || 'N/A';
       },
@@ -425,7 +425,7 @@ const LibraryManagementPage = () => {
   // Handle geocoding for a specific building
   const handleGeocode = async (building) => {
     const address = building.address || building.location;
-    
+
     if (!address) {
       message.warning('No address available for geocoding');
       return;
@@ -435,11 +435,11 @@ const LibraryManagementPage = () => {
     try {
       console.log(`🌍 Geocoding building ${building.name} with address: ${address}`);
       const result = await geocodeAndUpdateBuilding(building.id, address);
-      
+
       if (result.success) {
         message.success(`Successfully geocoded ${building.name}`);
         console.log(`✅ Geocoding successful for ${building.name}`);
-        
+
         // Refresh the buildings list to show updated geocoding status
         await handleRefresh();
         const refreshedBuildings = globalApi.getCachedData('buildings');
@@ -461,7 +461,7 @@ const LibraryManagementPage = () => {
     setModalType(type);
     setEditingItem(item);
     setModalVisible(true);
-    
+
     // Handle nested contacts field for buildings
     if (type === 'building' && item.contacts) {
       const formData = {
@@ -494,14 +494,14 @@ const LibraryManagementPage = () => {
         try {
           // Here we would call the API to soft delete (disable) the item
           console.log(`🗑️ Soft deleting ${type}:`, item);
-          
+
           // For now, just show a message since the server disables actual deletion
           message.warning(`${type} deletion is disabled on the server for data safety. Item would be marked as unavailable instead.`);
-          
+
           // In a real implementation, this would call:
           // await apiService.deleteBuilding(item.id) or similar
           // await handleRefresh();
-          
+
         } catch (error) {
           console.error(`Failed to delete ${type}:`, error);
           message.error(`Failed to delete ${type}: ${error.message}`);
