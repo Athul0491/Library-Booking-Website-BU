@@ -34,8 +34,25 @@ CREATE TABLE IF NOT EXISTS Buildings (
   available BOOLEAN DEFAULT true,               -- Whether rooms are available
   libcal_id INTEGER,                            -- ID in LibCal system
   lid INTEGER NOT NULL UNIQUE,                  -- LibCal Location ID (core field)
+  
+  -- Geocoding fields for map integration
+  latitude DECIMAL(10, 8) NULL,                 -- Latitude coordinate
+  longitude DECIMAL(11, 8) NULL,                -- Longitude coordinate
+  geocoded_at TIMESTAMP WITH TIME ZONE NULL,    -- When geocoding was performed
+  geocoding_status VARCHAR(20) DEFAULT 'pending', -- pending, success, failed, manual
+  geocoding_source VARCHAR(50) DEFAULT 'nominatim', -- nominatim, google, manual
+  geocoding_accuracy VARCHAR(20) NULL,          -- Geocoding accuracy level
+  
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  
+  -- Constraints for geocoding
+  CONSTRAINT valid_geocoding_status CHECK (geocoding_status IN ('pending', 'success', 'failed', 'manual')),
+  CONSTRAINT valid_coordinates CHECK (
+    (latitude IS NULL AND longitude IS NULL) OR 
+    (latitude IS NOT NULL AND longitude IS NOT NULL AND 
+     latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180)
+  )
 );
 
 -- Rooms table (Room information)
@@ -129,7 +146,57 @@ CREATE TABLE IF NOT EXISTS Bookings (
 );
 
 -- ==============================================
--- 3. SYSTEM CONFIGURATION
+-- 3. GEOCODING TABLES
+-- ==============================================
+
+-- Geocoding History Table (地理编码历史记录表)
+CREATE TABLE IF NOT EXISTS GeocodingHistory (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  building_id INTEGER NOT NULL REFERENCES Buildings(id) ON DELETE CASCADE,
+  
+  -- Address Information
+  original_address TEXT NOT NULL,               -- Original address used for geocoding
+  formatted_address TEXT,                       -- Formatted address returned by service
+  
+  -- Coordinates
+  latitude DECIMAL(10, 8) NULL,                 -- Resulting latitude
+  longitude DECIMAL(11, 8) NULL,                -- Resulting longitude
+  
+  -- Geocoding Service Information
+  service_provider VARCHAR(50) NOT NULL,        -- nominatim, google, mapbox, manual
+  service_response JSONB DEFAULT '{}',          -- Full API response
+  confidence_score DECIMAL(3, 2),               -- Confidence score (0.00 to 1.00)
+  accuracy_level VARCHAR(20),                   -- street, city, region, country
+  
+  -- Status and Results
+  status VARCHAR(20) NOT NULL,                  -- success, failed, partial
+  error_message TEXT,                           -- Error message if failed
+  processing_time_ms INTEGER,                   -- Processing time in milliseconds
+  
+  -- Request Context
+  requested_by VARCHAR(255),                    -- Who requested the geocoding
+  request_ip INET,                              -- IP address of request
+  user_agent TEXT,                              -- User agent
+  
+  -- Metadata
+  is_active BOOLEAN DEFAULT true,               -- Whether this is the active geocoding result
+  notes TEXT,                                   -- Additional notes
+  
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  
+  -- Constraints
+  CONSTRAINT valid_geocoding_status CHECK (status IN ('success', 'failed', 'partial')),
+  CONSTRAINT valid_confidence CHECK (confidence_score IS NULL OR (confidence_score >= 0 AND confidence_score <= 1)),
+  CONSTRAINT valid_coordinates_history CHECK (
+    (latitude IS NULL AND longitude IS NULL) OR 
+    (latitude IS NOT NULL AND longitude IS NOT NULL AND 
+     latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180)
+  )
+);
+
+-- ==============================================
+-- 4. SYSTEM CONFIGURATION
 -- ==============================================
 
 -- System Configuration (System configuration table)
@@ -144,13 +211,22 @@ CREATE TABLE IF NOT EXISTS SystemConfig (
 );
 
 -- ==============================================
--- 4. INDEXES FOR PERFORMANCE
+-- 5. INDEXES FOR PERFORMANCE
 -- ==============================================
 
 -- Buildings table indexes
 CREATE INDEX IF NOT EXISTS idx_buildings_short_name ON Buildings(short_name);
 CREATE INDEX IF NOT EXISTS idx_buildings_lid ON Buildings(lid);
 CREATE INDEX IF NOT EXISTS idx_buildings_available ON Buildings(available);
+CREATE INDEX IF NOT EXISTS idx_buildings_geocoding_status ON Buildings(geocoding_status);
+CREATE INDEX IF NOT EXISTS idx_buildings_coordinates ON Buildings(latitude, longitude);
+
+-- GeocodingHistory table indexes
+CREATE INDEX IF NOT EXISTS idx_geocoding_history_building_id ON GeocodingHistory(building_id);
+CREATE INDEX IF NOT EXISTS idx_geocoding_history_created_at ON GeocodingHistory(created_at);
+CREATE INDEX IF NOT EXISTS idx_geocoding_history_status ON GeocodingHistory(status);
+CREATE INDEX IF NOT EXISTS idx_geocoding_history_provider ON GeocodingHistory(service_provider);
+CREATE INDEX IF NOT EXISTS idx_geocoding_history_active ON GeocodingHistory(is_active);
 
 -- Rooms table indexes
 CREATE INDEX IF NOT EXISTS idx_rooms_building_id ON Rooms(building_id);
@@ -189,6 +265,10 @@ DROP TRIGGER IF EXISTS update_buildings_updated_at ON Buildings;
 CREATE TRIGGER update_buildings_updated_at BEFORE UPDATE ON Buildings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_geocoding_history_updated_at ON GeocodingHistory;
+CREATE TRIGGER update_geocoding_history_updated_at BEFORE UPDATE ON GeocodingHistory
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 DROP TRIGGER IF EXISTS update_rooms_updated_at ON Rooms;
 CREATE TRIGGER update_rooms_updated_at BEFORE UPDATE ON Rooms
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -214,6 +294,7 @@ ALTER TABLE Buildings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE Rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE UserProfiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE Bookings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE GeocodingHistory ENABLE ROW LEVEL SECURITY;
 
 -- Buildings and Rooms are publicly accessible (read-only)
 DROP POLICY IF EXISTS "Buildings are viewable by everyone" ON Buildings;
@@ -223,6 +304,15 @@ CREATE POLICY "Buildings are viewable by everyone" ON Buildings
 DROP POLICY IF EXISTS "Rooms are viewable by everyone" ON Rooms;
 CREATE POLICY "Rooms are viewable by everyone" ON Rooms
     FOR SELECT USING (true);
+
+-- GeocodingHistory policies - Admin access only
+DROP POLICY IF EXISTS "Admin can view geocoding history" ON GeocodingHistory;
+CREATE POLICY "Admin can view geocoding history" ON GeocodingHistory
+    FOR SELECT USING (true);  -- Will be restricted to admin users later
+
+DROP POLICY IF EXISTS "Admin can manage geocoding history" ON GeocodingHistory;
+CREATE POLICY "Admin can manage geocoding history" ON GeocodingHistory
+    FOR ALL USING (true);  -- Will be restricted to admin users later
 
 -- UserProfiles policies - Simple email-based access
 DROP POLICY IF EXISTS "Users can view own profile by email" ON UserProfiles;
@@ -254,13 +344,18 @@ CREATE POLICY "Users can update bookings" ON Bookings
 -- 7. INITIAL DATA SEEDING
 -- ==============================================
 
--- Insert BU Libraries
-INSERT INTO Buildings (name, short_name, address, website, lid, libcal_id) VALUES
-('Mugar Memorial Library', 'mug', '771 Commonwealth Ave, Boston, MA 02215', 'https://www.bu.edu/library/mugar/', 19336, 19336),
-('Pardee Library', 'par', '771 Commonwealth Ave, Boston, MA 02215', 'https://www.bu.edu/library/pardee/', 19818, 19818),
-('Pickering Educational Resources Library', 'pic', '2 Silber Way, Boston, MA 02215', 'https://www.bu.edu/library/pickering/', 18359, 18359),
-('Science & Engineering Library', 'sci', '38 Cummington Mall, Boston, MA 02215', 'https://www.bu.edu/library/sel/', 20177, 20177)
-ON CONFLICT (short_name) DO NOTHING;
+-- Insert BU Libraries with geocoding data
+INSERT INTO Buildings (name, short_name, address, website, lid, libcal_id, latitude, longitude, geocoded_at, geocoding_status, geocoding_source) VALUES
+('Mugar Memorial Library', 'mug', '771 Commonwealth Ave, Boston, MA 02215', 'https://www.bu.edu/library/mugar/', 19336, 19336, 42.35042, -71.10644, NOW(), 'manual', 'manual'),
+('Pardee Library', 'par', '771 Commonwealth Ave, Boston, MA 02215', 'https://www.bu.edu/library/pardee/', 19818, 19818, 42.34897, -71.09854, NOW(), 'manual', 'manual'),
+('Pickering Educational Resources Library', 'pic', '2 Silber Way, Boston, MA 02215', 'https://www.bu.edu/library/pickering/', 18359, 18359, 42.35015, -71.10485, NOW(), 'manual', 'manual'),
+('Science & Engineering Library', 'sci', '38 Cummington Mall, Boston, MA 02215', 'https://www.bu.edu/library/sel/', 20177, 20177, 42.34968, -71.10445, NOW(), 'manual', 'manual')
+ON CONFLICT (short_name) DO UPDATE SET
+    latitude = EXCLUDED.latitude,
+    longitude = EXCLUDED.longitude,
+    geocoded_at = EXCLUDED.geocoded_at,
+    geocoding_status = EXCLUDED.geocoding_status,
+    geocoding_source = EXCLUDED.geocoding_source;
 
 -- Insert system configuration
 INSERT INTO SystemConfig (config_key, config_value, description) VALUES
@@ -269,6 +364,16 @@ INSERT INTO SystemConfig (config_key, config_value, description) VALUES
 ('max_booking_duration_hours', '4', 'Maximum booking duration in hours'),
 ('maintenance_mode', 'false', 'System maintenance mode flag'),
 ('cache_duration_minutes', '5', 'API response cache duration'),
+-- Geocoding Configuration
+('geocoding_enabled', 'true', 'Enable automatic geocoding for new addresses'),
+('geocoding_provider', 'nominatim', 'Primary geocoding service provider (nominatim, google)'),
+('geocoding_timeout_ms', '5000', 'Geocoding API timeout in milliseconds'),
+('geocoding_rate_limit_per_hour', '1000', 'Geocoding rate limit per hour'),
+('geocoding_cache_duration_days', '30', 'Cache geocoding results for X days'),
+('auto_geocode_on_address_update', 'true', 'Automatically geocode when address is updated'),
+('fallback_coordinates_enabled', 'true', 'Use fallback coordinates for failed geocoding'),
+('fallback_latitude', '42.35018', 'Default fallback latitude (BU campus center)'),
+('fallback_longitude', '-71.10498', 'Default fallback longitude (BU campus center)'),
 -- Monitoring Configuration
 ('monitoring_enabled', 'true', 'Enable system monitoring and logging'),
 ('log_retention_days', '90', 'Number of days to retain access logs'),
@@ -562,6 +667,36 @@ CREATE POLICY "Admin can view rate limit logs" ON RateLimitLogs
 -- 12. VIEWS FOR COMMON QUERIES
 -- ==============================================
 
+-- View for buildings with geocoding status
+CREATE OR REPLACE VIEW buildings_with_geocoding AS
+SELECT 
+    b.id,
+    b.name,
+    b.short_name,
+    b.address,
+    b.website,
+    b.available,
+    b.latitude,
+    b.longitude,
+    b.geocoding_status,
+    b.geocoding_source,
+    b.geocoded_at,
+    b.created_at,
+    b.updated_at,
+    -- Count of rooms in each building
+    COUNT(r.id) as room_count,
+    -- Latest geocoding attempt
+    gh.service_provider as last_geocoding_provider,
+    gh.confidence_score as last_confidence_score,
+    gh.accuracy_level as last_accuracy_level
+FROM Buildings b
+LEFT JOIN Rooms r ON b.id = r.building_id
+LEFT JOIN GeocodingHistory gh ON b.id = gh.building_id AND gh.is_active = true
+GROUP BY 
+    b.id, b.name, b.short_name, b.address, b.website, b.available,
+    b.latitude, b.longitude, b.geocoding_status, b.geocoding_source, b.geocoded_at,
+    b.created_at, b.updated_at, gh.service_provider, gh.confidence_score, gh.accuracy_level;
+
 -- View for active bookings with room and building details
 CREATE OR REPLACE VIEW active_bookings_view AS
 SELECT 
@@ -664,6 +799,111 @@ LIMIT 20;
 -- ==============================================
 -- 13. FUNCTIONS FOR MONITORING OPERATIONS
 -- ==============================================
+
+-- Function to update building geocoding result
+CREATE OR REPLACE FUNCTION update_building_geocoding(
+    p_building_id INTEGER,
+    p_latitude DECIMAL(10,8),
+    p_longitude DECIMAL(11,8),
+    p_status VARCHAR(20),
+    p_source VARCHAR(50),
+    p_accuracy VARCHAR(20) DEFAULT NULL,
+    p_confidence DECIMAL(3,2) DEFAULT NULL,
+    p_formatted_address TEXT DEFAULT NULL,
+    p_service_response JSONB DEFAULT '{}',
+    p_requested_by VARCHAR(255) DEFAULT NULL
+) RETURNS UUID AS $$
+DECLARE
+    history_id UUID;
+    original_addr TEXT;
+BEGIN
+    -- Get original address
+    SELECT address INTO original_addr FROM Buildings WHERE id = p_building_id;
+    
+    -- Start transaction
+    BEGIN
+        -- Update buildings table
+        UPDATE Buildings 
+        SET 
+            latitude = p_latitude,
+            longitude = p_longitude,
+            geocoding_status = p_status,
+            geocoding_source = p_source,
+            geocoding_accuracy = p_accuracy,
+            geocoded_at = NOW()
+        WHERE id = p_building_id;
+        
+        -- Deactivate previous geocoding history
+        UPDATE GeocodingHistory 
+        SET is_active = false 
+        WHERE building_id = p_building_id;
+        
+        -- Insert new geocoding history record
+        INSERT INTO GeocodingHistory (
+            building_id, original_address, formatted_address, latitude, longitude,
+            service_provider, service_response, confidence_score, accuracy_level,
+            status, requested_by, is_active
+        ) VALUES (
+            p_building_id, original_addr, p_formatted_address, p_latitude, p_longitude,
+            p_source, p_service_response, p_confidence, p_accuracy,
+            p_status, p_requested_by, true
+        ) RETURNING id INTO history_id;
+        
+        RETURN history_id;
+    END;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to mark buildings for geocoding
+CREATE OR REPLACE FUNCTION mark_buildings_for_geocoding(
+    p_building_ids INTEGER[] DEFAULT NULL
+) RETURNS TABLE(building_id INTEGER, building_name VARCHAR(255), address TEXT) AS $$
+BEGIN
+    -- If no specific buildings provided, mark all without coordinates or failed geocoding
+    IF p_building_ids IS NULL THEN
+        UPDATE Buildings 
+        SET geocoding_status = 'pending' 
+        WHERE (latitude IS NULL OR longitude IS NULL) 
+           OR geocoding_status = 'failed';
+    ELSE
+        -- Mark specific buildings
+        UPDATE Buildings 
+        SET geocoding_status = 'pending' 
+        WHERE id = ANY(p_building_ids);
+    END IF;
+    
+    -- Return marked buildings
+    RETURN QUERY
+    SELECT b.id, b.name, b.address 
+    FROM Buildings b 
+    WHERE b.geocoding_status = 'pending'
+    ORDER BY b.created_at;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function to get buildings needing geocoding
+CREATE OR REPLACE FUNCTION get_buildings_for_geocoding()
+RETURNS TABLE(
+    building_id INTEGER, 
+    building_name VARCHAR(255), 
+    address TEXT,
+    last_attempt TIMESTAMP WITH TIME ZONE
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        b.id,
+        b.name,
+        b.address,
+        MAX(gh.created_at) as last_attempt
+    FROM Buildings b
+    LEFT JOIN GeocodingHistory gh ON b.id = gh.building_id
+    WHERE b.geocoding_status = 'pending' 
+       OR (b.latitude IS NULL AND b.address IS NOT NULL)
+    GROUP BY b.id, b.name, b.address
+    ORDER BY last_attempt NULLS FIRST, b.created_at;
+END;
+$$ LANGUAGE plpgsql;
 
 -- Function to log API access
 CREATE OR REPLACE FUNCTION log_api_access(
@@ -781,3 +1021,5 @@ $$ LANGUAGE plpgsql;
 -- Success message
 SELECT 'BU Library Booking System (Anonymous) database schema with monitoring created successfully!' as result;
 SELECT 'Monitoring tables added: AccessLogs, SystemStatus, ErrorLogs, PerformanceMetrics, RateLimitLogs' as monitoring_info;
+SELECT 'Geocoding functionality added: Buildings table updated with lat/lng fields, GeocodingHistory table created' as geocoding_info;
+SELECT 'Geocoding functions available: update_building_geocoding(), mark_buildings_for_geocoding(), get_buildings_for_geocoding()' as geocoding_functions;

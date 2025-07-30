@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import '../assets/styles/map.css';
+import { useGlobalApi } from '../contexts/GlobalApiContext';
 
 // Fix Leaflet default markers in React
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -28,6 +29,122 @@ interface LocationData {
     type: 'library' | 'academic' | 'dining' | 'residence';
 }
 
+interface GeocodedLocation {
+    id: string;
+    name: string;
+    lat: number;
+    lng: number;
+    address: string;
+    description?: string;
+    phone?: string;
+    hours?: string;
+}
+
+// 地理编码服务 - 使用免费的OpenStreetMap Nominatim API
+const geocodeAddress = async (address: string, retryCount = 0): Promise<{lat: number, lng: number} | null> => {
+    try {
+        // 添加延迟以避免API限制
+        if (retryCount > 0) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
+
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?` +
+            `format=json&` +
+            `q=${encodeURIComponent(address + ', Boston, MA, USA')}&` +
+            `limit=1&` +
+            `countrycodes=us&` +
+            `bounded=1&` +
+            `viewbox=-71.15,-71.05,42.30,42.40`, // 限制在波士顿地区
+            {
+                headers: {
+                    'User-Agent': 'BU-Library-Booking-App/1.0'
+                }
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+            const result = data[0];
+            return {
+                lat: parseFloat(result.lat),
+                lng: parseFloat(result.lon)
+            };
+        }
+        
+        return null;
+    } catch (error) {
+        console.error(`Geocoding failed for "${address}":`, error);
+        
+        // 重试逻辑
+        if (retryCount < 2) {
+            console.log(`Retrying geocoding for "${address}" (attempt ${retryCount + 2})`);
+            return geocodeAddress(address, retryCount + 1);
+        }
+        
+        return null;
+    }
+};
+
+// 批量地理编码，避免API限制
+const geocodeLocations = async (buildings: any[]): Promise<GeocodedLocation[]> => {
+    const geocodedLocations: GeocodedLocation[] = [];
+    
+    for (let i = 0; i < buildings.length; i++) {
+        const building = buildings[i];
+        
+        // 跳过没有地址的建筑物
+        if (!building.address || building.address.trim() === '') {
+            console.warn(`❌ Skipping building without address: ${building.name}`);
+            continue;
+        }
+        
+        console.log(`Geocoding ${i + 1}/${buildings.length}: ${building.name} - ${building.address}`);
+        
+        const coordinates = await geocodeAddress(building.address);
+        
+        if (coordinates) {
+            geocodedLocations.push({
+                id: building.id,
+                name: building.name,
+                lat: coordinates.lat,
+                lng: coordinates.lng,
+                address: building.address,
+                description: building.description || `${building.name} library`,
+                phone: building.phone || '',
+                hours: building.hours || 'Hours not available'
+            });
+            console.log(`✅ Successfully geocoded: ${building.name} -> ${coordinates.lat}, ${coordinates.lng}`);
+        } else {
+            console.warn(`❌ Failed to geocode: ${building.name} - ${building.address}`);
+            
+            // 回退：如果地理编码失败，使用BU校园的默认位置附近
+            geocodedLocations.push({
+                id: building.id,
+                name: building.name,
+                lat: 42.35018 + (Math.random() - 0.5) * 0.01, // 随机分布在BU附近
+                lng: -71.10498 + (Math.random() - 0.5) * 0.01,
+                address: building.address,
+                description: building.description || `${building.name} library (approximate location)`,
+                phone: building.phone || '',
+                hours: building.hours || 'Hours not available'
+            });
+        }
+        
+        // 添加延迟以避免API限制 (1 request per second)
+        if (i < buildings.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 1100));
+        }
+    }
+    
+    return geocodedLocations;
+};
+
 interface NavigationOption {
     name: string;
     url: string;
@@ -41,8 +158,31 @@ export default function Map() {
     const [errorMessage, setErrorMessage] = useState('');
     const [showNavigationModal, setShowNavigationModal] = useState(false);
     const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
+    const [isGeocoding, setIsGeocoding] = useState(false);
+    const [geocodedLocations, setGeocodedLocations] = useState<GeocodedLocation[]>([]);
+    
+    const { buildings } = useGlobalApi();
 
-    // Boston University library locations
+    // 地理编码建筑物地址
+    useEffect(() => {
+        if (buildings.length > 0) {
+            setIsGeocoding(true);
+            console.log(`Starting geocoding for ${buildings.length} buildings...`);
+            
+            geocodeLocations(buildings).then(locations => {
+                setGeocodedLocations(locations);
+                setIsGeocoding(false);
+                console.log(`Geocoding completed. ${locations.length} locations ready.`);
+            }).catch(error => {
+                console.error('Geocoding failed:', error);
+                setIsGeocoding(false);
+                setHasError(true);
+                setErrorMessage('Failed to get location coordinates');
+            });
+        }
+    }, [buildings]);
+
+    // Boston University library locations - 仅作为备用
     const libraryLocations: LocationData[] = [
         {
             id: 'mugar',
@@ -196,8 +336,11 @@ export default function Map() {
                 maxZoom: 19,
             }).addTo(map);
 
+            // Use geocoded locations if available, otherwise fall back to static data
+            const locationsToUse = geocodedLocations.length > 0 ? geocodedLocations : libraryLocations;
+
             // Add library markers with custom popups
-            libraryLocations.forEach(location => {
+            locationsToUse.forEach(location => {
                 const marker = L.marker([location.lat, location.lng], { 
                     icon: createLibraryIcon() 
                 }).addTo(map);
@@ -211,8 +354,8 @@ export default function Map() {
                             <p><strong>📍 Address:</strong> ${location.address}</p>
                             ${location.phone ? `<p><strong>📞 Phone:</strong> ${location.phone}</p>` : ''}
                             ${location.hours ? `<p><strong>🕒 Hours:</strong> ${location.hours}</p>` : ''}
-                            ${location.amenities && location.amenities.length > 0 ? 
-                                `<p><strong>✨ Amenities:</strong> ${location.amenities.join(', ')}</p>` : ''}
+                            ${(location as any).amenities && (location as any).amenities.length > 0 ? 
+                                `<p><strong>✨ Amenities:</strong> ${(location as any).amenities.join(', ')}</p>` : ''}
                         </div>
                         <button class="navigate-btn" onclick="window.openNavigationModal('${location.id}')">
                             🧭 Navigate Here
@@ -229,14 +372,26 @@ export default function Map() {
 
             // Make navigation function globally available for popup buttons
             (window as any).openNavigationModal = (locationId: string) => {
-                const location = libraryLocations.find(loc => loc.id === locationId);
+                // Check both geocoded and static locations
+                let location = geocodedLocations.find(loc => loc.id === locationId);
+                if (!location) {
+                    location = libraryLocations.find(loc => loc.id === locationId);
+                }
                 if (location) {
-                    setSelectedLocation(location);
+                    setSelectedLocation({
+                        ...location,
+                        description: location.description || '',
+                        type: 'library' as const,
+                        amenities: (location as any).amenities || []
+                    });
                     setShowNavigationModal(true);
                 }
             };
 
-            console.log('OpenStreetMap with Leaflet loaded successfully - No API key required!');
+            console.log(`OpenStreetMap loaded with ${locationsToUse.length} locations - No API key required!`);
+            if (isGeocoding) {
+                console.log('Geocoding in progress...');
+            }
             setHasError(false);
 
         } catch (error) {
@@ -251,7 +406,7 @@ export default function Map() {
             // Clean up global function
             delete (window as any).openNavigationModal;
         };
-    }, []);
+    }, [geocodedLocations, isGeocoding]); // Re-run when geocoded locations change
 
     return (
         <div className="map-container">
@@ -260,6 +415,18 @@ export default function Map() {
                     <div>⚠️ {errorMessage}</div>
                     <div className="map-error-detail">
                         Map initialization failed
+                    </div>
+                </div>
+            )}
+
+            {isGeocoding && (
+                <div className="geocoding-overlay">
+                    <div className="geocoding-indicator">
+                        <div className="loading-spinner"></div>
+                        <div>🗺️ Getting precise locations from addresses...</div>
+                        <div className="geocoding-detail">
+                            Converting {buildings.length} building addresses to map coordinates
+                        </div>
                     </div>
                 </div>
             )}
