@@ -8,8 +8,8 @@
   background: #121212;
   color: #ddd;
   font-family: Arial, sans-serif;
-  height: 100vh; /* 填满整个视口高度 */
-  overflow: hidden; /* 防止外部滚动 */
+  height: 100vh; /* Fill the entire viewport height */
+  overflow: hidden; /* Prevent external scrolling */
 }
 
 /* header always full-width */
