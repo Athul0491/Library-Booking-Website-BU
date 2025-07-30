@@ -29,7 +29,7 @@ class ApiService {
   async healthCheck() {
     try {
       const result = await this.supabaseService.testConnection();
-      
+
       if (result.success) {
         return {
           status: 'healthy',
@@ -100,7 +100,7 @@ class ApiService {
         const errors = [];
         if (!bookingStatsResult.success) errors.push(`Booking stats: ${bookingStatsResult.error}`);
         if (!buildingsResult.success) errors.push(`Buildings: ${buildingsResult.error}`);
-        
+
         throw new Error(errors.join(', '));
       }
     } catch (error) {

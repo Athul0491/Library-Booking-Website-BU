@@ -16,15 +16,15 @@ import {
 import ConnectionStatus from './ConnectionStatus';
 import { useGlobalApi } from '../contexts/GlobalApiContext';
 
-const ServerStatusBanner = ({ 
+const ServerStatusBanner = ({
   // Local API status (for backward compatibility)
-  apiStatus: localApiStatus = null, 
+  apiStatus: localApiStatus = null,
   connectionDetails: localConnectionDetails = null,
   isConnecting: localIsConnecting = null,
-  
+
   // Refresh callback for local pages
   onRefresh = null,
-  
+
   // Display options
   showConnectionStatus = true,
   showApiStatusCard = true,
@@ -70,9 +70,9 @@ const ServerStatusBanner = ({
     <div style={style}>
       {/* Connection Status Component */}
       {showConnectionStatus && (
-        <ConnectionStatus 
-          showDetails={true} 
-          compact={false} 
+        <ConnectionStatus
+          showDetails={true}
+          compact={false}
           style={{ marginBottom: 24 }}
           customStatus={{
             apiStatus: apiStatus,
@@ -94,17 +94,17 @@ const ServerStatusBanner = ({
           style={{ marginBottom: 16 }}
         />
       )}
-      
+
       {/* Real-time API Status Card */}
       {showApiStatusCard && (
-        <Card 
-          size="small" 
+        <Card
+          size="small"
           style={{ marginBottom: 16 }}
           extra={
             showRefreshButton && (
-              <Button 
-                type="text" 
-                size="small" 
+              <Button
+                type="text"
+                size="small"
                 icon={<ReloadOutlined />}
                 onClick={handleRefresh}
                 loading={isConnecting}
@@ -118,23 +118,23 @@ const ServerStatusBanner = ({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <Space>
-                <Tag 
+                <Tag
                   color={
-                    apiStatus === 'connected' ? 'success' : 
-                    apiStatus === 'connecting' ? 'processing' : 
-                    apiStatus === 'error' ? 'error' : 'default'
+                    apiStatus === 'connected' ? 'success' :
+                      apiStatus === 'connecting' ? 'processing' :
+                        apiStatus === 'error' ? 'error' : 'default'
                   }
                   icon={
                     apiStatus === 'connected' ? <CheckCircleOutlined /> :
-                    apiStatus === 'connecting' ? <ClockCircleOutlined spin /> :
-                    apiStatus === 'error' ? <CloseCircleOutlined /> :
-                    <ApiOutlined />
+                      apiStatus === 'connecting' ? <ClockCircleOutlined spin /> :
+                        apiStatus === 'error' ? <CloseCircleOutlined /> :
+                          <ApiOutlined />
                   }
                 >
                   {apiStatus === 'connected' ? 'API Connected' :
-                   apiStatus === 'connecting' ? 'Connecting...' :
-                   apiStatus === 'error' ? 'API Error' :
-                   'Disconnected'}
+                    apiStatus === 'connecting' ? 'Connecting...' :
+                      apiStatus === 'error' ? 'API Error' :
+                        'Disconnected'}
                 </Tag>
                 <Tag color={connectionDetails.backend === 'healthy' ? 'success' : 'error'}>
                   Backend: {connectionDetails.backend}

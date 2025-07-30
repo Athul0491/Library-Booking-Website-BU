@@ -45,16 +45,16 @@ export const GlobalApiProvider = ({ children }) => {
   // Initialize API on app start
   const initializeApi = useCallback(async () => {
     const startTime = Date.now();
-    
+
     try {
       setIsConnecting(true);
       setApiStatus('connecting');
-      
+
       // Try to get dashboard data as a health check
       const result = await apiService.getDashboardData();
-      
+
       const responseTime = Date.now() - startTime;
-      
+
       if (result.success) {
         // Update connection status - SUCCESS
         console.log('✅ [GLOBAL API] Connection successful, updating status to connected');
@@ -65,16 +65,16 @@ export const GlobalApiProvider = ({ children }) => {
           lastUpdated: new Date().toISOString(),
           responseTime: responseTime
         });
-        
+
         // Cache the data
         const buildings = result.data?.buildings || [];
         let allRooms = [];
-        
+
         // Get all rooms with building info in one efficient call
         if (buildings.length > 0) {
           try {
             const roomsResult = await apiService.getAllRooms();
-            
+
             if (roomsResult.success && roomsResult.data?.rooms) {
               allRooms = roomsResult.data.rooms.map(room => ({
                 // Keep the original room data
@@ -90,23 +90,23 @@ export const GlobalApiProvider = ({ children }) => {
             // Silently handle rooms fetch error
           }
         }
-        
+
         setGlobalData({
           dashboard: result.data,
           buildings: buildings,
           rooms: allRooms,
           lastUpdated: new Date().toISOString()
         });
-        
+
         setLastApiCall(new Date().toISOString());
-        
+
       } else {
         throw new Error(result.error || 'API initialization failed');
       }
     } catch (error) {
       console.error('❌ [GLOBAL API] Initialization failed:', error);
       console.log('⚠️ [GLOBAL API] Updating status to error');
-      
+
       // Update connection status - ERROR
       setApiStatus('error');
       setConnectionDetails({
@@ -115,7 +115,7 @@ export const GlobalApiProvider = ({ children }) => {
         lastUpdated: new Date().toISOString(),
         responseTime: Date.now() - startTime
       });
-      
+
       // Set empty data for error state
       setGlobalData({
         dashboard: null,
@@ -148,7 +148,7 @@ export const GlobalApiProvider = ({ children }) => {
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-    
+
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
@@ -157,10 +157,10 @@ export const GlobalApiProvider = ({ children }) => {
   // Check if data should be refreshed (for safety, allow refresh after 5 minutes)
   const shouldRefreshData = useCallback(() => {
     if (!lastApiCall) return true;
-    
+
     const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
     const lastCallTime = new Date(lastApiCall).getTime();
-    
+
     return lastCallTime < fiveMinutesAgo;
   }, [lastApiCall]);
 
@@ -185,18 +185,18 @@ export const GlobalApiProvider = ({ children }) => {
     connectionDetails,
     isConnecting,
     lastApiCall,
-    
+
     // Data Access
     globalData,
     getCachedData,
-    
+
     // Control Functions
     refreshApi,
     initializeApi,
-    
+
     // Helper Functions
     shouldRefreshData,
-    
+
     // Status Helpers
     isApiConnected: apiStatus === 'connected',
     isApiError: apiStatus === 'error',
