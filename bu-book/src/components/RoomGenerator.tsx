@@ -1,6 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import '../assets/styles/roomGenerator.css';
 
 interface Room {
     title: string;
@@ -91,12 +91,13 @@ export default function RoomSqlGenerator() {
         <div className="sql-generator">
             <h2>Room SQL Generator</h2>
 
-            <label>
+            <label htmlFor="building-select">
                 Select Building:
                 <select
+                    id="building-select"
                     value={buildingId ?? ''}
                     onChange={(e) => setBuildingId(Number(e.target.value))}
-                    style={{ marginLeft: '0.5rem' }}
+                    className="building-select"
                 >
                     <option value="">-- Choose a Building --</option>
                     {buildings.map((b) => (
@@ -107,16 +108,20 @@ export default function RoomSqlGenerator() {
                 </select>
             </label>
 
-            <textarea
-                rows={12}
-                cols={80}
-                placeholder="Paste room JSON here..."
-                value={jsonInput}
-                onChange={(e) => setJsonInput(e.target.value)}
-                style={{ marginTop: '1rem', width: '100%' }}
-            />
+            <label htmlFor="json-input" className="json-input-label">
+                Room JSON Data:
+                <textarea
+                    id="json-input"
+                    rows={12}
+                    cols={80}
+                    placeholder="Paste room JSON here..."
+                    value={jsonInput}
+                    onChange={(e) => setJsonInput(e.target.value)}
+                    className="json-textarea"
+                />
+            </label>
 
-            <button onClick={insertRooms} style={{ marginTop: '1rem' }}>
+            <button onClick={insertRooms} className="insert-button">
                 Insert into Supabase
             </button>
 
@@ -129,7 +134,8 @@ export default function RoomSqlGenerator() {
                         rows={10}
                         cols={80}
                         value={sqlOutput}
-                        style={{ width: '100%' }}
+                        className="sql-output-textarea"
+                        aria-label="SQL Output"
                     />
                 </>
             )}

@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import '../assets/styles/map.css';
 import { useGlobalApi } from '../contexts/GlobalApiContext';
+import MapSkeleton from './MapSkeleton';
 
 // Fix Leaflet default markers in React
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -42,14 +43,44 @@ export default function Map() {
     const [errorMessage, setErrorMessage] = useState('');
     const [showNavigationModal, setShowNavigationModal] = useState(false);
     const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
+    const [isMapLoading, setIsMapLoading] = useState(true);
+    const [mapDataReady, setMapDataReady] = useState(false);
+    const [showPins, setShowPins] = useState(false);
 
     const { buildings } = useGlobalApi();
 
+    console.log('🏛️ Buildings data from GlobalApiContext:', buildings);
+
+    // 检查数据是否准备就绪
+    useEffect(() => {
+        if (buildings && buildings.length > 0) {
+            console.log('📊 Buildings data is ready, preparing map...');
+            // 首先加载地图基础层
+            setMapDataReady(true);
+            setIsMapLoading(false);
+
+            // 然后延迟显示pin，创造更好的视觉效果
+            setTimeout(() => {
+                setShowPins(true);
+                console.log('📍 Pins are now visible');
+            }, 500);
+        } else {
+            console.log('⏳ Waiting for buildings data...');
+            setMapDataReady(false);
+            setIsMapLoading(true);
+            setShowPins(false);
+        }
+    }, [buildings]);
+
     // 转换buildings数据为LocationData格式
     const processBuildings = (buildings: any[]): LocationData[] => {
-        return buildings
-            .filter(building => building.latitude && building.longitude) // 只显示有坐标的建筑
-            .map(building => ({
+        console.log('🔍 Processing buildings data:', buildings);
+
+        const buildingsWithCoords = buildings.filter(building => building.latitude && building.longitude);
+        console.log(`📊 Buildings with coordinates: ${buildingsWithCoords.length} out of ${buildings.length}`);
+
+        const processedData = buildingsWithCoords.map(building => {
+            const locationData = {
                 id: building.id?.toString() || building.short_name,
                 name: building.name,
                 lat: parseFloat(building.latitude),
@@ -60,7 +91,14 @@ export default function Map() {
                 hours: building.hours || 'Hours not available',
                 amenities: building.amenities || [],
                 type: 'library' as const
-            }));
+            };
+
+            console.log(`📍 ${building.name}: lat=${building.latitude}, lng=${building.longitude}`);
+            return locationData;
+        });
+
+        console.log('✅ Final processed location data:', processedData);
+        return processedData;
     };
 
     // Boston University library locations - 仅作为备用
@@ -180,30 +218,103 @@ export default function Map() {
         return L.divIcon({
             html: `
                 <div style="
-                    background-color: #2c5aa0;
-                    border: 3px solid white;
+                    background-color: #dc3545;
+                    border: 2px solid white;
                     border-radius: 50%;
-                    width: 30px;
-                    height: 30px;
+                    width: 16px;
+                    height: 16px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 16px;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                ">📚</div>
+                    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+                "></div>
             `,
-            iconSize: [30, 30],
-            iconAnchor: [15, 15],
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
             className: 'custom-library-icon'
         });
     };
 
     useEffect(() => {
-        if (!mapContainerRef.current) return;
+        // 只有在数据准备就绪且容器存在时才初始化地图
+        if (!mapContainerRef.current || !mapDataReady) {
+            console.log('⏸️ Map initialization paused - waiting for data or container');
+            return;
+        }
+
+        // 避免重复初始化地图
+        if (mapRef.current) {
+            console.log('🔄 Map already exists, updating pins visibility');
+
+            // 清除现有标记
+            mapRef.current.eachLayer((layer) => {
+                if (layer instanceof L.Marker) {
+                    mapRef.current?.removeLayer(layer);
+                }
+            });
+
+            // 只在showPins为true时添加标记
+            if (showPins) {
+                // 使用数据库坐标或静态数据
+                const locationsToUse = buildings.length > 0
+                    ? processBuildings(buildings)
+                    : libraryLocations;
+
+                console.log('🗺️ Adding pins to existing map:', locationsToUse);
+                console.log(`📌 Total markers to be added: ${locationsToUse.length}`);
+
+                // 收集所有标记用于自动调整地图视图
+                const markers: L.Marker[] = [];
+
+                // 添加图书馆标记
+                locationsToUse.forEach((location: LocationData, index: number) => {
+                    console.log(`🏢 Adding marker ${index + 1}: ${location.name} at [${location.lat}, ${location.lng}]`);
+
+                    const marker = L.marker([location.lat, location.lng], {
+                        icon: createLibraryIcon()
+                    }).addTo(mapRef.current!);
+
+                    markers.push(marker);
+
+                    // 创建详细的弹窗内容
+                    const popupContent = `
+                        <div class="library-popup">
+                            <h3 class="popup-title">${location.name}</h3>
+                            <p class="popup-description">${location.description}</p>
+                            <div class="popup-details">
+                                <p><strong>📍 Address:</strong> ${location.address}</p>
+                                ${location.phone ? `<p><strong>📞 Phone:</strong> ${location.phone}</p>` : ''}
+                                ${location.hours ? `<p><strong>🕒 Hours:</strong> ${location.hours}</p>` : ''}
+                                ${location.amenities && location.amenities.length > 0 ?
+                            `<p><strong>✨ Amenities:</strong> ${location.amenities.join(', ')}</p>` : ''}
+                            </div>
+                            <button class="navigate-btn" onclick="window.openNavigationModal('${location.id}')">
+                                🧭 Navigate Here
+                            </button>
+                        </div>
+                    `;
+
+                    marker.bindPopup(popupContent, {
+                        maxWidth: 300,
+                        minWidth: 250,
+                        className: 'custom-popup'
+                    });
+                });
+
+                // 如果有数据库坐标，自动调整地图视图
+                if (buildings.length > 0 && markers.length > 0) {
+                    const group = L.featureGroup(markers);
+                    mapRef.current.fitBounds(group.getBounds().pad(0.1));
+                    console.log('🎯 Map view updated to show all database markers');
+                }
+            }
+
+            return; // 退出，不需要重新创建地图
+        }
 
         try {
-            // Create map using OpenStreetMap - completely free!
-            // Default view: https://www.openstreetmap.org/#map=15/42.34751/-71.11508
+            // 只在首次加载时创建地图
+            console.log('🆕 Creating new map instance');
             const map = L.map(mapContainerRef.current).setView(
                 [42.34751, -71.11508], // Boston University coordinates from OSM URL
                 15 // Zoom level
@@ -217,41 +328,61 @@ export default function Map() {
                 maxZoom: 19,
             }).addTo(map);
 
-            // Use database coordinates or fall back to static data
-            const locationsToUse = buildings.length > 0
-                ? processBuildings(buildings)
-                : libraryLocations;
+            // 只在showPins为true时添加标记
+            if (showPins) {
+                // Use database coordinates or fall back to static data
+                const locationsToUse = buildings.length > 0
+                    ? processBuildings(buildings)
+                    : libraryLocations;
 
-            // Add library markers with custom popups
-            locationsToUse.forEach((location: LocationData) => {
-                const marker = L.marker([location.lat, location.lng], {
-                    icon: createLibraryIcon()
-                }).addTo(map);
+                console.log('🗺️ Map will display locations:', locationsToUse);
+                console.log(`📌 Total markers to be added: ${locationsToUse.length}`);
 
-                // Create detailed popup content
-                const popupContent = `
-                    <div class="library-popup">
-                        <h3 class="popup-title">${location.name}</h3>
-                        <p class="popup-description">${location.description}</p>
-                        <div class="popup-details">
-                            <p><strong>📍 Address:</strong> ${location.address}</p>
-                            ${location.phone ? `<p><strong>📞 Phone:</strong> ${location.phone}</p>` : ''}
-                            ${location.hours ? `<p><strong>🕒 Hours:</strong> ${location.hours}</p>` : ''}
-                            ${location.amenities && location.amenities.length > 0 ?
-                        `<p><strong>✨ Amenities:</strong> ${location.amenities.join(', ')}</p>` : ''}
+                // Collect all markers for auto-fitting the map view
+                const markers: L.Marker[] = [];
+
+                // Add library markers with custom popups
+                locationsToUse.forEach((location: LocationData, index: number) => {
+                    console.log(`🏢 Adding marker ${index + 1}: ${location.name} at [${location.lat}, ${location.lng}]`);
+
+                    const marker = L.marker([location.lat, location.lng], {
+                        icon: createLibraryIcon()
+                    }).addTo(map);
+
+                    markers.push(marker);
+
+                    // Create detailed popup content
+                    const popupContent = `
+                        <div class="library-popup">
+                            <h3 class="popup-title">${location.name}</h3>
+                            <p class="popup-description">${location.description}</p>
+                            <div class="popup-details">
+                                <p><strong>📍 Address:</strong> ${location.address}</p>
+                                ${location.phone ? `<p><strong>📞 Phone:</strong> ${location.phone}</p>` : ''}
+                                ${location.hours ? `<p><strong>🕒 Hours:</strong> ${location.hours}</p>` : ''}
+                                ${location.amenities && location.amenities.length > 0 ?
+                            `<p><strong>✨ Amenities:</strong> ${location.amenities.join(', ')}</p>` : ''}
+                            </div>
+                            <button class="navigate-btn" onclick="window.openNavigationModal('${location.id}')">
+                                🧭 Navigate Here
+                            </button>
                         </div>
-                        <button class="navigate-btn" onclick="window.openNavigationModal('${location.id}')">
-                            🧭 Navigate Here
-                        </button>
-                    </div>
-                `;
+                    `;
 
-                marker.bindPopup(popupContent, {
-                    maxWidth: 300,
-                    minWidth: 250,
-                    className: 'custom-popup'
+                    marker.bindPopup(popupContent, {
+                        maxWidth: 300,
+                        minWidth: 250,
+                        className: 'custom-popup'
+                    });
                 });
-            });
+
+                // Auto-fit the map to show all markers if we have database coordinates
+                if (buildings.length > 0 && markers.length > 0) {
+                    const group = L.featureGroup(markers);
+                    map.fitBounds(group.getBounds().pad(0.1)); // Add 10% padding
+                    console.log('🎯 Map auto-fitted to show all database markers');
+                }
+            }
 
             // Make navigation function globally available for popup buttons
             (window as any).openNavigationModal = (locationId: string) => {
@@ -267,7 +398,7 @@ export default function Map() {
                 }
             };
 
-            console.log(`OpenStreetMap loaded with ${locationsToUse.length} locations - Using database coordinates!`);
+            console.log(`OpenStreetMap base layer loaded - Pins will appear when data is ready`);
             setHasError(false);
 
         } catch (error) {
@@ -278,60 +409,72 @@ export default function Map() {
 
         // Cleanup function
         return () => {
-            mapRef.current?.remove();
+            if (mapRef.current) {
+                console.log('🧹 Cleaning up map instance');
+                mapRef.current.remove();
+                mapRef.current = null;
+            }
             // Clean up global function
             delete (window as any).openNavigationModal;
         };
-    }, [buildings]); // Re-run when buildings data changes
+    }, [buildings, mapDataReady, showPins]); // Re-run when buildings data changes, data becomes ready, or pin visibility changes
 
     return (
         <div className="map-container">
-            {hasError && (
-                <div className="map-error-overlay">
-                    <div>⚠️ {errorMessage}</div>
-                    <div className="map-error-detail">
-                        Map initialization failed
-                    </div>
-                </div>
-            )}
+            {/* 显示骨架屏当数据正在加载时 */}
+            {isMapLoading && <MapSkeleton />}
 
-            {/* Navigation Modal */}
-            {showNavigationModal && selectedLocation && (
-                <div className="navigation-modal-overlay" onClick={() => setShowNavigationModal(false)}>
-                    <div className="navigation-modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3>Navigate to {selectedLocation.name}</h3>
-                            <button
-                                className="close-btn"
-                                onClick={() => setShowNavigationModal(false)}
-                            >
-                                ×
-                            </button>
-                        </div>
-                        <div className="modal-content">
-                            <p>Choose your preferred navigation app:</p>
-                            <div className="navigation-options">
-                                {getNavigationOptions(selectedLocation).map((option, index) => (
-                                    <button
-                                        key={index}
-                                        className="nav-option-btn"
-                                        onClick={() => handleNavigation(option)}
-                                    >
-                                        <span className="nav-icon">{option.icon}</span>
-                                        <span className="nav-name">{option.name}</span>
-                                    </button>
-                                ))}
+            {/* 显示真实地图当数据准备就绪时 */}
+            {!isMapLoading && (
+                <>
+                    {hasError && (
+                        <div className="map-error-overlay">
+                            <div>⚠️ {errorMessage}</div>
+                            <div className="map-error-detail">
+                                Map initialization failed
                             </div>
                         </div>
-                    </div>
-                </div>
-            )}
+                    )}
 
-            <div
-                id="map-container"
-                className="map-container-inner"
-                ref={mapContainerRef}
-            />
+                    {/* Navigation Modal */}
+                    {showNavigationModal && selectedLocation && (
+                        <div className="navigation-modal-overlay" onClick={() => setShowNavigationModal(false)}>
+                            <div className="navigation-modal" onClick={(e) => e.stopPropagation()}>
+                                <div className="modal-header">
+                                    <h3>Navigate to {selectedLocation.name}</h3>
+                                    <button
+                                        className="close-btn"
+                                        onClick={() => setShowNavigationModal(false)}
+                                    >
+                                        ×
+                                    </button>
+                                </div>
+                                <div className="modal-content">
+                                    <p>Choose your preferred navigation app:</p>
+                                    <div className="navigation-options">
+                                        {getNavigationOptions(selectedLocation).map((option, index) => (
+                                            <button
+                                                key={index}
+                                                className="nav-option-btn"
+                                                onClick={() => handleNavigation(option)}
+                                            >
+                                                <span className="nav-icon">{option.icon}</span>
+                                                <span className="nav-name">{option.name}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div
+                        id="map-container"
+                        className="map-container-inner"
+                        ref={mapContainerRef}
+                    />
+                </>
+            )}
         </div>
     );
 }

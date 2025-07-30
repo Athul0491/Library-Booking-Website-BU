@@ -52,3 +52,11 @@ bu-book/*.njsproj
 bu-book/*.sln
 bu-book/*.sw?
 /bu-book/.env
+
+# Test files and directories
+test/
+*/test/
+**/test/
+admin-page/test/
+bu-book/test/
+bub-backend/test/

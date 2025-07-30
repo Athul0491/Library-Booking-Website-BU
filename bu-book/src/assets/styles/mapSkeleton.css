@@ -1,0 +1,270 @@
+/* 地图骨架屏样式 */
+.map-skeleton {
+    width: 100%;
+    height: 100vh;
+    background: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.map-skeleton-header {
+    padding: 20px;
+    background: white;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.skeleton-title {
+    width: 200px;
+    height: 24px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.skeleton-subtitle {
+    width: 150px;
+    height: 16px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 4px;
+    animation-delay: 0.2s;
+}
+
+.map-skeleton-container {
+    flex: 1;
+    position: relative;
+    background: #e9ecef;
+}
+
+.skeleton-map-area {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background: linear-gradient(135deg, #f0f0f0 0%, #e8e8e8 100%);
+    overflow: hidden;
+}
+
+.skeleton-loading-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    color: #6c757d;
+    font-size: 16px;
+    font-weight: 500;
+    z-index: 10;
+}
+
+.skeleton-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #dee2e6;
+    border-top: 2px solid #dc3545;
+    border-radius: 50%;
+    animation: skeleton-spin 1s linear infinite;
+}
+
+.skeleton-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 2px;
+    opacity: 0.3;
+}
+
+.skeleton-tile {
+    background: linear-gradient(45deg, #f8f9fa 25%, transparent 25%),
+        linear-gradient(-45deg, #f8f9fa 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #f8f9fa 75%),
+        linear-gradient(-45deg, transparent 75%, #f8f9fa 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    animation: skeleton-loading 2s infinite;
+    animation-delay: calc(var(--i) * 0.1s);
+}
+
+.skeleton-tile:nth-child(1) {
+    --i: 1;
+}
+
+.skeleton-tile:nth-child(2) {
+    --i: 2;
+}
+
+.skeleton-tile:nth-child(3) {
+    --i: 3;
+}
+
+.skeleton-tile:nth-child(4) {
+    --i: 4;
+}
+
+.skeleton-tile:nth-child(5) {
+    --i: 5;
+}
+
+.skeleton-tile:nth-child(6) {
+    --i: 6;
+}
+
+.skeleton-tile:nth-child(7) {
+    --i: 7;
+}
+
+.skeleton-tile:nth-child(8) {
+    --i: 8;
+}
+
+.skeleton-tile:nth-child(9) {
+    --i: 9;
+}
+
+.skeleton-tile:nth-child(10) {
+    --i: 10;
+}
+
+.skeleton-tile:nth-child(11) {
+    --i: 11;
+}
+
+.skeleton-tile:nth-child(12) {
+    --i: 12;
+}
+
+.skeleton-controls {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.skeleton-zoom-btn {
+    width: 30px;
+    height: 30px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    position: relative;
+    animation: skeleton-loading 1.5s infinite;
+}
+
+.skeleton-zoom-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 2px;
+    background: #999;
+}
+
+.skeleton-zoom-btn:first-child::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 12px;
+    background: #999;
+}
+
+.map-skeleton-footer {
+    padding: 15px 20px;
+    background: white;
+    border-top: 1px solid #e9ecef;
+}
+
+.skeleton-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.skeleton-dot {
+    width: 8px;
+    height: 8px;
+    background: #ffc107;
+    border-radius: 50%;
+    animation: skeleton-pulse 1s infinite;
+}
+
+.skeleton-status-text {
+    width: 120px;
+    height: 14px;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+    border-radius: 4px;
+}
+
+/* 动画定义 */
+@keyframes skeleton-loading {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+@keyframes skeleton-spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes skeleton-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.7;
+        transform: scale(1.1);
+    }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .map-skeleton-header {
+        padding: 15px;
+    }
+
+    .skeleton-loading-text {
+        font-size: 14px;
+    }
+
+    .skeleton-controls {
+        bottom: 15px;
+        right: 15px;
+    }
+
+    .skeleton-zoom-btn {
+        width: 25px;
+        height: 25px;
+    }
+}
