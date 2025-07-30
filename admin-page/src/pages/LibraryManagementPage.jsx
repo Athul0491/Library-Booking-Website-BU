@@ -492,15 +492,14 @@ const LibraryManagementPage = () => {
       cancelText: 'Cancel',
       onOk: async () => {
         try {
-          // Here we would call the API to soft delete (disable) the item
-          console.log(`🗑️ Soft deleting ${type}:`, item);
+          // Call the API to soft delete (disable) the item
+          await locationService.disableItem(item.id);
 
-          // For now, just show a message since the server disables actual deletion
-          message.warning(`${type} deletion is disabled on the server for data safety. Item would be marked as unavailable instead.`);
+          // Refresh the data to reflect the changes
+          await handleRefresh();
 
-          // In a real implementation, this would call:
-          // await apiService.deleteBuilding(item.id) or similar
-          // await handleRefresh();
+          // Show a success message to the user
+          message.success(`${type} "${item.name}" has been successfully disabled.`);
 
         } catch (error) {
           console.error(`Failed to delete ${type}:`, error);
