@@ -99,7 +99,19 @@ The application uses a centralized connection context that monitors:
 
 ## 📊 API Integration
 
-See [API_DOCUMENTATION.md](./API_DOCUMENTATION.md) for detailed API specifications.
+See [API_DOCUMENTATION.md](./markdowns/API_DOCUMENTATION.md) for detailed API specifications.
+
+## 📚 Technical Documentation
+
+All technical documentation has been organized in the [`markdowns/`](./markdowns/) folder:
+
+- **Database**: Field mappings and data structure documentation
+- **Geocoding**: Analysis, debugging guides, and fix reports  
+- **API**: Integration guides and specifications
+- **Supabase**: Setup guides and troubleshooting
+- **Development**: Copilot instructions and console cleanup
+
+See [`markdowns/README.md`](./markdowns/README.md) for a complete documentation index.
 
 ## 🎨 UI Components
 

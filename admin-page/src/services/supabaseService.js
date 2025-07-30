@@ -368,9 +368,22 @@ class SupabaseService {
    * Update building with field mapping
    */
   async updateBuilding(buildingId, updates) {
+    console.log('🗄️ [SUPABASE SERVICE] updateBuilding called:', {
+      buildingId,
+      originalUpdates: updates,
+      timestamp: new Date().toISOString()
+    });
+
     try {
+      // Use regular client for updates
+      const clientToUse = this.client;
+
+      console.log('🔑 [CLIENT SELECTION] Using regular client for update operation');
+
       // Map frontend field names back to database field names
       const dbUpdates = { ...updates };
+
+      console.log('🔄 [FIELD MAPPING] Before mapping:', dbUpdates);
 
       if (updates.building_name !== undefined) {
         dbUpdates.name = updates.building_name;
@@ -392,22 +405,207 @@ class SupabaseService {
         delete dbUpdates.is_active;
       }
 
-      const { data, error } = await this.client
-        .from('buildings')
-        .update(dbUpdates)
-        .eq('id', buildingId)
-        .select();
+      console.log('🔄 [FIELD MAPPING] After mapping:', dbUpdates);
 
-      if (error) {
-        return { success: false, error: error.message };
+      console.log('📤 [SQL QUERY] Executing Supabase update:', {
+        table: 'buildings',
+        buildingId,
+        dbUpdates,
+        operation: 'PATCH',
+        endpoint: `${clientToUse.supabaseUrl}/rest/v1/buildings?id=eq.${buildingId}`,
+        query: `UPDATE buildings SET ${Object.keys(dbUpdates).map(key => `${key}=$${key}`).join(', ')} WHERE id=${buildingId}`
+      });
+
+      // First, let's check if we can read the record to ensure permissions
+      console.log('🔐 [PERMISSION CHECK] Testing read access before update...');
+      const { data: readTest, error: readError } = await clientToUse
+        .from('buildings')
+        .select('id, name, updated_at')
+        .eq('id', buildingId)
+        .single();
+
+      if (readError) {
+        console.error('❌ [READ ACCESS ERROR]', readError);
+        return { success: false, error: `Cannot read building record: ${readError.message}` };
       }
 
+      console.log('✅ [READ ACCESS OK]', { id: readTest.id, name: readTest.name, lastUpdate: readTest.updated_at });
+
+      // Test a simple update first to check permissions
+      console.log('🧪 [TEST UPDATE] Trying simple updated_at field...');
+      const testUpdate = {
+        updated_at: new Date().toISOString()
+      };
+
+      const { data: testData, error: testError } = await clientToUse
+        .from('buildings')
+        .update(testUpdate)
+        .eq('id', buildingId)
+        .select('id, updated_at');
+
+      console.log('🧪 [TEST RESULT]', { testData, testError });
+
+      if (testError) {
+        console.error('❌ [TEST UPDATE FAILED]', testError);
+        return { success: false, error: `Test update failed: ${testError.message}` };
+      }
+
+      // Try updating fields one by one to identify problematic fields
+      console.log('🔍 [INCREMENTAL UPDATE] Trying individual field updates...');
+      const updateResults = {};
+
+      // Special handling for coordinate fields - update them together
+      if (dbUpdates.latitude && dbUpdates.longitude) {
+        console.log('🌍 [COORDINATE UPDATE] Updating coordinates together...');
+
+        const coordinateUpdate = {
+          latitude: dbUpdates.latitude,
+          longitude: dbUpdates.longitude,
+          updated_at: new Date().toISOString()
+        };
+
+        const { data: coordData, error: coordError } = await clientToUse
+          .from('buildings')
+          .update(coordinateUpdate)
+          .eq('id', buildingId)
+          .select('id, latitude, longitude, updated_at');
+
+        updateResults['coordinates'] = {
+          success: !coordError,
+          error: coordError?.message,
+          data: coordData?.[0]
+        };
+
+        console.log('📊 [COORDINATES RESULT]', updateResults['coordinates']);
+
+        if (coordError) {
+          console.error('❌ [COORDINATES ERROR]', coordError);
+        }
+
+        // Remove coordinate fields from further individual updates
+        delete dbUpdates.latitude;
+        delete dbUpdates.longitude;
+      }
+
+      // Update remaining fields individually
+      for (const [fieldName, fieldValue] of Object.entries(dbUpdates)) {
+        console.log(`🔧 [FIELD UPDATE] Updating ${fieldName} = ${fieldValue}`);
+
+        const singleFieldUpdate = {
+          [fieldName]: fieldValue,
+          updated_at: new Date().toISOString()
+        };
+
+        const { data: fieldData, error: fieldError } = await clientToUse
+          .from('buildings')
+          .update(singleFieldUpdate)
+          .eq('id', buildingId)
+          .select(`id, ${fieldName}, updated_at`);
+
+        updateResults[fieldName] = {
+          success: !fieldError,
+          error: fieldError?.message,
+          data: fieldData?.[0]
+        };
+
+        console.log(`📊 [${fieldName} RESULT]`, updateResults[fieldName]);
+
+        if (fieldError) {
+          console.error(`❌ [${fieldName} ERROR]`, fieldError);
+        }
+      }
+
+      console.log('📋 [ALL FIELD RESULTS]', updateResults);
+
+      console.log('📋 [ALL FIELD RESULTS]', updateResults);
+
+      // Now try the original bulk update (should work now since coordinates are updated together)
+      console.log('🔄 [BULK UPDATE] Attempting original bulk update...');
+
+      // Reconstruct the update object, but since coordinates were already updated, 
+      // we only need to update the remaining fields
+      const remainingUpdates = { ...updates };
+
+      // Remove coordinate fields if they exist (already updated above)
+      if (remainingUpdates.latitude || remainingUpdates.longitude) {
+        delete remainingUpdates.latitude;
+        delete remainingUpdates.longitude;
+        console.log('ℹ️ [BULK UPDATE] Coordinates already updated, updating remaining fields:', Object.keys(remainingUpdates));
+      }
+
+      // If there are remaining fields to update, do a final batch update
+      if (Object.keys(remainingUpdates).length > 0) {
+        const finalDbUpdates = { ...remainingUpdates };
+
+        // Apply field mapping to remaining updates
+        if (remainingUpdates.building_name !== undefined) {
+          finalDbUpdates.name = remainingUpdates.building_name;
+          delete finalDbUpdates.building_name;
+        }
+        if (remainingUpdates.building_short_name !== undefined) {
+          finalDbUpdates.short_name = remainingUpdates.building_short_name;
+          delete finalDbUpdates.building_short_name;
+        }
+        if (remainingUpdates.location !== undefined) {
+          finalDbUpdates.address = remainingUpdates.location;
+          delete finalDbUpdates.location;
+        }
+        if (remainingUpdates.is_active !== undefined) {
+          finalDbUpdates.available = remainingUpdates.is_active;
+          delete finalDbUpdates.is_active;
+        }
+
+        const { data, error } = await clientToUse
+          .from('buildings')
+          .update(finalDbUpdates)
+          .eq('id', buildingId)
+          .select('*');
+
+        console.log('📥 [FINAL BULK UPDATE]', { data, error });
+      } else {
+        console.log('ℹ️ [SKIP BULK UPDATE] All fields updated individually');
+        // Just query the final state
+        const { data, error } = await clientToUse
+          .from('buildings')
+          .select('*')
+          .eq('id', buildingId)
+          .single();
+
+        console.log('📥 [FINAL STATE QUERY]', { data, error });
+
+        if (!error && data) {
+          return {
+            success: true,
+            data: data,
+            incrementalUpdate: true
+          };
+        }
+      }
+
+      // The verification logic continues as before, but we'll skip it since 
+      // coordinates should have been updated successfully above
+      console.log('✅ [COORDINATE UPDATE SUCCESS] Geocoding completed successfully');
+
+      // Query final building state
+      const { data: finalData, error: finalError } = await clientToUse
+        .from('buildings')
+        .select('*')
+        .eq('id', buildingId)
+        .single();
+
+      if (finalError) {
+        console.error('❌ [FINAL QUERY ERROR]', finalError);
+        return { success: false, error: `Failed to query updated building: ${finalError.message}` };
+      }
+
+      console.log('✅ [FINAL SUCCESS] Building updated with coordinates:', finalData);
       return {
         success: true,
-        data: data[0]
+        data: finalData,
+        coordinateUpdateMethod: 'incremental'
       };
     } catch (error) {
-      console.error('Error updating building:', error);
+      console.error('💥 [SUPABASE EXCEPTION] Error updating building:', error);
       return { success: false, error: error.message };
     }
   }

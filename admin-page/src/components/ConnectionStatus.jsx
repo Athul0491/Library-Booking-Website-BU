@@ -4,10 +4,10 @@
  */
 import React from 'react';
 import { Card, Badge, Space, Typography, Button, Tag, Tooltip, Alert } from 'antd';
-import { 
-  ApiOutlined, 
-  DatabaseOutlined, 
-  CheckCircleOutlined, 
+import {
+  ApiOutlined,
+  DatabaseOutlined,
+  CheckCircleOutlined,
   ExclamationCircleOutlined,
   CloseCircleOutlined,
   ReloadOutlined,
@@ -19,14 +19,14 @@ import { useConnection } from '../contexts/ConnectionContext';
 const { Text, Paragraph } = Typography;
 
 const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = null, onRefresh = null }) => {
-  const { 
-    connectionStatus: dataSourceConnectionStatus, 
-    testConnection, 
-    dataSourceMode, 
+  const {
+    connectionStatus: dataSourceConnectionStatus,
+    testConnection,
+    dataSourceMode,
     dataSourceLabel,
     isBackendProxyMode,
     isDirectSupabaseMode,
-    isMockDataMode 
+    isMockDataMode
   } = useDataSource();
 
   // Get real connection status from ConnectionContext
@@ -104,23 +104,21 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
   };
 
   // Get effective backend and supabase status
-  const effectiveBackendStatus = customStatus 
+  const effectiveBackendStatus = customStatus
     ? mapApiStatusToLegacy(currentStatus.apiStatus)
     : (realConnectionStatus.backend.connected ? 'healthy' : 'unhealthy');
-  
+
   const effectiveSupabaseStatus = customStatus
-    ? (currentStatus.connectionDetails.database === 'connected' ? 'healthy' : 
-       currentStatus.connectionDetails.database === 'error' ? 'unhealthy' :
-       currentStatus.connectionDetails.database === 'connecting' ? 'degraded' :
-       currentStatus.apiStatus === 'connected' ? 'healthy' :
-       currentStatus.apiStatus === 'connecting' ? 'degraded' : 'unhealthy')
+    ? (currentStatus.apiStatus === 'connected' ? 'healthy' :
+      currentStatus.apiStatus === 'connecting' ? 'degraded' :
+        currentStatus.apiStatus === 'error' ? 'unhealthy' : 'unknown')
     : (realConnectionStatus.supabase.connected ? 'healthy' : 'unhealthy');
 
   if (compact) {
     return (
       <Space size="small">
-        <Badge 
-          status={getStatusColor(effectiveBackendStatus)} 
+        <Badge
+          status={getStatusColor(effectiveBackendStatus)}
           text={
             <Space size="small">
               <ApiOutlined />
@@ -131,10 +129,10 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
             </Space>
           }
         />
-        
+
         {isBackendProxyMode && (
-          <Badge 
-            status={getStatusColor(effectiveSupabaseStatus)} 
+          <Badge
+            status={getStatusColor(effectiveSupabaseStatus)}
             text={
               <Space size="small">
                 <DatabaseOutlined />
@@ -145,10 +143,10 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
             }
           />
         )}
-        
-        <Button 
-          type="text" 
-          size="small" 
+
+        <Button
+          type="text"
+          size="small"
           icon={<ReloadOutlined />}
           onClick={onRefresh || refreshConnections}
           title={onRefresh ? "Refresh Global Data" : "Test Connection"}
@@ -163,7 +161,7 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
   }
 
   return (
-    <Card 
+    <Card
       title={
         <Space>
           <ApiOutlined />
@@ -172,9 +170,9 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
       }
       size="small"
       extra={
-        <Button 
-          type="text" 
-          size="small" 
+        <Button
+          type="text"
+          size="small"
           icon={<ReloadOutlined />}
           onClick={onRefresh || refreshConnections}
           loading={isLoading}
@@ -208,7 +206,7 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
                 </Text>
               )}
             </Space>
-            
+
             {currentStatus.connectionDetails.lastUpdated && (
               <div style={{ marginLeft: '24px', marginTop: '4px' }}>
                 <Text type="secondary" style={{ fontSize: '12px' }}>
@@ -216,7 +214,7 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
                 </Text>
               </div>
             )}
-            
+
             {realConnectionStatus.backend.error && (
               <div style={{ marginLeft: '24px', marginTop: '4px' }}>
                 <Text type="secondary" style={{ fontSize: '12px' }}>
@@ -250,14 +248,28 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
         )}
 
         {/* Connection Issues Alert */}
-        {(!realConnectionStatus.backend.connected || !realConnectionStatus.supabase.connected) && (
-          <Alert
-            message="Connection Issues"
-            description="Some services are inaccessible, which may affect data retrieval. Please check network connection or contact administrator."
-            type="warning"
-            showIcon
-            style={{ marginTop: '8px' }}
-          />
+        {customStatus ? (
+          // When using custom status from GlobalAPI, check its status
+          currentStatus.apiStatus === 'error' && (
+            <Alert
+              message="Connection Issues"
+              description="Unable to connect to the API service. Data may be unavailable or outdated."
+              type="warning"
+              showIcon
+              style={{ marginTop: '8px' }}
+            />
+          )
+        ) : (
+          // When using real connection status, check individual connections
+          (!realConnectionStatus.backend.connected || !realConnectionStatus.supabase.connected) && (
+            <Alert
+              message="Connection Issues"
+              description="Some services are inaccessible, which may affect data retrieval. Please check network connection or contact administrator."
+              type="warning"
+              showIcon
+              style={{ marginTop: '8px' }}
+            />
+          )
         )}
 
         {/* Mock Data Notice */}

@@ -45,10 +45,10 @@ import dayjs from 'dayjs';
 import { useConnection } from '../contexts/ConnectionContext';
 import { useDataSource } from '../contexts/DataSourceContext';
 import { useGlobalApi } from '../contexts/GlobalApiContext';
-import { 
-  TableSkeleton, 
+import {
+  TableSkeleton,
   DataUnavailablePlaceholder,
-  PageLoadingSkeleton 
+  PageLoadingSkeleton
 } from '../components/SkeletonComponents';
 import ServerStatusBanner from '../components/ServerStatusBanner';
 
@@ -66,27 +66,27 @@ const RoomsManagementPage = () => {
   const connection = useConnection();
   const globalApi = useGlobalApi();
   const { useRealData } = useDataSource();
-  
+
   // Main state
   const [loading, setLoading] = useState(false);
   const [rooms, setRooms] = useState([]);
   const [filteredRooms, setFilteredRooms] = useState([]);
   const [buildings, setBuildings] = useState([]);
   const [dataError, setDataError] = useState(null);
-  
+
   // Filter and search state
   const [searchQuery, setSearchQuery] = useState('');
   const [buildingFilter, setBuildingFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [capacityFilter, setCapacityFilter] = useState('all');
-  
+
   // Modal and drawer state
   const [addRoomModalVisible, setAddRoomModalVisible] = useState(false);
   const [editRoomModalVisible, setEditRoomModalVisible] = useState(false);
   const [scheduleDrawerVisible, setScheduleDrawerVisible] = useState(false);
   const [maintenanceModalVisible, setMaintenanceModalVisible] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
-  
+
   // Form instances
   const [addRoomForm] = Form.useForm();
   const [editRoomForm] = Form.useForm();
@@ -246,13 +246,11 @@ const RoomsManagementPage = () => {
     try {
       setLoading(true);
       setDataError(null);
-      
+
       // Get rooms from GlobalAPI cache
       const apiRooms = globalApi.getCachedData('rooms');
-      
+
       if (apiRooms && apiRooms.length > 0) {
-        console.log('🏠 Raw API rooms data:', apiRooms);
-        
         // Transform API room data to our room management format
         // Room data structure from bub-backend:
         // { id, name, building_id, capacity, available, room_type, eid, gtype, url, created_at, updated_at }
@@ -282,13 +280,10 @@ const RoomsManagementPage = () => {
             _original: room
           };
         });
-        
+
         setRooms(transformedRooms);
         setFilteredRooms(transformedRooms);
-        
-        console.log(`📊 Loaded ${transformedRooms.length} rooms from GlobalAPI`);
-        console.log('🔍 Sample transformed room:', transformedRooms[0]);
-        
+
       } else {
         // No fallback - show error if no data
         console.log('❌ No room data from API');
@@ -296,7 +291,7 @@ const RoomsManagementPage = () => {
         setRooms([]);
         setFilteredRooms([]);
       }
-      
+
     } catch (error) {
       console.error('Failed to load rooms:', error);
       setDataError(error.message);
@@ -317,7 +312,7 @@ const RoomsManagementPage = () => {
   // Filter rooms based on search and filters
   const filterRooms = () => {
     let filtered = [...rooms];
-    
+
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -328,29 +323,29 @@ const RoomsManagementPage = () => {
         room.type.toLowerCase().includes(query)
       );
     }
-    
+
     // Building filter
     if (buildingFilter !== 'all') {
       filtered = filtered.filter(room => room.building_code === buildingFilter);
     }
-    
+
     // Status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(room => room.status === statusFilter);
     }
-    
+
     // Capacity filter
     if (capacityFilter !== 'all') {
-      const [min, max] = capacityFilter.includes('+') 
+      const [min, max] = capacityFilter.includes('+')
         ? [parseInt(capacityFilter.replace('+', '')), Infinity]
         : capacityFilter.split('-').map(num => parseInt(num));
-      
+
       filtered = filtered.filter(room => {
         const capacity = room.capacity;
         return capacity >= min && (max === Infinity || capacity <= max);
       });
     }
-    
+
     setFilteredRooms(filtered);
   };
 
@@ -375,7 +370,7 @@ const RoomsManagementPage = () => {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      
+
       const updatedRooms = [...rooms, newRoom];
       setRooms(updatedRooms);
       setFilteredRooms(updatedRooms);
@@ -388,19 +383,19 @@ const RoomsManagementPage = () => {
 
   const handleEditRoom = async (values) => {
     try {
-      const updatedRooms = rooms.map(room => 
-        room.id === selectedRoom.id 
+      const updatedRooms = rooms.map(room =>
+        room.id === selectedRoom.id
           ? {
-              ...room,
-              ...values,
-              building_name: BUILDING_OPTIONS.find(b => b.code === values.building_code)?.name || room.building_name,
-              open_time: values.open_time?.format('HH:mm') || room.open_time,
-              close_time: values.close_time?.format('HH:mm') || room.close_time,
-              updated_at: new Date().toISOString()
-            }
+            ...room,
+            ...values,
+            building_name: BUILDING_OPTIONS.find(b => b.code === values.building_code)?.name || room.building_name,
+            open_time: values.open_time?.format('HH:mm') || room.open_time,
+            close_time: values.close_time?.format('HH:mm') || room.close_time,
+            updated_at: new Date().toISOString()
+          }
           : room
       );
-      
+
       setRooms(updatedRooms);
       setFilteredRooms(updatedRooms);
       setEditRoomModalVisible(false);
@@ -431,17 +426,17 @@ const RoomsManagementPage = () => {
         end_time: values.time_range[1].format('HH:mm'),
         reason: values.reason
       };
-      
-      const updatedRooms = rooms.map(room => 
-        room.id === selectedRoom.id 
+
+      const updatedRooms = rooms.map(room =>
+        room.id === selectedRoom.id
           ? {
-              ...room,
-              maintenance_schedule: [...room.maintenance_schedule, maintenance],
-              updated_at: new Date().toISOString()
-            }
+            ...room,
+            maintenance_schedule: [...room.maintenance_schedule, maintenance],
+            updated_at: new Date().toISOString()
+          }
           : room
       );
-      
+
       setRooms(updatedRooms);
       setFilteredRooms(updatedRooms);
       setMaintenanceModalVisible(false);
@@ -636,13 +631,13 @@ const RoomsManagementPage = () => {
       </Paragraph>
 
       {/* Server Status Banner */}
-      <ServerStatusBanner 
+      <ServerStatusBanner
         useGlobalApi={true}
         onRefresh={handleRefresh}
         showConnectionStatus={true}
-        showApiStatusCard={false}
-        showConnectingAlert={false}
-        showRefreshButton={false}
+        showApiStatusCard={true}
+        showConnectingAlert={true}
+        showRefreshButton={true}
         style={{ marginBottom: 24 }}
       />
 
@@ -651,7 +646,7 @@ const RoomsManagementPage = () => {
 
       {/* Error State */}
       {dataError && !loading && (
-        <DataUnavailablePlaceholder 
+        <DataUnavailablePlaceholder
           title="Room Data Unavailable"
           description={`Error loading room data: ${dataError}. Please try refreshing the page.`}
           onRetry={loadRooms}
@@ -774,15 +769,15 @@ const RoomsManagementPage = () => {
           </Row>
 
           {/* Rooms Table */}
-          <Card 
+          <Card
             title={`Rooms (${filteredRooms.length} found)`}
             extra={
               <Space>
                 <Tag color="blue">
                   {filteredRooms.length} of {rooms.length} rooms
                 </Tag>
-                <Button 
-                  icon={<ReloadOutlined />} 
+                <Button
+                  icon={<ReloadOutlined />}
                   onClick={loadRooms}
                   loading={loading}
                 >
@@ -799,7 +794,7 @@ const RoomsManagementPage = () => {
                 pageSize: 10,
                 showSizeChanger: true,
                 showQuickJumper: true,
-                showTotal: (total, range) => 
+                showTotal: (total, range) =>
                   `${range[0]}-${range[1]} of ${total} rooms`
               }}
               scroll={{ x: 1200 }}
@@ -1215,8 +1210,8 @@ const RoomsManagementPage = () => {
                   <Descriptions.Item label="Status">
                     <Tag color={
                       selectedRoom.status === 'active' ? 'success' :
-                      selectedRoom.status === 'maintenance' ? 'warning' :
-                      selectedRoom.status === 'inactive' ? 'error' : 'default'
+                        selectedRoom.status === 'maintenance' ? 'warning' :
+                          selectedRoom.status === 'inactive' ? 'error' : 'default'
                     }>
                       {selectedRoom.status}
                     </Tag>
