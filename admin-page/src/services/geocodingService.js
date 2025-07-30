@@ -2,50 +2,81 @@
 // Automatically triggers geocoding when administrators add, edit, or delete buildings
 
 /**
- * Geocoding service using free OpenStreetMap Nominatim API
+ * Geocoding service using OpenStreetMap Nominatim API
+ * Optimized for Boston University campus addresses
  * @param {string} address - Address to geocode
  * @param {number} retryCount - Number of retries
  * @returns {Promise<{lat: number, lng: number} | null>}
  */
 export const geocodeAddress = async (address, retryCount = 0) => {
     try {
-        // Add delay to avoid API rate limits
+        // Add delay to avoid API rate limits (max 1 request per second)
         if (retryCount > 0) {
             await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
 
+        // Enhanced address processing for Boston University
+        let searchAddress = address;
+
+        // If address doesn't contain Boston or BU context, add it
+        if (!address.toLowerCase().includes('boston') && !address.toLowerCase().includes('bu')) {
+            searchAddress = `${address}, Boston University, Boston, MA, USA`;
+        } else if (!address.toLowerCase().includes('boston')) {
+            searchAddress = `${address}, Boston, MA, USA`;
+        }
+
+        console.log(`🔍 [GEOCODING] Searching for: "${searchAddress}"`);
+
         const response = await fetch(
             `https://nominatim.openstreetmap.org/search?` +
             `format=json&` +
-            `q=${encodeURIComponent(address + ', Boston, MA, USA')}&` +
-            `limit=1&` +
+            `q=${encodeURIComponent(searchAddress)}&` +
+            `limit=3&` + // Get more results for better accuracy
             `countrycodes=us&` +
             `bounded=1&` +
-            `viewbox=-71.15,-71.05,42.30,42.40`, // Limit to Boston area
+            `viewbox=-71.15,42.30,-71.05,42.40&` + // Boston University area bounds (west,south,east,north)
+            `addressdetails=1&` +
+            `extratags=1`,
             {
                 headers: {
-                    'User-Agent': 'BU-Library-Admin-Panel/1.0'
+                    'User-Agent': 'BU-Library-Admin-Panel/1.0 (Boston University Library System)'
                 }
             }
         );
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error(`Nominatim API error! status: ${response.status}`);
         }
 
         const data = await response.json();
 
         if (data && data.length > 0) {
-            const result = data[0];
+            // Filter results to prefer those within BU campus area
+            const buResults = data.filter(result => {
+                const lat = parseFloat(result.lat);
+                const lon = parseFloat(result.lon);
+                // BU campus approximate bounds
+                return lat >= 42.34 && lat <= 42.36 && lon >= -71.12 && lon <= -71.10;
+            });
+
+            // Use BU campus result if available, otherwise use first result
+            const bestResult = buResults.length > 0 ? buResults[0] : data[0];
+
+            console.log(`✅ [GEOCODING] Found coordinates: ${bestResult.lat}, ${bestResult.lon}`);
+            console.log(`📍 [GEOCODING] Display name: ${bestResult.display_name}`);
+
             return {
-                lat: parseFloat(result.lat),
-                lng: parseFloat(result.lon),
-                display_name: result.display_name,
-                place_id: result.place_id,
-                confidence: result.importance || 0.5
+                lat: parseFloat(bestResult.lat),
+                lng: parseFloat(bestResult.lon),
+                display_name: bestResult.display_name,
+                place_id: bestResult.place_id,
+                confidence: bestResult.importance || 0.5,
+                address_details: bestResult.address || {},
+                is_campus_location: buResults.length > 0
             };
         }
 
+        console.warn(`⚠️ [GEOCODING] No results found for: "${searchAddress}"`);
         return null;
     } catch (error) {
         console.error(`Geocoding failed for "${address}":`, error);
@@ -125,81 +156,6 @@ export const geocodeBuildings = async (buildings, onProgress = null) => {
 };
 
 /**
- * Geocode a single building and update database
- * @param {Object} building - Building object
- * @param {Function} updateFunction - Function to update database
- * @returns {Promise<Object>}
- */
-export const geocodeAndUpdateBuilding = async (building, updateFunction) => {
-    try {
-        console.log(`🗺️ Starting geocoding for: ${building.name}`);
-
-        if (!building.address || building.address.trim() === '') {
-            throw new Error('Building address is required for geocoding');
-        }
-
-        const geocodeResult = await geocodeAddress(building.address);
-
-        if (geocodeResult) {
-            // Prepare update data
-            const updateData = {
-                ...building,
-                latitude: geocodeResult.lat,
-                longitude: geocodeResult.lng,
-                geocoded_at: new Date().toISOString(),
-                geocoding_status: 'success',
-                geocoding_source: 'nominatim',
-                geocoding_confidence: geocodeResult.confidence
-            };
-
-            // Call update function
-            const updateResult = await updateFunction(updateData);
-
-            console.log(`✅ Successfully geocoded and updated: ${building.name}`);
-            return {
-                success: true,
-                building: updateResult,
-                coordinates: {
-                    latitude: geocodeResult.lat,
-                    longitude: geocodeResult.lng
-                },
-                geocodingInfo: {
-                    provider: 'nominatim',
-                    confidence: geocodeResult.confidence,
-                    display_name: geocodeResult.display_name
-                }
-            };
-        } else {
-            // Geocoding failed, use fallback coordinates
-            const fallbackData = {
-                ...building,
-                latitude: 42.35018,
-                longitude: -71.10498,
-                geocoded_at: new Date().toISOString(),
-                geocoding_status: 'failed',
-                geocoding_source: 'fallback'
-            };
-
-            const updateResult = await updateFunction(fallbackData);
-
-            console.warn(`⚠️ Geocoding failed, using fallback coordinates for: ${building.name}`);
-            return {
-                success: false,
-                building: updateResult,
-                error: 'Geocoding failed, used fallback coordinates',
-                coordinates: {
-                    latitude: 42.35018,
-                    longitude: -71.10498
-                }
-            };
-        }
-    } catch (error) {
-        console.error(`❌ Error in geocodeAndUpdateBuilding for ${building.name}:`, error);
-        throw error;
-    }
-};
-
-/**
  * Validate if geocoding results are reasonable (within Boston area)
  * @param {number} lat - Latitude
  * @param {number} lng - Longitude
@@ -243,4 +199,139 @@ export const calculateDistance = (lat1, lng1, lat2, lng2) => {
 export const BU_CAMPUS_CENTER = {
     lat: 42.35018,
     lng: -71.10498
+};
+
+/**
+ * Enhanced geocoding function for the admin panel
+ * @param {number|string} buildingId - Building ID 
+ * @param {string} address - Address to geocode
+ * @returns {Promise<Object>} Geocoding result
+ */
+export const geocodeAndUpdateBuilding = async (buildingId, address) => {
+    try {
+        console.log('🚀 [GEOCODING START]', {
+            buildingId,
+            address,
+            timestamp: new Date().toISOString()
+        });
+
+        if (!address || address.trim() === '') {
+            throw new Error('Building address is required for geocoding');
+        }
+
+        // Step 1: Geocode the address
+        console.log('📍 [STEP 1] Starting address geocoding...');
+        const geocodeResult = await geocodeAddress(address);
+
+        console.log('🗺️ [GEOCODE RESULT]', {
+            success: !!geocodeResult,
+            result: geocodeResult
+        });
+
+        if (geocodeResult) {
+            console.log('✅ [GEOCODING SUCCESS] Coordinates obtained:', {
+                latitude: geocodeResult.lat,
+                longitude: geocodeResult.lng,
+                display_name: geocodeResult.display_name,
+                confidence: geocodeResult.confidence
+            });
+
+            // Step 2: Import locationService to avoid circular dependency
+            const { updateBuilding } = await import('./locationService');
+
+            // Step 3: Prepare update data
+            const updateData = {
+                latitude: geocodeResult.lat,
+                longitude: geocodeResult.lng,
+                geocoded_at: new Date().toISOString(),
+                geocoding_status: 'success',
+                geocoding_source: 'nominatim',
+                geocoding_accuracy: geocodeResult.confidence > 0.8 ? 'high' :
+                    geocodeResult.confidence > 0.5 ? 'medium' : 'low'
+            };
+
+            console.log('💾 [STEP 2] Preparing database update:', {
+                buildingId,
+                updateData
+            });
+
+            // Step 4: Update the building in database
+            console.log('🔄 [STEP 3] Calling updateBuilding...');
+            const updateResult = await updateBuilding(buildingId, updateData);
+
+            console.log('📡 [DATABASE UPDATE RESULT]', {
+                success: updateResult.success,
+                data: updateResult.data,
+                error: updateResult.error
+            });
+
+            if (updateResult.success) {
+                console.log('🎉 [COMPLETE SUCCESS] Building geocoded and updated!');
+                return {
+                    success: true,
+                    buildingId: buildingId,
+                    coordinates: {
+                        latitude: geocodeResult.lat,
+                        longitude: geocodeResult.lng
+                    },
+                    geocodingInfo: {
+                        provider: 'nominatim',
+                        confidence: geocodeResult.confidence,
+                        accuracy: 'high',
+                        display_name: geocodeResult.display_name,
+                        place_id: geocodeResult.place_id,
+                        geocoded_at: new Date().toISOString()
+                    },
+                    databaseUpdated: true
+                };
+            } else {
+                console.error('❌ [DATABASE ERROR] Failed to update building:', updateResult.error);
+                throw new Error(`Failed to update building in database: ${updateResult.error}`);
+            }
+        } else {
+            console.warn('⚠️ [GEOCODING FAILED] Using fallback coordinates');
+
+            // Geocoding failed, still try to update with fallback coordinates
+            const { updateBuilding } = await import('./locationService');
+
+            const fallbackData = {
+                latitude: BU_CAMPUS_CENTER.lat,
+                longitude: BU_CAMPUS_CENTER.lng,
+                geocoded_at: new Date().toISOString(),
+                geocoding_status: 'failed',
+                geocoding_source: 'fallback',
+                geocoding_accuracy: 'low'
+            };
+
+            console.log('🔄 [FALLBACK] Updating with fallback coordinates:', fallbackData);
+            const updateResult = await updateBuilding(buildingId, fallbackData);
+
+            console.log('📡 [FALLBACK UPDATE RESULT]', updateResult);
+
+            return {
+                success: false,
+                buildingId: buildingId,
+                error: 'Geocoding failed, used fallback coordinates',
+                coordinates: {
+                    latitude: BU_CAMPUS_CENTER.lat,
+                    longitude: BU_CAMPUS_CENTER.lng
+                },
+                geocodingInfo: {
+                    provider: 'fallback',
+                    confidence: 0.1,
+                    accuracy: 'low',
+                    geocoded_at: new Date().toISOString()
+                },
+                databaseUpdated: updateResult.success
+            };
+        }
+    } catch (error) {
+        console.error('💥 [GEOCODING ERROR]', {
+            buildingId,
+            address,
+            error: error.message,
+            stack: error.stack
+        });
+        throw error;
+    }
 };

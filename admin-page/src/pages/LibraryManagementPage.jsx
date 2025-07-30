@@ -79,15 +79,14 @@ const LibraryManagementPage = () => {
   const [geocodingProgress, setGeocodingProgress] = useState(0);
   const [geocodingStatus, setGeocodingStatus] = useState('');
   const [dataError, setDataError] = useState(null);
+  const [modalGeocodingLoading, setModalGeocodingLoading] = useState(false);
 
   // Load buildings from global cache
   useEffect(() => {
     const cachedBuildings = globalApi.getCachedData('buildings');
     if (cachedBuildings && Array.isArray(cachedBuildings)) {
-      console.log(`📋 LocationsPage: Loading ${cachedBuildings.length} buildings from global cache`);
       setBuildings(cachedBuildings);
     } else {
-      console.log('⚠️ LocationsPage: No cached buildings data available');
       setBuildings([]);
     }
   }, [globalApi.globalData.lastUpdated]); // 响应全局数据更新
@@ -95,15 +94,12 @@ const LibraryManagementPage = () => {
   // Load rooms for selected building with unified loading pattern
   const loadRooms = async (buildingId) => {
     if (!buildingId) {
-      console.log('⚠️ No building selected, skipping rooms load');
       return;
     }
 
     try {
       setLoading(true);
       setDataError(null);
-
-      console.log(`🏠 Loading rooms for building ${buildingId}...`);
 
       // Use global rooms data and filter by building ID
       const { globalData } = globalApi;
@@ -114,15 +110,12 @@ const LibraryManagementPage = () => {
         );
 
         setRooms(buildingRooms);
-        console.log(`✅ Rooms loaded from global cache - Count: ${buildingRooms.length}`);
         message.success(`Loaded ${buildingRooms.length} rooms for building`);
       } else {
-        console.warn('⚠️ No global rooms data available');
         setRooms([]);
         message.warning('No rooms data available. Try refreshing the page.');
       }
     } catch (error) {
-      console.error('❌ Error loading rooms:', error);
       setDataError(error.message);
       message.error('Failed to load rooms data');
       setRooms([]);
@@ -136,14 +129,12 @@ const LibraryManagementPage = () => {
 
   // Manual refresh function for ServerStatusBanner
   const handleRefresh = async () => {
-    console.log('🔄 LocationsPage: Manual refresh triggered via ServerStatusBanner');
     await globalApi.refreshApi(); // This will refresh global data
 
     // Update local buildings from refreshed global data
     const refreshedBuildings = globalApi.getCachedData('buildings');
     if (refreshedBuildings && Array.isArray(refreshedBuildings)) {
       setBuildings(refreshedBuildings);
-      console.log(`📋 LocationsPage: Updated with ${refreshedBuildings.length} buildings from refreshed global cache`);
     }
   };
 
@@ -235,9 +226,6 @@ const LibraryManagementPage = () => {
       title: 'Phone',
       key: 'phone',
       render: (_, record) => {
-        // Debug: log the contacts data
-        console.log('Phone - record.contacts:', record.contacts);
-
         let contacts = record.contacts;
 
         // Handle if contacts is a string (needs parsing)
@@ -245,7 +233,6 @@ const LibraryManagementPage = () => {
           try {
             contacts = JSON.parse(contacts);
           } catch (e) {
-            console.error('Failed to parse contacts JSON:', contacts);
             return 'N/A';
           }
         }
@@ -258,9 +245,6 @@ const LibraryManagementPage = () => {
       title: 'Email',
       key: 'email',
       render: (_, record) => {
-        // Debug: log the contacts data
-        console.log('Email - record.contacts:', record.contacts);
-
         let contacts = record.contacts;
 
         // Handle if contacts is a string (needs parsing)
@@ -268,7 +252,6 @@ const LibraryManagementPage = () => {
           try {
             contacts = JSON.parse(contacts);
           } catch (e) {
-            console.error('Failed to parse contacts JSON:', contacts);
             return 'N/A';
           }
         }
@@ -281,9 +264,6 @@ const LibraryManagementPage = () => {
       title: 'Fax',
       key: 'fax',
       render: (_, record) => {
-        // Debug: log the contacts data
-        console.log('Fax - record.contacts:', record.contacts);
-
         let contacts = record.contacts;
 
         // Handle if contacts is a string (needs parsing)
@@ -291,7 +271,6 @@ const LibraryManagementPage = () => {
           try {
             contacts = JSON.parse(contacts);
           } catch (e) {
-            console.error('Failed to parse contacts JSON:', contacts);
             return 'N/A';
           }
         }
@@ -426,37 +405,116 @@ const LibraryManagementPage = () => {
   const handleGeocode = async (building) => {
     const address = building.address || building.location;
 
+    console.log('🎯 [UI] Geocode button clicked:', {
+      building: {
+        id: building.id,
+        name: building.name,
+        address: address
+      },
+      timestamp: new Date().toISOString()
+    });
+
     if (!address) {
+      console.warn('⚠️ [UI] No address available for geocoding');
       message.warning('No address available for geocoding');
       return;
     }
 
     setGeocodingLoading(true);
     try {
-      console.log(`🌍 Geocoding building ${building.name} with address: ${address}`);
+      console.log('🚀 [UI] Starting geocoding process...');
       const result = await geocodeAndUpdateBuilding(building.id, address);
+
+      console.log('🎉 [UI] Geocoding process completed:', result);
 
       if (result.success) {
         message.success(`Successfully geocoded ${building.name}`);
-        console.log(`✅ Geocoding successful for ${building.name}`);
+        console.log('✅ [UI] Success message shown, starting refresh...');
+
+        // Wait a moment for database update to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Refresh the buildings list to show updated geocoding status
+        console.log('🔄 [UI] Refreshing data...');
         await handleRefresh();
-        const refreshedBuildings = globalApi.getCachedData('buildings');
-        setBuildings(refreshedBuildings);
+        console.log('✅ [UI] Data refresh completed');
       } else {
-        message.error(`Failed to geocode ${building.name}: ${result.error}`);
-        console.error(`❌ Geocoding failed for ${building.name}:`, result.error);
+        console.error('❌ [UI] Geocoding failed:', result.error);
+        message.error(`Failed to geocode ${building.name}: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
-      console.error('Geocoding error:', error);
+      console.error('💥 [UI] Geocoding exception:', error);
       message.error(`Error geocoding ${building.name}: ${error.message}`);
     } finally {
+      console.log('🏁 [UI] Geocoding process finished, clearing loading state');
       setGeocodingLoading(false);
     }
   };
 
-  // Handle edit action
+  // Handle geocoding in modal form (fetch coordinates and update form fields)
+  const handleModalGeocode = async () => {
+    try {
+      const addressValue = form.getFieldValue('address');
+
+      if (!addressValue) {
+        message.warning('Please enter an address first');
+        return;
+      }
+
+      setModalGeocodingLoading(true);
+      console.log('🎯 [MODAL] Starting OpenStreetMap geocoding for address:', addressValue);
+
+      // Import geocoding service directly for coordinate fetching
+      const { geocodeAddress } = await import('../services/geocodingService');
+
+      const result = await geocodeAddress(addressValue);
+
+      if (result && result.lat && result.lng) {
+        // Calculate accuracy based on confidence and campus location
+        let accuracy = 'low';
+        if (result.is_campus_location && result.confidence > 0.7) {
+          accuracy = 'high';
+        } else if (result.confidence > 0.8) {
+          accuracy = 'high';
+        } else if (result.confidence > 0.5) {
+          accuracy = 'medium';
+        }
+
+        // Update form fields with coordinates
+        form.setFieldsValue({
+          latitude: result.lat,
+          longitude: result.lng,
+          geocoding_status: 'success',
+          geocoded_at: new Date().toISOString(),
+          geocoding_source: 'nominatim',
+          geocoding_accuracy: accuracy
+        });
+
+        // Enhanced success message with location info
+        const locationInfo = result.is_campus_location ? ' (BU Campus)' : '';
+        message.success(
+          `📍 Coordinates found: ${result.lat}, ${result.lng}${locationInfo}`,
+          4 // Show for 4 seconds
+        );
+
+        console.log('✅ [MODAL] OpenStreetMap geocoding successful:', {
+          coordinates: { lat: result.lat, lng: result.lng },
+          display_name: result.display_name,
+          is_campus_location: result.is_campus_location,
+          confidence: result.confidence,
+          accuracy: accuracy
+        });
+      } else {
+        message.error(`🔍 Geocoding failed: Unable to find coordinates for this address using OpenStreetMap`);
+        console.error('❌ [MODAL] OpenStreetMap geocoding failed:', result);
+      }
+    } catch (error) {
+      message.error(`🌐 OpenStreetMap geocoding error: ${error.message}`);
+      console.error('💥 [MODAL] OpenStreetMap geocoding exception:', error);
+    } finally {
+      setModalGeocodingLoading(false);
+    }
+  };  // Handle edit action
   const handleEdit = (type, item) => {
     setModalType(type);
     setEditingItem(item);
@@ -466,7 +524,14 @@ const LibraryManagementPage = () => {
     if (type === 'building' && item.contacts) {
       const formData = {
         ...item,
-        contacts: typeof item.contacts === 'string' ? JSON.parse(item.contacts) : item.contacts
+        contacts: typeof item.contacts === 'string' ? JSON.parse(item.contacts) : item.contacts,
+        // Ensure geocoding fields are included
+        latitude: item.latitude,
+        longitude: item.longitude,
+        geocoding_status: item.geocoding_status || 'pending',
+        geocoding_source: item.geocoding_source || 'nominatim',
+        geocoding_accuracy: item.geocoding_accuracy || 'medium',
+        geocoded_at: item.geocoded_at
       };
       form.setFieldsValue(formData);
     } else {
@@ -502,19 +567,35 @@ const LibraryManagementPage = () => {
           message.success(`${type} "${item.name}" has been successfully disabled.`);
 
         } catch (error) {
-          console.error(`Failed to delete ${type}:`, error);
           message.error(`Failed to delete ${type}: ${error.message}`);
         }
       },
     });
   };
 
-  // Handle modal submit
+  // Handle modal submit with confirmation
   const handleModalSubmit = async () => {
     try {
       const values = await form.validateFields();
-      console.log('Form values:', values);
 
+      // Show confirmation dialog
+      Modal.confirm({
+        title: `Confirm ${editingItem ? 'Update' : 'Add'} ${modalType === 'building' ? 'Building' : 'Room'}`,
+        content: `Are you sure you want to ${editingItem ? 'update' : 'add'} this ${modalType}?`,
+        okText: 'Yes, Confirm',
+        cancelText: 'Cancel',
+        onOk: async () => {
+          await executeModalSubmit(values);
+        }
+      });
+    } catch (error) {
+      // Form validation failed
+    }
+  };
+
+  // Execute the actual modal submit logic
+  const executeModalSubmit = async (values) => {
+    try {
       // For buildings with address, attempt geocoding
       if (modalType === 'building' && values.address) {
         try {
@@ -544,7 +625,6 @@ const LibraryManagementPage = () => {
             }
           }
         } catch (geocodeError) {
-          console.error('Geocoding error:', geocodeError);
           message.warning(`Building saved but geocoding failed: ${geocodeError.message}`);
         } finally {
           setGeocodingLoading(false);
@@ -562,7 +642,7 @@ const LibraryManagementPage = () => {
         }
       }
     } catch (error) {
-      console.error('Form validation failed:', error);
+      message.error(`Failed to ${editingItem ? 'update' : 'add'} ${modalType}: ${error.message}`);
     }
   };
 
@@ -670,7 +750,10 @@ const LibraryManagementPage = () => {
         open={modalVisible}
         onOk={handleModalSubmit}
         onCancel={() => setModalVisible(false)}
-        width={600}
+        width={800}
+        destroyOnHidden={true}
+        okText="Confirm Changes"
+        cancelText="Cancel"
       >
         <Form
           form={form}
@@ -700,6 +783,80 @@ const LibraryManagementPage = () => {
               >
                 <Input.TextArea placeholder="Enter building address" />
               </Form.Item>
+
+              {/* Geocoding Section */}
+              <Row gutter={[16, 16]}>
+                <Col span={24}>
+                  <div style={{
+                    background: '#f8f9fa',
+                    padding: '12px',
+                    borderRadius: '6px',
+                    border: '1px solid #e9ecef'
+                  }}>
+                    <div style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '12px'
+                    }}>
+                      <strong style={{ color: '#495057' }}>🗺️ Geographic Coordinates (OpenStreetMap)</strong>
+                      <Button
+                        type="primary"
+                        size="small"
+                        icon={<EnvironmentOutlined />}
+                        loading={modalGeocodingLoading}
+                        onClick={handleModalGeocode}
+                        style={{ fontSize: '12px' }}
+                      >
+                        Fetch from OSM
+                      </Button>
+                    </div>                    <Row gutter={12}>
+                      <Col span={12}>
+                        <Form.Item
+                          label="Latitude"
+                          name="latitude"
+                          style={{ marginBottom: '0' }}
+                        >
+                          <Input
+                            placeholder="Latitude (auto-filled)"
+                            size="small"
+                            disabled={modalGeocodingLoading}
+                          />
+                        </Form.Item>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Item
+                          label="Longitude"
+                          name="longitude"
+                          style={{ marginBottom: '0' }}
+                        >
+                          <Input
+                            placeholder="Longitude (auto-filled)"
+                            size="small"
+                            disabled={modalGeocodingLoading}
+                          />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+
+                    {/* Hidden fields for geocoding metadata */}
+                    <div style={{ display: 'none' }}>
+                      <Form.Item name="geocoding_status">
+                        <Input />
+                      </Form.Item>
+                      <Form.Item name="geocoding_source">
+                        <Input />
+                      </Form.Item>
+                      <Form.Item name="geocoding_accuracy">
+                        <Input />
+                      </Form.Item>
+                      <Form.Item name="geocoded_at">
+                        <Input />
+                      </Form.Item>
+                    </div>
+                  </div>
+                </Col>
+              </Row>
               <Form.Item
                 label="Website"
                 name="website"

@@ -109,11 +109,9 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
     : (realConnectionStatus.backend.connected ? 'healthy' : 'unhealthy');
   
   const effectiveSupabaseStatus = customStatus
-    ? (currentStatus.connectionDetails.database === 'connected' ? 'healthy' : 
-       currentStatus.connectionDetails.database === 'error' ? 'unhealthy' :
-       currentStatus.connectionDetails.database === 'connecting' ? 'degraded' :
-       currentStatus.apiStatus === 'connected' ? 'healthy' :
-       currentStatus.apiStatus === 'connecting' ? 'degraded' : 'unhealthy')
+    ? (currentStatus.apiStatus === 'connected' ? 'healthy' :
+       currentStatus.apiStatus === 'connecting' ? 'degraded' : 
+       currentStatus.apiStatus === 'error' ? 'unhealthy' : 'unknown')
     : (realConnectionStatus.supabase.connected ? 'healthy' : 'unhealthy');
 
   if (compact) {
@@ -250,14 +248,28 @@ const ConnectionStatus = ({ showDetails = true, compact = false, customStatus = 
         )}
 
         {/* Connection Issues Alert */}
-        {(!realConnectionStatus.backend.connected || !realConnectionStatus.supabase.connected) && (
-          <Alert
-            message="Connection Issues"
-            description="Some services are inaccessible, which may affect data retrieval. Please check network connection or contact administrator."
-            type="warning"
-            showIcon
-            style={{ marginTop: '8px' }}
-          />
+        {customStatus ? (
+          // When using custom status from GlobalAPI, check its status
+          currentStatus.apiStatus === 'error' && (
+            <Alert
+              message="Connection Issues"
+              description="Unable to connect to the API service. Data may be unavailable or outdated."
+              type="warning"
+              showIcon
+              style={{ marginTop: '8px' }}
+            />
+          )
+        ) : (
+          // When using real connection status, check individual connections
+          (!realConnectionStatus.backend.connected || !realConnectionStatus.supabase.connected) && (
+            <Alert
+              message="Connection Issues"
+              description="Some services are inaccessible, which may affect data retrieval. Please check network connection or contact administrator."
+              type="warning"
+              showIcon
+              style={{ marginTop: '8px' }}
+            />
+          )
         )}
 
         {/* Mock Data Notice */}
