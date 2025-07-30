@@ -1,7 +1,21 @@
 /**
  * API Service for Admin Page
  * This service now directly calls Supabase API instead of backend proxy
- * Migrated from bub-backend to Supabase for better performance and reliability
+ * Migrat  async getBuildings() {
+    try {
+      return await this.supabaseService.getBuildings();rom bub-backend to Supabase for better pe  async getBookings(filters =   async createBooking(book  async updateBookingStatu  async getSystemConfig() {
+      async updateSystemConfi  async checkAvailability(params) {
+    try {
+      return await this.supabaseService.checkAvailability(params);nfig) {
+    try {
+      return await this.supabaseService.updateSystemConfig(config);{
+      return await this.supabaseService.getSystemConfig();okingId, status, cancellationReason = null) {
+    try {
+      return await this.supabaseService.updateBookingStatus(bookingId, status, cancellationReason);ata) {
+    try {
+      return await this.supabaseService.createBooking(bookingData);{
+    try {
+      return await this.supabaseService.getBookings(filters);mance and reliability
  */
 import supabaseService from './supabaseService';
 
@@ -14,27 +28,25 @@ export const LIBRARY_CODES = {
   'med': { name: 'Alumni Medical Library', code: 'med', lid: 13934 }
 };
 
-/**
- * Main API Service Class
- * Handles all API interactions via Supabase
- */
 class ApiService {
   constructor() {
+    // Using Supabase service directly
     this.supabaseService = supabaseService;
   }
 
   /**
-   * Health check endpoint
+   * Health check - test if Supabase is accessible
    */
   async healthCheck() {
     try {
       const result = await this.supabaseService.testConnection();
-
+      
       if (result.success) {
         return {
           status: 'healthy',
-          message: 'Supabase API is healthy',
-          timestamp: new Date().toISOString()
+          message: 'Supabase API is accessible',
+          timestamp: new Date().toISOString(),
+          details: result
         };
       } else {
         return {
@@ -86,43 +98,32 @@ class ApiService {
         this.supabaseService.getBookingStats(),
         this.supabaseService.getBuildings()
       ]);
-
+      
       if (bookingStatsResult.success && buildingsResult.success) {
+        const dashboardData = {
+          ...bookingStatsResult.data,
+          buildings: buildingsResult.data,
+          timestamp: new Date().toISOString()
+        };
+        
         return {
           success: true,
-          data: {
-            bookingStats: bookingStatsResult.data,
-            buildings: buildingsResult.data,
-            lastUpdated: new Date().toISOString()
-          }
+          data: dashboardData,
+          error: null,
+          source: 'supabase-direct'
         };
       } else {
-        const errors = [];
-        if (!bookingStatsResult.success) errors.push(`Booking stats: ${bookingStatsResult.error}`);
-        if (!buildingsResult.success) errors.push(`Buildings: ${buildingsResult.error}`);
-
-        throw new Error(errors.join(', '));
+        throw new Error(
+          bookingStatsResult.error || buildingsResult.error || 'Unknown error'
+        );
       }
     } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
       return {
         success: false,
+        data: null,
         error: error.message,
-        data: null
-      };
-    }
-  }
-
-  /**
-   * Get statistics for dashboard
-   */
-  async getStats() {
-    try {
-      return await this.supabaseService.getDashboardOverview();
-    } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-        data: null
+        source: 'supabase-direct'
       };
     }
   }
@@ -132,13 +133,71 @@ class ApiService {
    */
   async getBuildings() {
     try {
-      return await this.supabaseService.getBuildings();
+      console.log('Fetching buildings...');
+      const result = await this.supabaseService.getBuildings();
+      
+      if (result.success) {
+        return { 
+          success: true,
+          data: result.data,
+          buildings: result.data, // For compatibility
+          count: result.data.length,
+          error: null,
+          source: 'supabase-direct'
+        };
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
     } catch (error) {
+      console.error('Failed to fetch buildings:', error);
       return {
         success: false,
+        data: [],
+        buildings: [],
         error: error.message,
-        data: null
+        source: 'supabase-direct'
       };
+    }
+  }
+
+  /**
+   * Get building by ID
+   */
+  async getBuildingById(id) {
+    try {
+      const result = await this.supabaseService.getBuildings();
+      
+      if (result.success) {
+        const building = result.data.find(b => b.id === id);
+        return building || null;
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Failed to fetch building:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update building
+   */
+  async updateBuilding(id, updates) {
+    try {
+      const result = await this.supabaseService.updateBuilding(id, updates);
+      
+      if (result.success) {
+        return {
+          success: true,
+          data: result.data,
+          error: null
+        };
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Failed to update building:', error);
+      throw error;
     }
   }
 
@@ -147,27 +206,83 @@ class ApiService {
    */
   async getAllRooms() {
     try {
-      return await this.supabaseService.getRooms();
+      const result = await this.supabaseService.getRooms();
+      
+      if (result.success) {
+        return { 
+          success: true,
+          data: {
+            rooms: result.data,
+            count: result.data.length
+          }
+        };
+      } else {
+        return {
+          success: false,
+          error: result.error || 'Unknown error'
+        };
+      }
     } catch (error) {
+      console.error('Failed to fetch all rooms:', error);
       return {
         success: false,
-        error: error.message,
-        data: null
+        error: error.message
       };
     }
   }
 
   /**
-   * Get bookings with filters
+   * Get comprehensive statistics
+   */
+  async getStats() {
+    try {
+      const result = await this.supabaseService.getBookingStats();
+      
+      if (result.success) {
+        return {
+          success: true,
+          stats: result.data,
+          error: null,
+          source: 'supabase-direct'
+        };
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+      return {
+        success: false,
+        stats: null,
+        error: error.message,
+        source: 'supabase-direct'
+      };
+    }
+  }
+
+  /**
+   * Get bookings with optional filters
    */
   async getBookings(filters = {}) {
     try {
-      return await this.supabaseService.getBookings(1, 100, filters);
+      console.log('Fetching bookings with filters:', filters);
+      const result = await this.supabaseService.getBookings(filters);
+      
+      if (result.success) {
+        return { 
+          success: true,
+          bookings: result.data,
+          count: result.data.length,
+          error: null
+        };
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
     } catch (error) {
+      console.error('Failed to fetch bookings:', error);
       return {
         success: false,
-        error: error.message,
-        data: null
+        bookings: [],
+        error: error.message
       };
     }
   }
@@ -177,13 +292,22 @@ class ApiService {
    */
   async createBooking(bookingData) {
     try {
-      return await this.supabaseService.createBooking(bookingData);
+      console.log('Creating new booking:', bookingData);
+      const result = await this.supabaseService.createBooking(bookingData);
+      
+      if (result.success) {
+        return {
+          success: true,
+          data: result.data,
+          booking: result.data,
+          error: null
+        };
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
     } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-        data: null
-      };
+      console.error('Failed to create booking:', error);
+      throw error;
     }
   }
 
@@ -192,13 +316,22 @@ class ApiService {
    */
   async updateBookingStatus(bookingId, status, cancellationReason = null) {
     try {
-      return await this.supabaseService.updateBookingStatus(bookingId, status, cancellationReason);
+      console.log('Updating booking status:', { bookingId, status, cancellationReason });
+      const result = await this.supabaseService.updateBookingStatus(bookingId, status, cancellationReason);
+      
+      if (result.success) {
+        return {
+          success: true,
+          data: result.data,
+          booking: result.data,
+          error: null
+        };
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
     } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-        data: null
-      };
+      console.error('Failed to update booking status:', error);
+      throw error;
     }
   }
 
@@ -207,12 +340,28 @@ class ApiService {
    */
   async getSystemConfig() {
     try {
-      return await this.supabaseService.getSystemConfig();
+      console.log('Fetching system configuration...');
+      const result = await this.supabaseService.getSystemConfig();
+      
+      if (result.success) {
+        return {
+          success: true,
+          config: result.data,
+          error: null
+        };
+      } else {
+        return {
+          success: false,
+          config: null,
+          error: result.error || 'Unknown error'
+        };
+      }
     } catch (error) {
+      console.error('Failed to fetch system config:', error);
       return {
         success: false,
-        error: error.message,
-        data: null
+        config: null,
+        error: error.message
       };
     }
   }
@@ -222,58 +371,62 @@ class ApiService {
    */
   async updateSystemConfig(config) {
     try {
-      return await this.supabaseService.updateSystemConfig(config);
+      console.log('Updating system configuration:', config);
+      const result = await this.supabaseService.updateSystemConfig(config);
+      
+      if (result.success) {
+        return {
+          success: true,
+          config: result.data,
+          error: null
+        };
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
     } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-        data: null
-      };
+      console.error('Failed to update system config:', error);
+      throw error;
     }
   }
 
   /**
-   * Check room availability (for compatibility)
+   * Check room availability
    */
   async checkAvailability(params) {
     try {
-      return await this.supabaseService.checkAvailability(params);
+      console.log('Checking availability:', params);
+      const result = await this.supabaseService.checkAvailability(params);
+      
+      if (result.success) {
+        return {
+          success: true,
+          data: result.data,
+          availability: result.data,
+          error: null
+        };
+      } else {
+        throw new Error(result.error || 'Unknown error');
+      }
     } catch (error) {
+      console.error('Failed to check availability:', error);
       return {
         success: false,
-        error: error.message,
-        data: null
+        data: null,
+        availability: null,
+        error: error.message
       };
     }
   }
 
   /**
-   * Get availability for a building (LibCal compatibility)
+   * Get list of all libraries
    */
-  async getAvailability(buildingCode, date) {
-    try {
-      // This would need to be implemented based on your needs
-      // For now, return a placeholder response
-      return {
-        success: true,
-        data: {
-          building: buildingCode,
-          date: date,
-          rooms: [],
-          message: 'Availability check not implemented'
-        }
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: error.message,
-        data: null
-      };
-    }
+  getLibraries() {
+    return Object.values(LIBRARY_CODES);
   }
 
   /**
-   * Utility method to check if a library code is valid
+   * Validate library code
    */
   isValidLibraryCode(code) {
     return Object.keys(LIBRARY_CODES).includes(code);
@@ -288,6 +441,5 @@ class ApiService {
 }
 
 // Create and export a singleton instance
-const apiService = new ApiService();
-export { apiService };
+export const apiService = new ApiService();
 export default apiService;

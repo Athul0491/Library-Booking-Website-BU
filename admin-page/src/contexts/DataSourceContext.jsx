@@ -8,7 +8,6 @@
  * ❌ NOT USING: bub-backend proxy (migrated to Supabase)
  */
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import apiService from '../services/apiService';
 
 const DataSourceContext = createContext();
 
@@ -23,7 +22,7 @@ export const useDataSource = () => {
 // Data source modes
 export const DATA_SOURCE_MODES = {
   BACKEND_PROXY: 'backend-proxy',
-  DIRECT_SUPABASE: 'direct-supabase',
+  DIRECT_SUPABASE: 'direct-supabase', 
   MOCK_DATA: 'mock-data'
 };
 
@@ -59,9 +58,6 @@ export const DataSourceProvider = ({ children }) => {
   });
 
   const [notifications, setNotifications] = useState([]);
-
-  // Prevent multiple simultaneous connection tests
-  const [isTestingConnection, setIsTestingConnection] = useState(false);
 
   // Save preferences to localStorage
   useEffect(() => {
@@ -99,27 +95,18 @@ export const DataSourceProvider = ({ children }) => {
 
   // Connection testing functions
   const testConnection = async () => {
-    // Prevent multiple simultaneous calls
-    if (isTestingConnection) {
-      console.log('🔄 [DataSourceContext] Connection test already in progress, skipping');
-      return connectionStatus;
-    }
-
-    setIsTestingConnection(true);
-    console.log('🔗 [DataSourceContext] Starting connection test');
-
     try {
       // Since we're now using Supabase directly, test the API service instead
-
+      
       // Test current API service (which now uses Supabase)
       let backendStatus = 'unhealthy';
       let backendError = null;
-
+      
       try {
         const healthResult = await apiService.healthCheck();
         if (healthResult.status === 'healthy') {
           backendStatus = 'healthy';
-
+          
           // Update Supabase status as well since they're the same now
           setConnectionStatus(prev => ({
             ...prev,
@@ -132,15 +119,15 @@ export const DataSourceProvider = ({ children }) => {
       } catch (error) {
         backendError = error.message;
       }
-
+      
       const status = {
         backend: backendStatus,
         lastCheck: new Date().toISOString(),
         errorMessage: backendError
       };
-
+      
       setConnectionStatus(prev => ({ ...prev, ...status }));
-
+      
       // Add notification based on connection status
       if (backendStatus === 'unhealthy') {
         addNotification({
@@ -164,7 +151,7 @@ export const DataSourceProvider = ({ children }) => {
           timestamp: new Date().toISOString()
         });
       }
-
+      
       return status;
     } catch (error) {
       const errorStatus = {
@@ -172,56 +159,29 @@ export const DataSourceProvider = ({ children }) => {
         lastCheck: new Date().toISOString(),
         errorMessage: error.message
       };
-
+      
       setConnectionStatus(prev => ({ ...prev, ...errorStatus }));
-
+      
       addNotification({
         type: 'error',
         title: 'Connection Test Failed',
         message: `Error occurred while testing connection: ${error.message}`,
         timestamp: new Date().toISOString()
       });
-
+      
       return errorStatus;
-    } finally {
-      setIsTestingConnection(false);
-      console.log('✅ [DataSourceContext] Connection test completed');
     }
   };
 
   // Notification management
   const addNotification = (notification) => {
-    // Check for duplicate notifications (same title and type within last 30 seconds)
-    const now = Date.now();
-    const isDuplicate = notifications.some(existing =>
-      existing.title === notification.title &&
-      existing.type === notification.type &&
-      (now - existing.id) < 30000 // 30 seconds for better protection
-    );
-
-    if (isDuplicate) {
-      console.log('🚫 [DataSourceContext] Duplicate notification prevented:', {
-        title: notification.title,
-        type: notification.type,
-        timeSinceLastSimilar: Math.min(...notifications
-          .filter(n => n.title === notification.title && n.type === notification.type)
-          .map(n => now - n.id)) + 'ms'
-      });
-      return; // Don't add duplicate notification
-    }
-
     const newNotification = {
-      id: now,
+      id: Date.now(),
       ...notification
     };
-
-    console.log('📢 [DataSourceContext] Adding notification:', {
-      title: newNotification.title,
-      type: newNotification.type,
-      id: newNotification.id
-    });
+    
     setNotifications(prev => [newNotification, ...prev.slice(0, 9)]); // Keep last 10 notifications
-
+    
     // Auto-remove success notifications after 5 seconds
     if (notification.type === 'success') {
       setTimeout(() => {
@@ -241,13 +201,7 @@ export const DataSourceProvider = ({ children }) => {
   // Test connection when data source mode changes
   useEffect(() => {
     if (dataSourceMode !== DATA_SOURCE_MODES.MOCK_DATA) {
-      // Add a small delay to prevent multiple calls during initialization
-      const timeoutId = setTimeout(() => {
-        console.log('🔗 [DataSourceContext] Testing connection for mode:', dataSourceMode);
-        testConnection();
-      }, 100);
-
-      return () => clearTimeout(timeoutId);
+      testConnection();
     }
   }, [dataSourceMode]);
 
@@ -285,42 +239,42 @@ export const DataSourceProvider = ({ children }) => {
     // Data source mode
     dataSourceMode,
     setDataSourceMode,
-
+    
     // Legacy support
     useRealData,
     setUseRealData,
-
+    
     // Mode helpers
     isBackendProxyMode: dataSourceMode === DATA_SOURCE_MODES.BACKEND_PROXY,
     isDirectSupabaseMode: dataSourceMode === DATA_SOURCE_MODES.DIRECT_SUPABASE,
     isMockDataMode: dataSourceMode === DATA_SOURCE_MODES.MOCK_DATA,
-
+    
     // Mode setters
     setBackendProxyMode,
     setDirectSupabaseMode,
     setMockDataMode,
     toggleDataSource,
-
+    
     // Auto refresh settings
     autoRefreshEnabled,
     setAutoRefreshEnabled,
     refreshInterval,
     setRefreshInterval,
-
+    
     // Connection monitoring
     connectionStatus,
     testConnection,
-
+    
     // Notifications
     notifications,
     addNotification,
     removeNotification,
     clearNotifications,
-
+    
     // Labels and descriptions
     dataSourceLabel: getDataSourceLabel(),
     dataSourceDescription: getDataSourceDescription(),
-
+    
     // API configuration based on mode
     apiConfig: {
       useBackendProxy: dataSourceMode === DATA_SOURCE_MODES.BACKEND_PROXY,

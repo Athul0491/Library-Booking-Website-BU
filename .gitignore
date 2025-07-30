@@ -2,10 +2,6 @@
 /bub-backend/__pycache__
 /.vscode
 
-# Database files and SQL scripts (contains sensitive data)
-/supabase/
-supabase/
-
 # Environment Variables (Security - Never commit these!)
 .env
 .env.local
@@ -52,11 +48,5 @@ bu-book/*.njsproj
 bu-book/*.sln
 bu-book/*.sw?
 /bu-book/.env
-
-# Test files and directories
-test/
-*/test/
-**/test/
-admin-page/test/
-bu-book/test/
-bub-backend/test/
+.vscode/*
+*/.vscode/*

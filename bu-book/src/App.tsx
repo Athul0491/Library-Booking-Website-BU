@@ -2,7 +2,6 @@
 import Home from './pages/Home'
 import { Route, createBrowserRouter, createRoutesFromElements, RouterProvider } from 'react-router-dom';
 import RoomGeneratorPage from './pages/dash/AddData'
-import { GlobalApiProvider } from './contexts/GlobalApiContext';
 
 function App() {
   const router = createBrowserRouter(
@@ -15,11 +14,10 @@ function App() {
   )
   return (
     <>
-      <GlobalApiProvider>
-        <div className='App'>
-          <RouterProvider router={router} />
-        </div>
-      </GlobalApiProvider>
+      <div className='App'>
+        <RouterProvider router={router} />
+      </div>
+
     </>
   )
 }
